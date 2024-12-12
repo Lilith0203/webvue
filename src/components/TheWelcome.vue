@@ -1,14 +1,37 @@
 <script setup>
 import WelcomeItem from './WelcomeItem.vue'
+import axios from 'axios'
+import { ref, onMounted } from 'vue'
+
+const backendData = ref(null)
+const loading = ref(false)
+const error = ref(null)
+
+const fetchData = async () => {
+  loading.value = true
+  error.value = null
+
+  try {
+    const response = await axios.get('/api/article')
+    backendData.value = response.data
+  } catch (err) {
+    error.value = "获取数据失败：" + err.message
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchData()
+})
 </script>
 
 <template>
   <WelcomeItem>
-    <template #heading>Documentation</template>
+    <template #heading>文章 <span v-if="backendData">，共 {{ backendData.count }} 篇</span></template>
 
-    Vue’s
-    <a href="https://vuejs.org/" target="_blank" rel="noopener">official documentation</a>
-    provides you with all information you need to get started.
+    <div v-if="loading">加载中……</div>
+    <div v-else-if="error" class="error">{{ error }}</div>
   </WelcomeItem>
 
   <WelcomeItem>
