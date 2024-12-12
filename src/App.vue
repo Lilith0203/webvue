@@ -1,21 +1,25 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
+import Banner from './components/Banner.vue'
 </script>
 
 <template>
   <header>
     <div class="wrapper">
-      <HelloWorld msg="You did it!" />
+      <Banner msg="Lilith" />
 
       <nav>
         <RouterLink to="/">Home</RouterLink>
+        <RouterLink to="/work">手工</RouterLink>
+        <RouterLink to="/article">文章</RouterLink>
         <RouterLink to="/about">About</RouterLink>
       </nav>
     </div>
   </header>
 
-  <RouterView />
+  <div class="router-view-container">
+    <RouterView />
+  </div>
 </template>
 
 <style scoped>
@@ -56,6 +60,7 @@ nav a:first-of-type {
 
 @media (min-width: 1024px) {
   header {
+    max-width: 400px;
     display: flex;
     place-items: center;
     padding-right: calc(var(--section-gap) / 2);
@@ -78,6 +83,10 @@ nav a:first-of-type {
 
     padding: 1rem 0;
     margin-top: 1rem;
+  }
+
+  .router-view-container {
+    flex: 1;
   }
 }
 </style>

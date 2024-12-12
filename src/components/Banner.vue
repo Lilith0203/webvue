@@ -11,9 +11,8 @@ defineProps({
   <div class="greetings">
     <h1 class="green">{{ msg }}</h1>
     <h3>
-      You’ve successfully created a project with
-      <a href="https://vite.dev/" target="_blank" rel="noopener">Vite</a> +
-      <a href="https://vuejs.org/" target="_blank" rel="noopener">Vue 3</a>.
+      常用链接：
+      <a href="https://github.com/Lilith0203/" target="_blank" rel="noopener">Git</a> 
     </h3>
   </div>
 </template>
