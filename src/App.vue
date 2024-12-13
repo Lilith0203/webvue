@@ -60,7 +60,7 @@ nav a:first-of-type {
 
 @media (min-width: 1024px) {
   header {
-    max-width: 400px;
+    max-width: 360px;
     display: flex;
     place-items: center;
     padding-right: calc(var(--section-gap) / 2);

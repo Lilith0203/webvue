@@ -4,6 +4,7 @@
       <h3>
         <slot name="heading"></slot>
       </h3>
+      <slot name="title"></slot>
       <slot></slot>
     </div>
   </div>

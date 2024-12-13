@@ -12,7 +12,7 @@ const fetchData = async () => {
   error.value = null
 
   try {
-    const response = await axios.get('/api/article')
+    const response = await axios.get('/api/article?size=5')
     backendData.value = response.data
   } catch (err) {
     error.value = "获取数据失败：" + err.message
@@ -27,12 +27,23 @@ onMounted(() => {
 </script>
 
 <template>
-  <WelcomeItem>
-    <template #heading>文章 <span v-if="backendData">，共 {{ backendData.count }} 篇</span></template>
-
-    <div v-if="loading">加载中……</div>
-    <div v-else-if="error" class="error">{{ error }}</div>
-  </WelcomeItem>
+  <div class="item">
+    <div class="details">
+      <h3>
+        文章
+      </h3>
+      <div v-if="loading">加载中……</div>
+      <div v-else-if="error" class="error">{{ error }}</div>
+      <div v-if="backendData">
+        <span>共 {{ backendData.count }} 篇</span>
+        <ul class="article-list">
+          <li v-for="article in backendData.articles" :key="article.id">
+            <a :href="`/article/${article.id}`">{{ article.title }}</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
 
   <WelcomeItem>
     <template #heading>Tooling</template>
@@ -67,27 +78,68 @@ onMounted(() => {
     <a href="https://github.com/vuejs/awesome-vue" target="_blank" rel="noopener">Awesome Vue</a>
     a visit.
   </WelcomeItem>
-
-  <WelcomeItem>
-    <template #heading>Community</template>
-
-    Got stuck? Ask your question on
-    <a href="https://chat.vuejs.org" target="_blank" rel="noopener">Vue Land</a>, our official
-    Discord server, or
-    <a href="https://stackoverflow.com/questions/tagged/vue.js" target="_blank" rel="noopener"
-      >StackOverflow</a
-    >. You should also subscribe to
-    <a href="https://news.vuejs.org" target="_blank" rel="noopener">our mailing list</a>
-    and follow the official
-    <a href="https://twitter.com/vuejs" target="_blank" rel="noopener">@vuejs</a>
-    twitter account for latest news in the Vue world.
-  </WelcomeItem>
-
-  <WelcomeItem>
-    <template #heading>Support Vue</template>
-
-    As an independent project, Vue relies on community backing for its sustainability. You can help
-    us by
-    <a href="https://vuejs.org/sponsor/" target="_blank" rel="noopener">becoming a sponsor</a>.
-  </WelcomeItem>
 </template>
+
+<style scoped>
+.item {
+  margin-top: 2rem;
+  display: flex;
+  position: relative;
+}
+
+.details {
+  flex: 1;
+  margin-left: 1rem;
+}
+
+h3 {
+  font-size: 1.2rem;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+  color: var(--color-heading);
+}
+
+@media (min-width: 1024px) {
+  .item {
+    margin-top: 0;
+    padding: 0.4rem 0 1rem calc(var(--section-gap) / 2);
+  }
+
+  i {
+    top: calc(50% - 25px);
+    left: -26px;
+    position: absolute;
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+    border-radius: 8px;
+    width: 50px;
+    height: 50px;
+  }
+
+  .item:before {
+    content: ' ';
+    border-left: 1px solid var(--color-border);
+    position: absolute;
+    left: 0;
+    bottom: calc(50% + 25px);
+    height: calc(50% - 25px);
+  }
+
+  .item:after {
+    content: ' ';
+    border-left: 1px solid var(--color-border);
+    position: absolute;
+    left: 0;
+    top: calc(50% + 25px);
+    height: calc(50% - 25px);
+  }
+
+  .item:first-of-type:before {
+    display: none;
+  }
+
+  .item:last-of-type:after {
+    display: none;
+  }
+}
+</style>
