@@ -1,5 +1,6 @@
 <script setup>
-import axios from 'axios'
+import axios from '../api'
+//import axios from 'axios'
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -15,7 +16,7 @@ const fetchData = async () => {
   try {
     const page = route.query.page || 1
     const size = route.query.size || 5
-    const response = await axios.get(`/api/article?${route.params.id}`, {
+    const response = await axios.get(`/article?${route.params.id}`, {
       params: {
         page,
         size

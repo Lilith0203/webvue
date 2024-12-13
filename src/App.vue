@@ -1,6 +1,16 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
 import Banner from './components/Banner.vue'
+import { useAuthStore } from './stores/auth'
+import { useRouter } from 'vue-router'
+
+const authStore = useAuthStore()
+const router = useRouter()
+
+const handleLogout = async () => {
+  authStore.clearAuth()
+  await router.push('/login')
+}
 </script>
 
 <template>
@@ -13,6 +23,9 @@ import Banner from './components/Banner.vue'
         <RouterLink to="/work">手工</RouterLink>
         <RouterLink to="/article">文章</RouterLink>
         <RouterLink to="/about">About</RouterLink>
+        <template v-if="authStore.isAuthenticated">
+          <a href="#" @click.prevent="handleLogout">退出</a>
+        </template>
       </nav>
     </div>
   </header>

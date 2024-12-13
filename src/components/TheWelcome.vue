@@ -1,6 +1,6 @@
 <script setup>
 import WelcomeItem from './WelcomeItem.vue'
-import axios from 'axios'
+import axios from '../api'
 import { ref, onMounted } from 'vue'
 
 const backendData = ref(null)
@@ -12,7 +12,7 @@ const fetchData = async () => {
   error.value = null
 
   try {
-    const response = await axios.get('/api/article?size=5')
+    const response = await axios.get('/article?size=5')
     backendData.value = response.data
   } catch (err) {
     error.value = "获取数据失败：" + err.message

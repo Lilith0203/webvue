@@ -11,7 +11,10 @@ const api = axios.create({
 //请求拦截器
 api.interceptors.request.use(
     config => {
-        //可以添加token等认证信息
+        const token = localStorage.getItem('token')
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`
+        }//可以添加token等认证信息
         return config
     },
     error => {
@@ -23,11 +26,14 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     response => response,
     error => {
-        //统一错误处理
-        console.error('API请求错误:', error)
+        //token 过期或无效
+        if (error.response?.status === 401) {
+            localStorage.removeItem('token')
+            localStorage.removeItem('user')
+            window.location.href = '/login'
+        }
         return Promise.reject(error)
     }
 )
 
-export const getData = () => api.get('/data')
-export const postData = (data) => api.post('/data', data)
+export default api

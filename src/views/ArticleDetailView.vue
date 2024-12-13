@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import axios from 'axios'
+import axios from '../api'
 
 const route = useRoute()
 const article = ref(null)
@@ -13,7 +13,7 @@ const fetchArticle = async () => {
   error.value = null
   
   try {
-    const response = await axios.get(`/api/article/${route.params.id}`)
+    const response = await axios.get(`/article/${route.params.id}`)
     article.value = response.data.article
   } catch (err) {
     error.value = "获取文章失败：" + err.message
