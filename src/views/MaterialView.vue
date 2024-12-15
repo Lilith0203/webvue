@@ -1,13 +1,11 @@
 <script setup>
 import axios from '../api'
 
-import { ref, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 
-const route = useRoute()
 const materialData = ref(null)
 const loading = ref(false)
 const error = ref(null)
@@ -40,21 +38,25 @@ const buildTypeMap = (types, parentName = '') => {
   })
 }
 
-// 递归构建选项
-const buildTypeOptions = (types, level = 0, result = []) => {
-    types.forEach(type => {
-    // 添加当前选项
-    result.push({
+// 修改类型选项的构建方法，添加路径信息
+const buildTypeOptions = (types, parentPath = '', level = 0) => {
+  if (!types) return []
+  
+  return types.flatMap(type => {
+    const currentPath = parentPath ? `${parentPath}/${type.id}` : `${type.id}`
+    const option = {
       value: type.id,
-      label: '　'.repeat(level) + type.typeName, // 使用全角空格进行缩进
-      level: level
-    })
-    // 递归处理子选项
-    if (type.children && type.children.length > 0) {
-      buildTypeOptions(type.children, level + 1, result)
+      label: type.typeName,
+      level,
+      path: currentPath
     }
+    
+    if (type.children && type.children.length > 0) {
+      return [option, ...buildTypeOptions(type.children, currentPath, level + 1)]
+    }
+    
+    return [option]
   })
-  return result
 }
 
 // 计算属性：类型选项列表
@@ -105,8 +107,8 @@ const resetForm = () => {
     size: '',
     shape: '',
     color: '',
-    price: 0,
-    stock: 0,
+    price: '',
+    stock: '',
     shop: '',
     note: '',
     link: '',
@@ -150,6 +152,205 @@ const loadColumnSettings = () => {
   const saved = localStorage.getItem('materialTableColumns')
   if (saved) {
     visibleColumns.value = JSON.parse(saved)
+  } else {
+    // 设置默认显示的列
+    visibleColumns.value = [
+      'name',
+      'type',
+      'substance',
+      'size',
+      'shape',
+      'color',
+      'stock',
+    ]
+  }
+}
+
+//搜索条件
+const searchForm = ref({
+  name: '',
+  type: [], // 类型多选
+  substance: '',
+  shape: '',
+  color: ''
+})
+
+// 过滤后的数据
+const filteredMaterialData = computed(() => {
+  if (!materialData.value) return []
+  
+  return materialData.value.filter(item => {
+    // ... 其他过滤条件 ...
+    
+    // 类型搜索（包含子类型）
+    if (searchForm.value.type.length > 0) {
+      // 获取当前项的类型及其所有父类型
+      const itemType = item.type
+      const itemOption = typeOptions.value.find(opt => opt.value === itemType)
+      if (!itemOption) return false
+      
+      // 检查是否匹配任何选中的类型或其子类型
+      const matchesType = searchForm.value.type.some(selectedId => {
+        const selectedOption = typeOptions.value.find(opt => opt.value === selectedId)
+        if (!selectedOption) return false
+        
+        // 如果当前项的类型是选中类型的子类型，或者相同，则匹配
+        return itemOption.path.startsWith(selectedOption.path)
+      })
+      
+      if (!matchesType) return false
+    }
+    
+    return true
+  })
+})
+
+// 重置搜索条件
+const resetSearch = () => {
+  searchForm.value = {
+    name: '',
+    type: [],
+    substance: '',
+    shape: '',
+    color: ''
+  }
+}
+
+// 类型选择相关状态
+const showTypeDropdown = ref(false)
+const selectedTypes = computed(() => {
+  // 获取所有选中的类型
+  const selectedIds = searchForm.value.type
+  
+  // 过滤出没有选中父类型的选中类型
+  const topLevelSelected = selectedIds.filter(id => {
+    const option = typeOptions.value.find(opt => opt.value === id)
+    if (!option) return false
+    
+    // 如果是一级类型，或者其父类型未被选中，则显示
+    const parentPath = option.path.split('/').slice(0, -1).join('/')
+    const parentOption = typeOptions.value.find(opt => opt.path === parentPath)
+    return !parentOption || !selectedIds.includes(parentOption.value)
+  })
+  
+  // 转换为类型名称
+  return topLevelSelected.map(id => getTypeName(id)).join(', ')
+})
+
+// 点击外部关闭下拉框
+const typeDropdownRef = ref(null)
+onMounted(() => {
+  document.addEventListener('click', (e) => {
+    if (typeDropdownRef.value && !typeDropdownRef.value.contains(e.target)) {
+      showTypeDropdown.value = false
+    }
+  })
+})
+
+// 跟踪展开的菜单项
+const expandedTypes = ref(new Set())
+
+// 切换展开状态
+const toggleExpand = (typeId) => {
+  if (expandedTypes.value.has(typeId)) {
+    expandedTypes.value.delete(typeId)
+  } else {
+    expandedTypes.value.add(typeId)
+  }
+}
+
+// 判断是否有子项
+const hasChildren = (option) => {
+  return typeOptions.value.some(item => 
+    item.level === option.level + 1 && 
+    item.path.startsWith(option.path + '/')
+  )
+}
+
+// 修改显示条件的判断
+const isVisible = (option) => {
+  if (option.level === 0) return true
+  
+  const parentPath = option.path.split('/').slice(0, -1).join('/')
+  return expandedTypes.value.has(parentPath)
+}
+
+// 获取所有子类型ID
+const getChildTypeIds = (option) => {
+  return typeOptions.value
+    .filter(item => item.path.startsWith(option.path + '/'))
+    .map(item => item.value)
+}
+
+// 获取父类型ID
+const getParentTypeId = (option) => {
+  const parentPath = option.path.split('/').slice(0, -1).join('/')
+  return typeOptions.value.find(item => item.path === parentPath)?.value
+}
+
+// 修改切换选中状态的逻辑
+const toggleType = (option) => {
+  const typeId = option.value
+  const index = searchForm.value.type.indexOf(typeId)
+  
+  if (index === -1) {
+    // 选中当前类型
+    const typesToAdd = [typeId]
+    
+    // 如果是一级类型，添加所有子类型
+    if (option.level === 0) {
+      typesToAdd.push(...getChildTypeIds(option))
+      // 自动展开
+      expandedTypes.value.add(option.path)
+    } else {
+      // 如果选中所有同级类型，也选中父类型
+      const parentId = getParentTypeId(option)
+      const siblings = typeOptions.value.filter(item => {
+        const itemParentPath = item.path.split('/').slice(0, -1).join('/')
+        return itemParentPath === option.path.split('/').slice(0, -1).join('/')
+      })
+      
+      const allSiblingsSelected = siblings.every(sibling => 
+        searchForm.value.type.includes(sibling.value) || sibling.value === typeId
+      )
+      
+      if (allSiblingsSelected && parentId) {
+        typesToAdd.push(parentId)
+      }
+    }
+    
+    searchForm.value.type = [...new Set([...searchForm.value.type, ...typesToAdd])]
+  } else {
+    // 取消选中当前类型
+    const typesToRemove = [typeId]
+    
+    // 如果是一级类型，移除所有子类型
+    if (option.level === 0) {
+      typesToRemove.push(...getChildTypeIds(option))
+    } else {
+      // 如果取消选中子类型，也取消选中父类型
+      const parentId = getParentTypeId(option)
+      if (parentId) {
+        typesToRemove.push(parentId)
+      }
+    }
+    
+    searchForm.value.type = searchForm.value.type.filter(id => !typesToRemove.includes(id))
+  }
+}
+
+// 控制下拉框显示
+const isTypeDropdownVisible = ref(false)
+const isEditTypeDropdownVisible = ref(false)
+
+// 选择类型
+const selectType = (value, mode) => {
+  if (mode === 'new') {
+    newMaterialForm.value.type = value
+    isTypeDropdownVisible.value = false
+  } else if (mode === 'edit') {
+    editForm.value.type = value
+    isEditTypeDropdownVisible.value = false
   }
 }
 
@@ -235,6 +436,13 @@ const deleteMaterial = async (row) => {
 }
 
 onMounted(async() => {
+    document.addEventListener('click', (e) => {
+      const target = e.target
+      if (!target.closest('.type-selector')) {
+        isTypeDropdownVisible.value = false
+        isEditTypeDropdownVisible.value = false
+      }
+    })
     loadColumnSettings()
     await fetchTypeTree()
     await fetchMaterialData()
@@ -247,7 +455,9 @@ const getTypeName = (typeId) => {
 </script>
 
 <template>
+  <div class="content-wrapper">
     <!-- 列设置按钮和下拉菜单 -->
+    <a :href="/work/" class="a-back">&lt;&lt;返回</a>
     <div class="table-controls">
       <div class="column-settings">
         <button 
@@ -312,23 +522,48 @@ const getTypeName = (typeId) => {
             <template v-if="key !== 'id'">
               <label v-if="key !== 'actions'">{{ config.label }}</label>
               <template v-if="key === 'type'">
-                <select 
-                    v-model="newMaterialForm[key]"
-                    class="form-select"
+                <div class="type-selector">
+                  <div 
+                    class="type-input" 
+                    @click="isTypeDropdownVisible = !isTypeDropdownVisible"
+                  >
+                    <span v-if="newMaterialForm[key]">{{ getTypeName(newMaterialForm[key]) }}</span>
+                    <span v-else class="placeholder">请选择类型</span>
+                    <span class="arrow">▼</span>
+                  </div>
+
+                  <div 
+                    v-show="isTypeDropdownVisible" 
+                    class="type-dropdown"
+                  >
+                    <div 
+                      v-for="option in typeOptions" 
+                      :key="option.value"
+                      v-show="isVisible(option)"
+                      class="type-option"
+                      :class="{ 
+                        'selected': newMaterialForm[key] === option.value,
+                        [`level-${option.level}`]: true
+                      }"
+                      :style="{ paddingLeft: `${option.level * 20 + 10}px` }"
                     >
-                    <option value="">请选择类型</option>
-                    <option 
-                        v-for="option in typeOptions" 
-                        :key="option.value"
-                        :value="option.value"
-                        :style="{ 
-                        paddingLeft: `${option.level * 1.5}em`,
-                        backgroundColor: option.level % 2 ? '#f9f9f9' : 'white'
-                        }"
-                    >
-                        {{ option.label }}
-                    </option>
-                </select>
+                      <!-- 展开/收起箭头 -->
+                      <span 
+                        v-if="hasChildren(option)"
+                        class="expand-arrow"
+                        @click.stop="toggleExpand(option.path)"
+                      >
+                        {{ expandedTypes.has(option.path) ? '▼' : '▶' }}
+                      </span>
+                      <span v-else class="expand-placeholder"></span>
+                      
+                      <!-- 选项内容 -->
+                      <div class="type-content" @click.stop="selectType(option.value, 'new')">
+                        <span>{{ option.label }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </template>
               <template v-else-if="config.type === 'number'">
                 <input
@@ -355,7 +590,95 @@ const getTypeName = (typeId) => {
       </div>
     </div>
 
-<div class="material-table">
+    <!-- 搜索表单 -->
+    <div class="search-form">
+      <div class="search-item">
+        <label>名称：</label>
+        <input 
+          v-model="searchForm.name"
+          type="text"
+          placeholder="请输入名称"
+        >
+      </div>
+      
+      <div class="search-item" ref="typeDropdownRef">
+        <label>类型：</label>
+        <div class="type-selector">
+          <div 
+            class="type-input" 
+            @click="showTypeDropdown = !showTypeDropdown"
+          >
+            <span v-if="searchForm.type.length">{{ selectedTypes }}</span>
+            <span v-else class="placeholder">请选择类型</span>
+            <span class="arrow">▼</span>
+          </div>
+
+          <!-- 类型下拉菜单 -->
+          <div 
+            v-show="showTypeDropdown" 
+            class="type-dropdown"
+          >
+            <div 
+              v-for="option in typeOptions" 
+              :key="option.value"
+              v-show="option.level === 0 || isVisible(option)"
+                class="type-option"
+                :class="{ 
+                  'selected': searchForm.type.includes(option.value),
+                  [`level-${option.level}`]: true
+                }"
+                :style="{ paddingLeft: `${option.level * 20 + 10}px` }"
+                >
+                <!-- 展开/收起箭头 -->
+                <span 
+                  v-if="hasChildren(option)"
+                  class="expand-arrow"
+                  @click.stop="toggleExpand(option.path)"
+                >
+                  {{ expandedTypes.has(option.path) ? '▼' : '▶' }}
+                </span>
+                <!-- 复选框和标签 -->
+                <div class="type-content" @click.stop="toggleType(option)">
+                  <span>{{ option.label }}</span>
+                </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="search-item">
+        <label>材质：</label>
+        <input 
+          v-model="searchForm.substance"
+          type="text"
+          placeholder="请输入材质"
+        >
+      </div>
+      
+      <div class="search-item">
+        <label>形状：</label>
+        <input 
+          v-model="searchForm.shape"
+          type="text"
+          placeholder="请输入形状"
+        >
+      </div>
+      
+      <div class="search-item">
+        <label>颜色：</label>
+        <input 
+          v-model="searchForm.color"
+          type="text"
+          placeholder="请输入颜色"
+        >
+      </div>
+      
+      <div class="search-actions">
+        <button class="reset-btn" @click="resetSearch">重置</button>
+      </div>
+    </div>
+
+    <div class="material-table">
 
     <div class="material-table-header">
         <div v-if="loading">加载中...</div>
@@ -370,7 +693,7 @@ const getTypeName = (typeId) => {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="row in materialData" :key="row.id">
+                    <tr v-for="row in filteredMaterialData" :key="row.id">
                         <!-- 显示模式 -->
                         <template v-if="editingRow !== row.id">
                             <td v-for="(config, key) in visibleColumnsConfig" :key="key">
@@ -400,24 +723,49 @@ const getTypeName = (typeId) => {
                         <template v-else>
                             <td v-for="(config, key) in visibleColumnsConfig" :key="key">
                                 <!-- 在表格显示中使用类型名称 -->
-                                <template v-if="key === 'type'">
-                                    <select 
-                                        v-model="editForm[key]"
-                                        class="form-select"
+                                <template v-if="key === 'type' && editingRow === row.id">
+                                  <div class="type-selector">
+                                    <div 
+                                      class="type-input" 
+                                      @click="isEditTypeDropdownVisible = !isEditTypeDropdownVisible"
+                                    >
+                                      <span v-if="editForm[key]">{{ getTypeName(editForm[key]) }}</span>
+                                      <span v-else class="placeholder">请选择类型</span>
+                                      <span class="arrow">▼</span>
+                                    </div>
+
+                                    <div 
+                                      v-show="isEditTypeDropdownVisible" 
+                                      class="type-dropdown"
+                                    >
+                                      <div 
+                                        v-for="option in typeOptions" 
+                                        :key="option.value"
+                                        v-show="isVisible(option)"
+                                        class="type-option"
+                                        :class="{ 
+                                          'selected': editForm[key] === option.value,
+                                          [`level-${option.level}`]: true
+                                        }"
+                                        :style="{ paddingLeft: `${option.level * 20 + 10}px` }"
+                                      >
+                                        <!-- 展开/收起箭头 -->
+                                        <span 
+                                          v-if="hasChildren(option)"
+                                          class="expand-arrow"
+                                          @click.stop="toggleExpand(option.path)"
                                         >
-                                        <option value="">请选择类型</option>
-                                        <option 
-                                            v-for="option in typeOptions" 
-                                            :key="option.value"
-                                            :value="option.value"
-                                            :style="{ 
-                                            paddingLeft: `${option.level * 1.5}em`,
-                                            backgroundColor: option.level % 2 ? '#f9f9f9' : 'white'
-                                            }"
-                                        >
-                                            {{ option.label }}
-                                        </option>
-                                    </select>
+                                          {{ expandedTypes.has(option.path) ? '▼' : '▶' }}
+                                        </span>
+                                        <span v-else class="expand-placeholder"></span>
+                                        
+                                        <!-- 选项内容 -->
+                                        <div class="type-content" @click.stop="selectType(option.value, 'edit')">
+                                          <span>{{ option.label }}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
                                 </template>
                                 
                                 <!-- 如果是操作列 -->
@@ -452,10 +800,15 @@ const getTypeName = (typeId) => {
             </table>
         </div>
     </div>
-</div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
+.content-wrapper {
+  margin: 20px auto 20px;
+}
+
 .material-table {
     font-size: 12px;
   margin: 20px 0;
@@ -476,6 +829,13 @@ th, td {
   white-space: normal; /* 允许文本换行 */
   word-wrap: break-word; /* 允许长单词断行 */
   word-break: break-all; /* 允许在任意字符间断行 */
+}
+
+td {
+  position: relative;
+  max-width: 150px;  /* 调整单元格最大宽度 */
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 th {
@@ -668,6 +1028,20 @@ a:hover {
   position: relative;
 }
 
+/* 确保下拉框在模态框内正确显示 */
+.modal-content .type-selector {
+  position: relative;
+  width: 100%;
+}
+
+.modal-content .type-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000; /* 确保在模态框内位于最上层 */
+}
+
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -715,7 +1089,7 @@ a:hover {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-top: 20px;
+  margin: 10px 0 30px;
 }
 
 .form-input,
@@ -785,7 +1159,211 @@ td:last-child {
     width: 80px;
 }
 
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+}
+
+.search-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-item label {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.search-item input {
+  padding: 4px 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  font-size: 12px;
+  width: 120px;
+}
+
+.search-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.reset-btn {
+  padding: 4px 12px;
+  background-color: #909399;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.reset-btn:hover {
+  background-color: #82848a;
+}
+
+.type-selector {
+  position: relative;
+  width: 200px;
+}
+
+td .type-selector {
+  position: relative;
+  width: 100%;
+  min-width: 120px;  /* 设置最小宽度 */
+}
+
+td .type-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 200px;  /* 下拉框最小宽度 */
+  max-width: 300px;  /* 下拉框最大宽度 */
+  background: white;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.type-input {
+  padding: 4px 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  cursor: pointer;
+  background: white;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+td .type-input {
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.placeholder {
+  color: #999;
+}
+
+.arrow {
+  font-size: 10px;
+  color: #666;
+}
+
+.type-dropdown {
+  font-size: 12px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  margin-top: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,.1);
+  z-index: 1000;
+}
+
+.type-option {
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+}
+
+.expand-arrow {
+  width: 20px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 10px;
+  color: #666;
+  transition: transform 0.2s ease;
+}
+
+.selected .expand-arrow {
+  color: #409EFF;
+}
+
+.expand-placeholder {
+  width: 20px;
+}
+
+.type-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+/* 不同层级的样式 */
+.type-option.level-0 {
+  font-weight: bold;
+}
+
+.type-option.level-1 {
+  background-color: #fafafa;
+}
+
+/* 确保子项在展开时有过渡效果 */
+.type-dropdown {
+  transition: max-height 0.3s ease-in-out;
+}
+
+.type-option:hover {
+  background-color: #f5f7fa;
+}
+
+.type-option.selected {
+  background-color: #ecf5ff;
+  color: #409EFF;
+  font-weight: 500;
+  border-left-color: #409EFF;
+}
+
+/* 不同层级的缩进和样式 */
+.type-option.level-0 {
+  font-weight: bold;
+}
+
+.type-option.level-1 {
+  background-color: #fafafa;
+}
+
+/* 美化滚动条 */
+.type-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.type-dropdown::-webkit-scrollbar-thumb {
+  background-color: #ddd;
+  border-radius: 3px;
+}
+
+.type-dropdown::-webkit-scrollbar-track {
+  background-color: #f5f5f5;
+}
+
 @media (min-width: 1024px) {
+  .content-wrapper {
+    margin: 100px auto 120px;
+  }
+  
     .material-table {
         font-size: 14px;
     }

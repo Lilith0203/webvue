@@ -63,64 +63,72 @@ onMounted(() => {
 
 .article-content {
     margin-top: 20px;
-    text-align: center;
+    font-size: 14px;
 }
 
-:deep(.article-content) {
-    p, ul, ol {
-        text-indent: 2em;
-        line-height: 1.5;
-        margin-bottom: 6px;
-        text-align: left;
-    }
+:deep(.article-content p) {
+  text-indent: 2em;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  text-align: left;
+}
 
-    h1 {
-        line-height: 2;
-        margin-top: 10px;
-        font-weight: bold;
-        text-align: left;
-    }
+:deep(.article-content ul), 
+:deep(.article-content ol) {
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  text-align: left;
+}
 
-    a {
-        color: #4a9dd9;
-        border-bottom: 1px dashed #C9DFFB;
-    }
+:deep(.article-content h1) {
+  line-height: 2;
+  margin-top: 10px;
+  font-weight: bold;
+  text-align: left;
+}
 
-    .demo {
-        display: inline-block;
-        width: 60px;
-        background-color: #4a9dd9;
-        color: #fff;
-        font-weight: bold;
-        text-align: center;
-        line-height: 1.8;
-        border: 1px dashed #fff;
-    }
+:deep(.article-content a) {
+  color: #4a9dd9;
+  border-bottom: 1px dashed #C9DFFB;
+}
 
-    .demo:hover {
-        background-color: #C9DFFB;
-    }
+:deep(.article-content .demo) {
+  display: inline-block;
+  width: 60px;
+  background-color: #4a9dd9;
+  color: #fff;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.8;
+  border: 1px dashed #fff;
+}
 
-    code {
-        display: block;
-        white-space: pre-wrap;
-        text-align: left;
-        margin: 10px 35px;
-    }
+:deep(.article-content .demo:hover) {
+  background-color: #C9DFFB;
+}
 
-    img {
-        max-width: 100%;
-        border: 3px solid #fff;
-        box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.2);
-        margin: 8px 0;
-    }
+:deep(.article-content code) {
+  display: block;
+  white-space: pre-wrap;
+  text-align: left;
+  margin: 10px 35px;
+  font-size: 13px;
+  font-family: inherit;
+}
 
-    blockquote {
-        font-style: italic;
-        font-size: 13px;
-        text-align: left;
-        color: #3E3E3E;
-    }
+:deep(.article-content img) {
+  max-width: 100%;
+  border: 3px solid #fff;
+  box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.2);
+  margin: 8px 0;
+}
+
+:deep(.article-content blockquote) {
+  font-style: italic;
+  font-size: 13px;
+  text-align: left;
+  color: #3E3E3E;
 }
 
 @media (min-width: 1024px) {
