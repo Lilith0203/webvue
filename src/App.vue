@@ -19,7 +19,7 @@ const menuConfig = [
     path: '/work',
     children: [
       {label: '材料整理', path: '/material'},
-      {label: '格子图工具', path: '/work'}
+      {label: '格子图工具', path: '/painter'}
     ]
   },
   {

@@ -4,7 +4,8 @@ import ArticleView from '../views/ArticleView.vue'
 import ArticleDetailView from '../views/ArticleDetailView.vue'
 import WorkView from '../views/WorkView.vue'
 import MaterialView from '../views/MaterialView.vue'
-import MaterialTypeView from '../components/MaterialTypeView.vue'
+import MaterialType from '../components/MaterialType.vue'
+import GridPainter from '../components/GridPainter.vue'
 import LoginView from '../views/LoginView.vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -32,6 +33,11 @@ const router = createRouter({
       component: WorkView,
     },
     {
+      path: '/painter',
+      name: 'painter',
+      component: GridPainter,
+    },
+    {
       path: '/material',
       name: 'material',
       component: MaterialView,
@@ -39,7 +45,7 @@ const router = createRouter({
     {
       path: '/material/type',
       name: 'materialType',
-      component: MaterialTypeView,
+      component: MaterialType,
     },
     {
       path: '/about',
