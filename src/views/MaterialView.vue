@@ -14,6 +14,47 @@ const editForm = ref({}) // 新增：存储编辑的临时数据
 //类型树数据
 const typeTree = ref([])
 const typeMap = ref(new Map()) // 存储id和typeName的映射
+const displayLimit = ref(50) 
+
+// 计算当前显示的材料
+const displayedMaterials = computed(() => {
+  if (!materialData.value) return []
+  // 先应用搜索过滤
+  const filtered = materialData.value.filter(item => {
+    return (
+      (!searchForm.value.name || item.name.toLowerCase().includes(searchForm.value.name.toLowerCase())) &&
+      (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
+      (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
+      (!searchForm.value.shape || item.shape.toLowerCase().includes(searchForm.value.shape.toLowerCase())) &&
+      (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase()))
+    )
+  })
+
+  // 然后限制显示数量
+  return filtered.slice(0, displayLimit.value)
+})
+
+// 是否还有更多材料可以显示
+const hasMore = computed(() => {
+  if (!materialData.value) return false
+  
+  const filteredCount = materialData.value.filter(item => {
+    return (
+      (!searchForm.value.name || item.name.toLowerCase().includes(searchForm.value.name.toLowerCase())) &&
+      (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
+      (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
+      (!searchForm.value.shape || item.shape.toLowerCase().includes(searchForm.value.shape.toLowerCase())) &&
+      (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase()))
+    )
+  }).length
+  
+  return filteredCount > displayLimit.value
+})
+
+// 显示更多材料
+const loadMore = () => {
+  displayLimit.value += 50  // 每次增加50条
+}
 
 // 获取类型树数据
 const fetchTypeTree = async () => {
@@ -30,7 +71,7 @@ const fetchTypeTree = async () => {
 // 递归构建类型映射
 const buildTypeMap = (types, parentName = '') => {
   types.forEach(type => {
-    const fullName = parentName ? `${parentName} / ${type.typeName}` : type.typeName
+    const fullName = parentName ? `${parentName} - ${type.typeName}` : type.typeName
     typeMap.value.set(type.id, fullName)
     if (type.children && type.children.length > 0) {
       buildTypeMap(type.children, fullName)
@@ -214,6 +255,7 @@ const resetSearch = () => {
     shape: '',
     color: ''
   }
+  displayLimit.value = 50  // 重置显示数量
 }
 
 // 类型选择相关状态
@@ -402,6 +444,15 @@ const updateMaterialItem = async (row) => {
 // 添加新材料
 const addMaterial = async () => {
   if (!canEdit.value) return
+
+  // 重置错误
+  formErrors.value = {}
+  // 验证颜色字段
+  if (!newMaterialForm.value.color) {
+    formErrors.value.color = '请输入颜色'
+    return
+  }
+
   try {
     loading.value = true
     await axios.post('/addMaterial', newMaterialForm.value)
@@ -434,6 +485,9 @@ const deleteMaterial = async (row) => {
     loading.value = false
   }
 }
+
+// 添加表单错误状态
+const formErrors = ref({})
 
 onMounted(async() => {
     document.addEventListener('click', (e) => {
@@ -572,6 +626,18 @@ const getTypeName = (typeId) => {
                   class="form-input"
                 >
               </template>
+              <template v-else-if="key == 'color'">
+                <input
+                  v-model="newMaterialForm[key]"
+                  :type="text"
+                  class="form-input"
+                  required 
+                  :class="{ 'error': formErrors.color }"  
+                  placeholder="请输入颜色"
+                >
+                <!-- 显示错误信息 -->
+              <span v-if="formErrors.color" class="error-text">{{ formErrors.color }}</span>
+              </template>
               <template v-else-if="key !== 'actions'">
                 <input
                   v-model="newMaterialForm[key]"
@@ -683,8 +749,8 @@ const getTypeName = (typeId) => {
     <div class="material-table-header">
         <div v-if="loading">加载中...</div>
         <div v-else-if="error" class="error">{{ error }}</div>
-        <div v-else>
-            <table>
+        <div v-else class="table-wrapper">
+            <table v-if="displayedMaterials.length">
                 <thead>
                     <tr>
                         <th v-for="(config, key) in visibleColumnsConfig" :key="key">
@@ -693,7 +759,7 @@ const getTypeName = (typeId) => {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="row in filteredMaterialData" :key="row.id">
+                    <tr v-for="row in displayedMaterials" :key="row.id">
                         <!-- 显示模式 -->
                         <template v-if="editingRow !== row.id">
                             <td v-for="(config, key) in visibleColumnsConfig" :key="key">
@@ -798,6 +864,13 @@ const getTypeName = (typeId) => {
                     </tr>
                 </tbody>
             </table>
+
+            <!-- 添加显示更多按钮 -->
+          <div v-if="hasMore" class="load-more">
+            <button @click="loadMore" class="load-more-btn">
+              显示更多
+            </button>
+          </div>
         </div>
     </div>
     </div>
@@ -805,6 +878,38 @@ const getTypeName = (typeId) => {
 </template>
 
 <style scoped>
+/* 添加新样式 */
+.load-more {
+  text-align: center;
+  margin: 20px 0;
+  padding: 10px;
+}
+
+.load-more-btn {
+  padding: 6px 10px;
+  background-color: #42b883;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.load-more-btn:hover {
+  background-color: #3aa876;
+}
+
+.load-more-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* 确保表格底部有足够空间显示按钮 */
+.table-wrapper {
+  margin-bottom: 20px;
+}
+
 .content-wrapper {
   margin: 20px auto 20px;
 }
@@ -1357,6 +1462,21 @@ td .type-input {
 
 .type-dropdown::-webkit-scrollbar-track {
   background-color: #f5f5f5;
+}
+
+.required {
+  color: red;
+  margin-left: 4px;
+}
+
+.form-input.error {
+  border-color: red;
+}
+
+.error-text {
+  color: red;
+  font-size: 12px;
+  margin-top: 4px;
 }
 
 @media (min-width: 1024px) {

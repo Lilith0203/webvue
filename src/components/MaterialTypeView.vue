@@ -316,5 +316,9 @@ select {
   .type-manager {
     margin: 100px auto 120px;
   }
+
+  .type-item {
+    
+  }
 }
 </style>
