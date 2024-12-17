@@ -36,14 +36,6 @@
           />
           <span>自定义颜色</span>
         </div>
-        <!-- 橡皮擦（清除颜色） -->
-        <button 
-          class="eraser-btn"
-          :class="{ active: isEraser }"
-          @click="toggleEraser"
-        >
-          橡皮擦
-        </button>
       </div>
 
       <!-- 最近使用的颜色 -->
@@ -109,7 +101,6 @@
   const gridSize = ref(32)  // 默认32x32
   const currentColor = ref('#000000')  // 当前选择的颜色
   const customColor = ref('#000000')
-  const isEraser = ref(false)
   const gridCells = ref([])  // 网格数据
   const isDrawing = ref(false)  // 是否正在绘制
 
@@ -128,7 +119,6 @@
   // 选择颜色
   const selectColor = (color) => {
     currentColor.value = color
-    isEraser.value = false
     addToRecentColors(color)
   }
 
@@ -153,16 +143,6 @@
     }
   }
 
-  // 切换橡皮擦
-  const toggleEraser = () => {
-    isEraser.value = !isEraser.value
-    if (isEraser.value) {
-      currentColor.value = '#FFFFFF' // 使用白色作为橡皮擦
-    } else {
-      currentColor.value = recentColors.value[0] || '#000000'
-    }
-  }
-
   // 创建网格
   const createGrid = () => {
     gridCells.value = Array(gridSize.value * gridSize.value)
@@ -173,9 +153,7 @@
   // 绘制单元格
   const paintCell = (index) => {
     gridCells.value[index].color = currentColor.value
-    if (!isEraser.value) {
-      addToRecentColors(currentColor.value)
-    }
+    addToRecentColors(currentColor.value)
   }
   
   // 处理鼠标悬停
@@ -332,20 +310,6 @@
     border-radius: 4px;
     cursor: pointer;
   }
-
-.eraser-btn {
-  padding: 4px 6px;
-  background-color: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.eraser-btn.active {
-  background-color: #e0e0e0;
-  border-color: #999;
-}
 
 .recent-colors {
   display: flex;
