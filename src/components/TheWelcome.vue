@@ -1,6 +1,9 @@
 <script setup>
 import axios from '../api'
 import { ref, onMounted } from 'vue'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
 
 const backendData = ref(null)
 const loading = ref(false)
@@ -40,7 +43,27 @@ onMounted(() => {
             <a :href="`/article/${article.id}`">{{ article.title }}</a>
           </li>
         </ul>
+        <span><a :href="`/article`">更多…</a></span>
       </div>
+    </div>
+  </div>
+
+  <div class="item">
+    <div class="details">
+      <h3>
+        手作工具
+      </h3>
+      <ul class="article-list">
+        <li>
+          <a :href="`/material`">材料整理</a>
+        </li>
+        <li>
+          <a :href="`/painter`">格子图工具</a>
+        </li>
+        <li v-if="authStore.isAuthenticated">
+          <a :href="`/material/type`">材料分类管理</a>
+        </li>
+      </ul>
     </div>
   </div>
 </template>
@@ -50,6 +73,7 @@ onMounted(() => {
   margin-top: 2rem;
   display: flex;
   position: relative;
+  margin-bottom: 1rem;
 }
 
 .details {

@@ -12,6 +12,13 @@ const authStore = useAuthStore()
         </h3>
       </div>
     </div>
+    <div class="item">
+      <div class="details">
+        <h3>
+          <a href="/painter">格子图工具</a>
+        </h3>
+      </div>
+    </div>
     <div class="item" v-if="authStore.isAuthenticated">
       <div class="details">
         <h3>

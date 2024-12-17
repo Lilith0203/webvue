@@ -28,6 +28,16 @@ const router = createRouter({
       component: ArticleView,
     },
     {
+      path: '/publish',
+      name: 'publish',
+      component: () => import('../views/ArticleEditor.vue')
+    },
+    {
+      path: '/article/:id/edit',
+      name: 'edit-article',
+      component: () => import('../views/ArticleEditor.vue')
+    },
+    {
       path: '/work',
       name: 'work',
       component: WorkView,

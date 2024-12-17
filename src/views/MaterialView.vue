@@ -15,6 +15,75 @@ const editForm = ref({}) // 新增：存储编辑的临时数据
 const typeTree = ref([])
 const typeMap = ref(new Map()) // 存储id和typeName的映射
 const displayLimit = ref(50) 
+// 文件上传相关的状态
+const fileInput = ref(null)
+const uploadProgress = ref(0)
+const uploadError = ref(null)
+
+// 触发文件选择
+const triggerFileInput = (rowId) => {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.style.display = 'none'
+  
+  input.onchange = (event) => handleFileUpload(event, rowId)
+  
+  document.body.appendChild(input)
+  input.click()
+  document.body.removeChild(input)
+}
+
+// 处理文件上传
+const handleFileUpload = async (event, rowId) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  // 检查文件类型和大小
+  if (!file.type.startsWith('image/')) {
+    uploadError.value = '请选择图片文件'
+    return
+  }
+
+  if (file.size > 5 * 1024 * 1024) { // 5MB 限制
+    uploadError.value = '图片大小不能超过5MB'
+    return
+  }
+
+  try {
+    uploadError.value = null
+    uploadProgress.value = 0
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await axios.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: (progressEvent) => {
+        uploadProgress.value = Math.round(
+          (progressEvent.loaded * 100) / progressEvent.total
+        )
+      }
+    })
+
+    // 更新编辑表单中的图片URL
+    if (editForm.value && editingRow.value === rowId) {
+      editForm.value.pic = response.data.url
+    }
+    uploadProgress.value = 0
+  } catch (error) {
+    uploadError.value = '上传失败：' + (error.response?.data?.message || error.message)
+  }
+}
+
+// 图片预览
+const openImageViewer = (url) => {
+  if (url) {
+    window.open(url, '_blank')
+  }
+}
 
 // 计算当前显示的材料
 const displayedMaterials = computed(() => {
@@ -833,6 +902,44 @@ const getTypeName = (typeId) => {
                                     </div>
                                   </div>
                                 </template>
+
+                                <template v-else-if="key === 'pic' && config.editable">
+                                  <div class="image-upload">
+                                    <!-- 显示当前图片 -->
+                                    <img 
+                                      v-if="editForm[key]" 
+                                      :src="editForm[key]" 
+                                      class="preview-image"
+                                      @click="openImageViewer(editForm[key])"
+                                    >
+                                    
+                                    <!-- 上传控件 -->
+                                    <div class="upload-controls">
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        ref="fileInput"
+                                        class="file-input"
+                                        @change="handleFileUpload"
+                                        style="display: none;"
+                                      >
+                                      <button 
+                                        class="upload-btn" 
+                                        @click="triggerFileInput(row.id)"
+                                      >
+                                        选择图片
+                                      </button>
+                                      
+                                      <!-- 显示上传进度或错误 -->
+                                      <div v-if="uploadProgress" class="upload-progress">
+                                        上传中... {{ uploadProgress }}%
+                                      </div>
+                                      <div v-if="uploadError" class="upload-error">
+                                        {{ uploadError }}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </template>
                                 
                                 <!-- 如果是操作列 -->
                                 <template v-else-if="key === 'actions'">
@@ -1477,6 +1584,62 @@ td .type-input {
   color: red;
   font-size: 12px;
   margin-top: 4px;
+}
+
+.image-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.preview-image {
+  max-width: 100px;
+  max-height: 100px;
+  object-fit: contain;
+  cursor: pointer;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.preview-image:hover {
+  border-color: #42b883;
+}
+
+.upload-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-btn {
+  padding: 5px 10px;
+  background-color: #42b883;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.upload-btn:hover {
+  background-color: #3aa876;
+}
+
+.upload-progress {
+  font-size: 12px;
+  color: #666;
+}
+
+.upload-error {
+  font-size: 12px;
+  color: #dc3545;
 }
 
 @media (min-width: 1024px) {

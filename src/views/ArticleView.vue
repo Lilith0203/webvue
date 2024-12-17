@@ -3,6 +3,9 @@ import axios from '../api'
 //import axios from 'axios'
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
 
 const route = useRoute()
 const backendData = ref(null)
@@ -41,7 +44,9 @@ onMounted(() => {
       <div v-if="loading" class="loading">加载中...</div>
       <div v-else-if="error" class="error">{{ error }}</div>
       <div class="articles-header">
-        <p id="all-info" v-if="backendData">共 <span>{{backendData.count}}</span> 篇文章</p>
+        <p id="all-info" v-if="backendData">共 <span>{{backendData.count}}</span> 篇文章
+          <span v-if="authStore.isAuthenticated"><a :href="`/publish`">发布新文章</a></span>
+        </p>
       </div>
       <div class="list-wrapper" v-if="backendData">
         <article class="a-brief" v-for="article in backendData.articles" :key="article.id">
@@ -49,10 +54,13 @@ onMounted(() => {
           <time :datetime="article?.createdAt">
             <span class="time-date">{{ article.createdAt }}</span><br/>
           </time>
-          <div v-if="article.tags" class="a-label">Tag: &nbsp;<span>{{article.tags}}</span></div>
+          <div v-if="article.tags" class="a-label">Tag: &nbsp;
+            <a v-for="tag in article.tags">{{tag}}</a>
+          </div>
           <div class="a-brief-text">
             <p>{{article.abbr}}
-            <a :href="`/article/${article.id}`" class="read-detail">（阅读全文）</a></p>
+            <a :href="`/article/${article.id}`" class="read-detail">（阅读全文）</a>
+            <span v-if="authStore.isAuthenticated"><a :href="`/article/${article.id}/edit`">编辑</a></span></p>
           </div>
         </article>
 

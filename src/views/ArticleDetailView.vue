@@ -3,6 +3,10 @@ import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from '../api'
 
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
+
 const route = useRoute()
 const article = ref(null)
 const loading = ref(false)
@@ -35,9 +39,12 @@ onMounted(() => {
     <div v-else-if="error" class="error">{{ error }}</div>
     <article v-else-if="article" class="a-complete">
       <h1 class="a-title">{{ article.title }}</h1>
+      <p v-if="authStore.isAuthenticated"><a :href="`/article/${article.id}/edit`">编辑</a></p>
       <div class="meta">
         <span class="date">最后更新时间: {{ article.updatedAt }}</span>
-        <p v-if="article.tags" class="tags">Tags：{{ article.tags }}</p>
+        <p v-if="article.tags" class="tags">Tags：
+            <a v-for="tag in article.tags">{{ tag }}</a>
+        </p>
       </div>
       <div class="article-content" v-html="article.content"></div>
     </article>
