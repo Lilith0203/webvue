@@ -1,7 +1,59 @@
 <template>
+    <!-- 网格控制区域添加暂存按钮 -->
+  <!-- 浮动的格子图列表窗口 -->
+  <div 
+    v-if="showSavedGrids" 
+    class="floating-window-overlay"
+    @click.self="closeSavedGrids"
+  >
+    <div class="floating-window">
+      <div class="floating-header">
+        <h3>已保存的格子图</h3>
+        <button class="close-btn" @click="closeSavedGrids">×</button>
+      </div>
+
+      <div class="saved-grids">
+        <div 
+          v-for="grid in savedGrids" 
+          :key="grid.id"
+          class="saved-grid-item"
+        >
+          <!-- 预览缩略图 -->
+          <div class="grid-thumbnail">
+            <div 
+              class="thumbnail-container"
+              :style="{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${grid.size}, 1fr)`,
+                gap: '1px'
+              }"
+            >
+              <div 
+                v-for="(cell, index) in grid.cells" 
+                :key="index"
+                class="thumbnail-cell"
+                :style="{ backgroundColor: cell.color }"
+              ></div>
+            </div>
+          </div>
+          
+          <!-- 操作按钮 -->
+          <div class="saved-grid-actions">
+            <button @click="loadSavedGrid(grid)">加载</button>
+            <button v-if="authStore.isAuthenticated" @click="deleteSavedGrid(grid.id)">删除</button>
+          </div>
+          
+          <!-- 时间戳 -->
+          <div class="saved-grid-time">{{ grid.timestamp }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
     <div class="grid-painter">
       <!-- 添加样式选择器 -->
       <div class="style-controls">
+        <button @click="toggleSavedGrids">加载</button>
         <button 
           :class="{ active: gridStyle === 'normal' }" 
           @click="gridStyle = 'normal'"
@@ -89,24 +141,34 @@
           @change="createGrid"
         >
         <button @click="clearGrid">清除</button>
-        <button @click="saveGrid">保存</button>
+        <button v-if="authStore.isAuthenticated" @click="saveCurrentGrid">存储</button>
+        <button @click="saveGrid">下载</button>
       </div>
     </div>
   </template>
   
-  <script setup>
-  import { ref, onMounted, onUnmounted } from 'vue'
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+import axios from '../api'
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
   
   const gridStyle = ref('normal')  // 'normal' 或 'brick'
   const gridSize = ref(32)  // 默认32x32
   const currentColor = ref('#000000')  // 当前选择的颜色
   const customColor = ref('#000000')
   const gridCells = ref([])  // 网格数据
+  const gridId = ref(0)  // 加载的格子图
   const isDrawing = ref(false)  // 是否正在绘制
 
   // 最近使用的颜色
   const recentColors = ref([])
   const maxRecentColors = 10
+  // 暂存相关的状态
+  const savedGrids = ref([])  // 存储暂存的网格
+  // 控制格子图列表窗口的显示
+  const showSavedGrids = ref(false)
   
   // 预设颜色
   const presetColors = ref([
@@ -115,6 +177,69 @@
     '#008000', '#800000', '#008080', '#FFC0CB', '#A52A2A',
     '#FFD700', '#808080', '#F0E68C', '#E6E6FA', '#98FB98'
   ])
+
+  // 切换格子图列表窗口
+const toggleSavedGrids = () => {
+  showSavedGrids.value = !showSavedGrids.value
+  if (showSavedGrids.value) {
+    fetchSavedGrids()
+  }
+}
+
+// 关闭格子图列表窗口
+const closeSavedGrids = () => {
+  showSavedGrids.value = false
+}
+
+// 获取所有暂存的网格
+const fetchSavedGrids = async () => {
+  try {
+    const response = await axios.get('/grid/list')
+    savedGrids.value = response.data.gridlist.map(grid => ({
+      id: grid.id,
+      cells: JSON.parse(grid.cells),
+      size: grid.size,
+      timestamp: new Date(grid.createdAt).toLocaleString()
+    }))
+  } catch (error) {
+    console.error('获取暂存数据失败:', error)
+  }
+}
+
+  // 暂存当前网格
+const saveCurrentGrid = async() => {
+  const gridData = {
+    size: gridSize.value,
+    cells: gridCells.value
+  }
+  if (gridId.value > 0) {
+    gridData.id = gridId.value
+  }
+
+  try {
+    await axios.post('/grid/save', gridData)
+    await fetchSavedGrids() // 重新加载暂存列表
+  } catch (error) {
+    console.error('保存失败:', error)
+  }
+}
+
+// 加载暂存的网格
+const loadSavedGrid = async (savedGrid) => {
+  gridId.value = savedGrid.id
+  gridSize.value = savedGrid.size
+  gridCells.value = savedGrid.cells
+}
+
+// 删除暂存的网格
+const deleteSavedGrid = async (id) => {
+  try {
+    await axios.post(`/grid/delete`, {id: id})
+    await fetchSavedGrids() // 重新加载暂存列表
+  } catch (error) {
+    console.error('删除失败:', error)
+  }
+}
 
   // 选择颜色
   const selectColor = (color) => {
@@ -166,6 +291,7 @@
   // 清除网格
   const clearGrid = () => {
     gridCells.value = gridCells.value.map(() => ({ color: '#FFFFFF' }))
+    gridId.value = 0
   }
   
   // 保存网格
@@ -197,6 +323,7 @@
   }
   
   onMounted(() => {
+    fetchSavedGrids()
     createGrid()
     window.addEventListener('mouseup', stopDrawing)
   })
@@ -385,6 +512,144 @@
   bottom: 0;
 }
 
+.saved-grid-item {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px;
+  background: white;
+  transition: all 0.3s ease;
+}
+
+.saved-grid-item:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.grid-thumbnail {
+  aspect-ratio: 1;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.thumbnail-container {
+  width: 100%;
+  height: 100%;
+  background: #f5f5f5;
+}
+
+.thumbnail-cell {
+  width: 100%;
+  height: 100%;
+}
+
+.saved-grid-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.saved-grid-actions button {
+  flex: 1;
+  padding: 4px;
+  font-size: 12px;
+}
+
+.saved-grid-time {
+  font-size: 10px;
+  color: #999;
+  margin-top: 4px;
+  text-align: center;
+}
+
+.floating-window-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.floating-window {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.floating-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.floating-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #666;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.3s;
+}
+
+.close-btn:hover {
+  background-color: #f5f5f5;
+}
+
+.saved-grids {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  overflow-y: auto;
+  padding: 10px;
+  max-height: 60vh;
+}
+
+/* 美化滚动条 */
+.saved-grids::-webkit-scrollbar {
+  width: 8px;
+}
+
+.saved-grids::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.saved-grids::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.saved-grids::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
   .grid-container {
@@ -411,6 +676,16 @@
   .recent-colors {
     overflow-x: auto;
     padding: 10px 5px;
+  }
+
+  .floating-window {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .saved-grids {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    max-width: 400px;
   }
 }
 </style>

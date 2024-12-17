@@ -112,8 +112,9 @@ const handleLogout = async () => {
             </div>
           </div>
         </template>
+
         <template v-if="authStore.isAuthenticated">
-          <a href="#" @click.prevent="handleLogout">退出</a>
+          <div class="logout"><a href="#" @click.prevent="handleLogout">退出</a></div>
         </template>
       </nav>
     </div>
@@ -126,7 +127,7 @@ const handleLogout = async () => {
 
 <style scoped>
 header {
-  line-height: 1.5;
+  line-height: 1.3;
   max-height: 100vh;
 }
 
@@ -139,7 +140,7 @@ nav {
   width: 100%;
   font-size: 12px;
   text-align: center;
-  margin-top: 2rem;
+  margin-top: 1rem;
 }
 
 nav a.router-link-exact-active {
@@ -166,14 +167,23 @@ nav a:first-of-type {
 
 .submenu-container {
   display: inline-block;
+  border-left: 1px solid var(--color-border);
+}
+
+.logout {
+  margin-top: 10px;
 }
 
 @media (min-width: 1024px) {
   header {
-    max-width: 360px;
+    width: 330px;
     display: flex;
     place-items: center;
     padding-right: calc(var(--section-gap) / 2);
+  }
+
+  .logout {
+    margin-top: 60px;
   }
 
   .logo {
