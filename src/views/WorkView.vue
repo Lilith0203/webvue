@@ -105,6 +105,9 @@
                   @dragstart="handleDragStart($event, index)"
                   @dragenter.prevent="handleDragEnter($event, index)"
                   @dragend="handleDragEnd"
+                  @touchstart="handleTouchStart($event, index)"
+                  @touchmove.prevent="handleTouchMove($event)"
+                  @touchend="handleTouchEnd"
                 >
                   <img :src="img">
                   <span class="remove" @click="removeImage(index)">×</span>
@@ -144,6 +147,77 @@ const newTag = ref('')
 // 拖拽相关状态
 const dragIndex = ref(null)
 const dragTarget = ref(null)
+const touchStartY = ref(0)
+const touchStartIndex = ref(null)
+const touchElement = ref(null)
+const initialY = ref(0)
+
+// 处理触摸开始
+const handleTouchStart = (e, index) => {
+  touchStartIndex.value = index
+  touchElement.value = e.target.closest('.preview-item')
+  
+  const touch = e.touches[0]
+  touchStartY.value = touch.pageY
+  initialY.value = touch.pageY
+  
+  // 添加拖动样式
+  touchElement.value.classList.add('dragging')
+  touchElement.value.style.position = 'relative'
+  touchElement.value.style.zIndex = '1000'
+}
+
+// 处理触摸移动
+const handleTouchMove = (e) => {
+  if (!touchElement.value) return
+  
+  const touch = e.touches[0]
+  const currentY = touch.pageY
+  const deltaY = currentY - touchStartY.value
+  
+  // 移动元素
+  touchElement.value.style.transform = `translateY(${deltaY}px)`
+  
+  // 检查是否需要交换位置
+  const elements = document.querySelectorAll('.preview-item')
+  const elementHeight = elements[0].offsetHeight
+  const moveThreshold = elementHeight / 2
+  
+  elements.forEach((el, index) => {
+    if (el === touchElement.value) return
+    
+    const rect = el.getBoundingClientRect()
+    const centerY = rect.top + rect.height / 2
+    
+    if (Math.abs(touch.clientY - centerY) < moveThreshold) {
+      // 交换位置
+      if (index !== touchStartIndex.value) {
+        const images = [...workForm.value.pictures]
+        const [removed] = images.splice(touchStartIndex.value, 1)
+        images.splice(index, 0, removed)
+        workForm.value.pictures = images
+        touchStartIndex.value = index
+      }
+    }
+  })
+}
+
+// 处理触摸结束
+const handleTouchEnd = () => {
+  if (!touchElement.value) return
+  
+  // 移除拖动样式
+  touchElement.value.classList.remove('dragging')
+  touchElement.value.style.position = ''
+  touchElement.value.style.zIndex = ''
+  touchElement.value.style.transform = ''
+  
+  // 重置状态
+  touchStartIndex.value = null
+  touchElement.value = null
+  touchStartY.value = 0
+  initialY.value = 0
+}
 
 // 开始拖拽
 const handleDragStart = (e, index) => {
