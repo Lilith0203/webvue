@@ -1,8 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from '../api'
-
+import { marked } from 'marked'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
@@ -19,11 +19,24 @@ const fetchArticle = async () => {
   try {
     const response = await axios.get(`/article/${route.params.id}`)
     article.value = response.data.article
+    if (article.value.content) {
+      article.value.renderedContent = renderContent(article.value.content)
+    }
   } catch (err) {
     error.value = "获取文章失败：" + err.message
     console.error('Fetch error:', err)
   } finally {
     loading.value = false
+  }
+}
+
+const renderContent = (content) => {
+    if (!content) return ''
+    try {
+    return marked(content)
+  } catch (err) {
+    console.error('Markdown parsing error:', err)
+    return content
   }
 }
 
@@ -46,7 +59,7 @@ onMounted(() => {
             <a v-for="tag in article.tags">{{ tag }}</a>
         </p>
       </div>
-      <div class="article-content" v-html="article.content"></div>
+      <div class="article-content" v-html="article.renderedContent"></div>
     </article>
   </div>
 </template>
@@ -75,20 +88,27 @@ onMounted(() => {
 
 :deep(.article-content p) {
   text-indent: 2em;
-  line-height: 1.5;
+  line-height: 1.8em;
   margin-bottom: 6px;
   text-align: left;
 }
 
 :deep(.article-content ul), 
 :deep(.article-content ol) {
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.6em;
   margin-bottom: 6px;
   text-align: left;
 }
 
 :deep(.article-content h1) {
+  line-height: 2;
+  margin-top: 10px;
+  font-weight: bold;
+  text-align: left;
+}
+
+:deep(.article-content h3) {
   line-height: 2;
   margin-top: 10px;
   font-weight: bold;

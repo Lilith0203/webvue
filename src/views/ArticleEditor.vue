@@ -51,17 +51,6 @@
           </div>
         </div>
   
-        <!-- 摘要 -->
-        <div class="form-group">
-          <label for="abbr">摘要</label>
-          <textarea 
-            id="abbr"
-            v-model="articleForm.abbr"
-            rows="3"
-            placeholder="请输入文章摘要"
-          ></textarea>
-        </div>
-  
         <!-- 内容 -->
         <div class="form-group">
           <label for="content">内容</label>
@@ -71,18 +60,55 @@
             <button type="button" @click="insertMarkdown('### ')">标题</button>
             <button type="button" @click="insertMarkdown('> ')">引用</button>
             <button type="button" @click="insertMarkdown('- ')">列表</button>
+            <button type="button" @click="insertMarkdown('[]() ')">链接</button>
             <button type="button" @click="insertMarkdown('```\n', '\n```')">代码块</button>
+
+            <button type="button" @click="triggerImageUpload">插入图片</button>
+            <input 
+              type="file"
+              ref="imageInput"
+              @change="handleImageUpload"
+              accept="image/*"
+              style="display: none"
+            >
           </div>
+
+          <!-- 添加拖拽上传区域 -->
+        <div 
+          class="editor-container"
+          @drop.prevent="handleDrop"
+          @dragover.prevent="handleDragOver"
+          @dragleave.prevent="handleDragLeave"
+          :class="{ 'drag-over': isDragging }"
+        >
           <textarea 
             id="content"
             v-model="articleForm.content"
-            rows="15"
+            rows="20"
             required
             placeholder="请输入文章内容（支持Markdown）"
             ref="contentEditor"
           ></textarea>
+
+          <!-- 上传进度提示 -->
+          <div v-if="uploading" class="upload-progress">
+            <div class="progress-bar" :style="{ width: uploadProgress + '%' }"></div>
+            <span>上传中... {{ uploadProgress }}%</span>
+          </div>
+        </div>
           <!-- 预览区域 -->
           <div v-if="showPreview" class="markdown-preview" v-html="renderedContent"></div>
+        </div>
+
+        <!-- 摘要 -->
+        <div class="form-group">
+          <label for="abbr">摘要</label>
+          <textarea 
+            id="abbr"
+            v-model="articleForm.abbr"
+            rows="3"
+            placeholder="请输入文章摘要"
+          ></textarea>
         </div>
   
         <!-- 控制按钮 -->
@@ -118,7 +144,13 @@
   // 判断是否为编辑模式
   const isEdit = computed(() => !!route.params.id)
   const loading = ref(false)
-  
+  const newTag = ref('')
+  const showPreview = ref(false)
+  const contentEditor = ref(null)
+  const imageInput = ref(null)
+  const isDragging = ref(false)
+  const uploading = ref(false)
+  const uploadProgress = ref(0)
   // 表单数据
   const articleForm = ref({
     title: '',
@@ -126,10 +158,102 @@
     abbr: '',
     content: ''
   })
+
+    // 触发文件选择
+  const triggerImageUpload = () => {
+    imageInput.value.click()
+  }
+
+  // 处理文件上传
+  const uploadImage = async (file) => {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('请选择图片文件')
+      return
+    }
+
+    uploading.value = true
+    uploadProgress.value = 0
+
+    try {
+      // 创建 FormData
+      const formData = new FormData()
+      formData.append('file', file);
+      formData.append('folder', 'article');
+
+      // 发送上传请求
+      const response = await axios.post('/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+        onUploadProgress: (progressEvent) => {
+          uploadProgress.value = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          )
+        }
+      })
+
+      // 获取图片URL
+      const imageUrl = response.data.url
+
+      // 在光标位置插入Markdown图片语法
+      insertImageMarkdown(imageUrl)
+    } catch (error) {
+      console.error('上传失败:', error)
+      alert('图片上传失败')
+    } finally {
+      uploading.value = false
+      uploadProgress.value = 0
+    }
+  }
+
+  // 插入Markdown图片语法
+const insertImageMarkdown = (imageUrl) => {
+  const textarea = contentEditor.value
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const content = articleForm.value.content
   
-  const newTag = ref('')
-  const showPreview = ref(false)
-  const contentEditor = ref(null)
+  const imageMarkdown = `![image](${imageUrl})`
+  articleForm.value.content = 
+    content.substring(0, start) + 
+    imageMarkdown + 
+    content.substring(end)
+  
+  // 设置光标位置
+  setTimeout(() => {
+    textarea.focus()
+    const newPosition = start + imageMarkdown.length
+    textarea.setSelectionRange(newPosition, newPosition)
+  })
+}
+
+// 处理文件选择
+const handleImageUpload = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    uploadImage(file)
+  }
+  // 清除选择，允许重复选择同一文件
+  event.target.value = ''
+}
+
+// 处理拖拽
+const handleDragOver = (event) => {
+  isDragging.value = true
+  event.dataTransfer.dropEffect = 'copy'
+}
+
+const handleDragLeave = () => {
+  isDragging.value = false
+}
+
+const handleDrop = (event) => {
+  isDragging.value = false
+  const file = event.dataTransfer.files[0]
+  if (file) {
+    uploadImage(file)
+  }
+}
   
   // 获取文章详情
   const fetchArticle = async () => {
@@ -278,8 +402,24 @@ textarea {
 }
 
 textarea {
+  width: 100%;
+  min-height: 300px;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 14px;
+  line-height: 1.5;
   resize: vertical;
+}
+
+textarea#abbr {
   min-height: 100px;
+} 
+
+textarea:focus {
+  outline: none;
+  border-color: #42b883;
 }
 
 .tags-input {
@@ -408,6 +548,40 @@ textarea {
     border-radius: 4px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   }
+
+  /* 编辑器容器样式 */
+.editor-container {
+  position: relative;
+  border: 2px dashed transparent;
+  transition: border-color 0.3s;
+}
+
+.editor-container.drag-over {
+  border-color: #42b883;
+}
+
+/* 上传进度条样式 */
+.upload-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.progress-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background: #42b883;
+  opacity: 0.2;
+  transition: width 0.3s;
+}
 
 /* 响应式设计 */
 @media (max-width: 768px) {

@@ -172,9 +172,11 @@ const authStore = useAuthStore()
   
   // 预设颜色
   const presetColors = ref([
-    '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF',
-    '#FFFF00', '#FF00FF', '#00FFFF', '#FFA500', '#800080',
-    '#008000', '#800000', '#008080', '#FFC0CB', '#A52A2A',
+    '#000000', '#FFFFFF', '#0000FF', '#001166', '#FFFC9E',
+    '#A30000', '#FFD1DF', '#FEE22A', '#C2EBFF', '#8BB1FE',
+    '#B68FF0', '#FBF4DA', '#BABABA', '#D6FFAD', '#FF6666',
+    '#268000', '#FFBF0F', '#7CE4B3', '#491313', '#FEB690',
+    '#FFD700', '#808080', '#F0E68C', '#E6E6FA', '#98FB98',
     '#FFD700', '#808080', '#F0E68C', '#E6E6FA', '#98FB98'
   ])
 
@@ -217,8 +219,11 @@ const saveCurrentGrid = async() => {
   }
 
   try {
-    await axios.post('/grid/save', gridData)
+    const response = await axios.post('/grid/save', gridData)
+    gridId.value = response.data.id;
+    console.log(gridData.id)
     await fetchSavedGrids() // 重新加载暂存列表
+    alert('保存成功')
   } catch (error) {
     console.error('保存失败:', error)
   }
@@ -229,6 +234,7 @@ const loadSavedGrid = async (savedGrid) => {
   gridId.value = savedGrid.id
   gridSize.value = savedGrid.size
   gridCells.value = savedGrid.cells
+  showSavedGrids.value = false
 }
 
 // 删除暂存的网格
@@ -679,7 +685,7 @@ const deleteSavedGrid = async (id) => {
   }
 
   .floating-window {
-    width: 95%;
+    width: auto;
     max-height: 95vh;
   }
 

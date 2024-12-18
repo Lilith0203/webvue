@@ -1,6 +1,6 @@
 <script setup>
 import axios from '../api'
-
+import ImagePreview from '../components/ImagePreview.vue'
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useAuthStore } from '../stores/auth'
 
@@ -19,6 +19,24 @@ const displayLimit = ref(50)
 const fileInput = ref(null)
 const uploadProgress = ref(0)
 const uploadError = ref(null)
+// 图片预览状态
+const previewVisible = ref(false)
+const previewImage = ref('')
+const previewTitle = ref('')
+
+// 显示图片预览
+const showImagePreview = (url, name) => {
+  previewImage.value = url
+  previewTitle.value = name
+  previewVisible.value = true
+}
+
+// 关闭图片预览
+const closePreview = () => {
+  previewVisible.value = false
+  previewImage.value = ''
+  previewTitle.value = ''
+}
 
 // 触发文件选择
 const triggerFileInput = (rowId) => {
@@ -56,7 +74,7 @@ const handleFileUpload = async (event, rowId) => {
 
     const formData = new FormData()
     formData.append('file', file)
-
+    formData.append('folder', 'material');
     const response = await axios.post('/upload', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
@@ -205,7 +223,6 @@ const newMaterialForm = ref({
   shop: '',
   note: '',
   link: '',
-  pic: ''
 })
 
 // 重置表单
@@ -221,8 +238,7 @@ const resetForm = () => {
     stock: '',
     shop: '',
     note: '',
-    link: '',
-    pic: ''
+    link: ''
   }
 }
 
@@ -283,36 +299,6 @@ const searchForm = ref({
   substance: '',
   shape: '',
   color: ''
-})
-
-// 过滤后的数据
-const filteredMaterialData = computed(() => {
-  if (!materialData.value) return []
-  
-  return materialData.value.filter(item => {
-    // ... 其他过滤条件 ...
-    
-    // 类型搜索（包含子类型）
-    if (searchForm.value.type.length > 0) {
-      // 获取当前项的类型及其所有父类型
-      const itemType = item.type
-      const itemOption = typeOptions.value.find(opt => opt.value === itemType)
-      if (!itemOption) return false
-      
-      // 检查是否匹配任何选中的类型或其子类型
-      const matchesType = searchForm.value.type.some(selectedId => {
-        const selectedOption = typeOptions.value.find(opt => opt.value === selectedId)
-        if (!selectedOption) return false
-        
-        // 如果当前项的类型是选中类型的子类型，或者相同，则匹配
-        return itemOption.path.startsWith(selectedOption.path)
-      })
-      
-      if (!matchesType) return false
-    }
-    
-    return true
-  })
 })
 
 // 重置搜索条件
@@ -641,7 +627,8 @@ const getTypeName = (typeId) => {
         </div>
         
         <div class="form-grid">
-          <div v-for="(config, key) in columns" :key="key" class="form-item">
+          <div v-for="(config, key) in columns" :key="key" class="form-item"
+            :style="{display: key!=='pic'?'block':'none'}">
             <template v-if="key !== 'id'">
               <label v-if="key !== 'actions'">{{ config.label }}</label>
               <template v-if="key === 'type'">
@@ -844,8 +831,13 @@ const getTypeName = (typeId) => {
                                 </template>
                                 <!-- 其他列的显示逻辑 -->
                                 <template v-else>
-                                <template v-if="key === 'link' || key === 'pic'">
+                                <template v-if="key === 'link'">
                                     <a v-if="row[key]" :href="row[key]" target="_blank">查看</a>
+                                </template>
+                                <template v-else-if="key === 'pic'">
+                                  <div class="pic-preview" @click="showImagePreview(row.pic, row.name)">
+                                    <a v-if="row.pic">查看</a>
+                                  </div>
                                 </template>
                                 <template v-else>
                                     {{ row[key] }}
@@ -982,6 +974,14 @@ const getTypeName = (typeId) => {
     </div>
     </div>
   </div>
+
+  <!-- 添加图片预览组件 -->
+  <ImagePreview
+      :visible="previewVisible"
+      :image-url="previewImage"
+      :title="previewTitle"
+      @close="closePreview"
+    />
 </template>
 
 <style scoped>
@@ -1015,6 +1015,10 @@ const getTypeName = (typeId) => {
 /* 确保表格底部有足够空间显示按钮 */
 .table-wrapper {
   margin-bottom: 20px;
+}
+
+.table-wrapper a {
+  cursor: pointer;
 }
 
 .content-wrapper {
