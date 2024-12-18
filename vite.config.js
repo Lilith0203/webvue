@@ -11,7 +11,16 @@ export default defineConfig({
     vueDevTools(),
   ],
   build: {
-    outDir: '../webapp/view'
+    outDir: '../webapp/view',
+    emptyOutDir: true,  // 添加这行，在构建前清空输出目录
+    rollupOptions: {
+      output: {
+        // 对打包文件进行命名
+        entryFileNames: `assets/[name].[hash].js`,
+        chunkFileNames: `assets/[name].[hash].js`,
+        assetFileNames: `assets/[name].[hash].[ext]`
+      }
+    }
   },
   resolve: {
     alias: {

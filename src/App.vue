@@ -16,8 +16,8 @@ const menuConfig = [
   {
     label: '手工',
     key: 'work',
-    path: '/work',
     children: [
+      {label: '杂货铺', path: '/works'},
       {label: '材料整理', path: '/material'},
       {label: '格子图工具', path: '/painter'},
     ]
@@ -102,7 +102,7 @@ const handleLogout = async () => {
 <template>
   <header>
     <div class="wrapper">
-      <Banner msg="Lilith" />
+      <Banner msg="&nbsp;" />
 
       <nav>
         <!-- 遍历生成菜单 -->

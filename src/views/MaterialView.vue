@@ -566,7 +566,6 @@ const getTypeName = (typeId) => {
 <template>
   <div class="content-wrapper">
     <!-- 列设置按钮和下拉菜单 -->
-    <a :href="/work/" class="a-back">&lt;&lt;返回</a>
     <div class="table-controls">
       <div class="column-settings">
         <button 
@@ -575,6 +574,13 @@ const getTypeName = (typeId) => {
         >
           列设置
         </button>
+        <RouterLink 
+          v-if="canEdit"
+          to="/material/type"
+          class="settings-btn"
+        >
+          分类管理
+        </RouterLink>
         <div 
           v-if="isColumnSettingsVisible" 
           class="column-dropdown"
@@ -1163,9 +1169,12 @@ a:hover {
 }
 
 .settings-btn {
-    font-size: 12px;
+  font-size: 12px;
   background-color: #666;
   color: white;
+  display: inline-block;
+  margin-right: 10px;
+  border-radius: 4px;
 }
 
 .column-dropdown {

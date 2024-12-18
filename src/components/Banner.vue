@@ -35,6 +35,13 @@ h3 {
   text-align: center;
 }
 
+.greetings h1 {
+  width: 200px;
+  margin: 0 auto;
+  background: url('http://lilithu.oss-cn-shanghai.aliyuncs.com/images/article-logo.png') no-repeat center center;
+  background-size: 100% auto;
+}
+
 @media (min-width: 1024px) {
   .greetings h1,
   .greetings h3 {

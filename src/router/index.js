@@ -3,6 +3,7 @@ import HomeView from '../views/HomeView.vue'
 import ArticleView from '../views/ArticleView.vue'
 import ArticleDetailView from '../views/ArticleDetailView.vue'
 import WorkView from '../views/WorkView.vue'
+import WorkDetailView from '../views/WorkDetailView.vue'
 import MaterialView from '../views/MaterialView.vue'
 import MaterialType from '../components/MaterialType.vue'
 import GridPainter from '../components/GridPainter.vue'
@@ -38,9 +39,14 @@ const router = createRouter({
       component: () => import('../views/ArticleEditor.vue')
     },
     {
-      path: '/work',
-      name: 'work',
+      path: '/works',
+      name: 'works',
       component: WorkView,
+    },
+    {
+      path: '/works/:id',
+      name: 'workDetail',
+      component: WorkDetailView
     },
     {
       path: '/painter',
@@ -77,7 +83,9 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   const privatePages = [
-    '/material/type'
+    '/material/type',
+    '/publish',
+    '/article/:id/edit'
   ]
   const authRequired = privatePages.includes(to.path)
 

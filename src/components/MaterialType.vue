@@ -105,7 +105,6 @@ onMounted(() => {
 
 <template>
 <div class="type-manager">
-    <a :href="/work/" class="a-back">&lt;&lt;返回</a>
 
     <!-- 错误提示 -->
     <div v-if="error" class="error">{{ error }}</div>
