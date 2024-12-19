@@ -3,7 +3,7 @@ import { refreshImageUrls } from '../utils/image'
 class ImageRefreshService {
   constructor() {
     this.refreshTimer = null
-    this.refreshInterval = 4 * 60 * 1000 // 4分钟
+    this.refreshInterval = 10 * 60 * 1000 // 4分钟
   }
 
   // 刷新页面上所有static.lilithu.com的图片
