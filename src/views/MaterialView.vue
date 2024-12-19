@@ -906,7 +906,7 @@ const getTypeName = (typeId) => {
                                     <!-- 显示当前图片 -->
                                     <img 
                                       v-if="editForm[key]" 
-                                      :src="editForm[key]" 
+                                      v-image="editForm[key]" 
                                       class="preview-image"
                                       @click="openImageViewer(editForm[key])"
                                     >

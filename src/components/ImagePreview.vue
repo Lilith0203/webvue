@@ -2,7 +2,7 @@
     <Transition name="fade">
       <div v-if="visible" class="image-preview-popup" @click.self="close">
         <div class="preview-content">
-          <img :src="imageUrl" :alt="title || '预览图片'">
+          <img v-image="imageUrl" :alt="title || '预览图片'">
           <div class="preview-title" v-if="title">{{ title }}</div>
           <button class="close-btn" @click="close">&times;</button>
         </div>

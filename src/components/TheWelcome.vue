@@ -47,25 +47,6 @@ onMounted(() => {
       </div>
     </div>
   </div>
-
-  <div class="item">
-    <div class="details">
-      <h3>
-        手作工具
-      </h3>
-      <ul class="article-list">
-        <li>
-          <a :href="`/material`">材料整理</a>
-        </li>
-        <li>
-          <a :href="`/painter`">格子图工具</a>
-        </li>
-        <li v-if="authStore.isAuthenticated">
-          <a :href="`/material/type`">材料分类管理</a>
-        </li>
-      </ul>
-    </div>
-  </div>
 </template>
 
 <style scoped>

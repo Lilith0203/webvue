@@ -16,7 +16,7 @@
         <div class="work-cover" @click="goToDetail(work.id)">
           <img
           v-if="work.pictures && work.pictures.length > 0" 
-          :src="work.pictures[0]" alt="封面">
+          v-image="work.pictures[0]" alt="封面">
           <div v-else class="no-image">
             暂无图片
           </div>
@@ -109,7 +109,7 @@
                   @touchmove.prevent="handleTouchMove($event)"
                   @touchend="handleTouchEnd"
                 >
-                  <img :src="img">
+                  <img v-image="img" class="interactive-image">
                   <span class="remove" @click="removeImage(index)">×</span>
                   <div class="drag-handle">⋮⋮</div>
                 </div>
@@ -128,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
@@ -383,6 +383,9 @@ const formatDate = (date) => {
 
 onMounted(() => {
   fetchWorks()
+})
+
+onUnmounted(() => {
 })
 </script>
 

@@ -3,7 +3,8 @@ import { RouterLink, RouterView } from 'vue-router'
 import Banner from './components/Banner.vue'
 import { useAuthStore } from './stores/auth'
 import { useRouter } from 'vue-router'
-import { ref, onUnmounted, computed, watch} from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch} from 'vue'
+import { imageRefreshService } from './services/imageRefresh'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -37,7 +38,7 @@ const socialLinks = [
   {
     name: 'B站',
     icon: 'iconfont icon-bzhan',
-    qrCode: 'https://lilithu.oss-cn-shanghai.aliyuncs.com/images/default.jpg'
+    qrCode: '/images/bilibili.jpg'
   },
 ]
 
@@ -46,11 +47,7 @@ const submenuHeight = ref(0)
 const menuTimeout = ref(null)
 // 当前显示的二维码索引
 const activeQR = ref(null)
-
-// 计算内容区域的偏移量
-const submenuOffset = computed(() => {
-  return activeMenu.value ? submenuHeight.value : 0
-})
+const isMobile = ref(false)
 
 // 切换子菜单
 const toggleSubmenu = (key) => {
@@ -77,12 +74,23 @@ watch(() => router.path, (newPath) => {
 
 // 显示二维码
 const showQRCode = (index) => {
-  activeQR.value = index
+  if (!isMobile.value) {  // 仅在非移动设备上响应hover
+    activeQR.value = index
+  }
 }
 
 // 隐藏二维码
 const hideQRCode = () => {
-  activeQR.value = null
+  if (!isMobile.value) {  // 仅在非移动设备上响应hover
+    activeQR.value = null
+  }
+}
+
+// 切换二维码显示（用于移动端点击）
+const toggleQRCode = (index) => {
+  if (isMobile.value) {
+    activeQR.value = activeQR.value === index ? null : index
+  }
 }
 
 // 组件卸载时清理定时器
@@ -90,12 +98,20 @@ onUnmounted(() => {
   if (menuTimeout.value) {
     clearTimeout(menuTimeout.value)
   }
+  // 停止自动刷新服务
+  imageRefreshService.stopAutoRefresh()
 })
 
 const handleLogout = async () => {
   authStore.clearAuth()
   await router.push('/login')
 }
+
+onMounted(() => {
+  isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  // 启动自动刷新服务
+  imageRefreshService.startAutoRefresh()
+})
 
 </script>
 
@@ -154,7 +170,8 @@ const handleLogout = async () => {
               v-for="(item, index) in socialLinks" 
               :key="index"
               @mouseenter="showQRCode(index)"
-              @mouseleave="hideQRCode">
+              @mouseleave="hideQRCode"
+              @click="toggleQRCode(index)">
             <div class="social-icon">
               <i :class="item.icon"></i>
             </div>

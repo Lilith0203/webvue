@@ -68,7 +68,7 @@
                   @touchmove.prevent="handleTouchMove($event)"
                   @touchend="handleTouchEnd"
                 >
-                  <img :src="img">
+                  <img v-image="img" class="interactive-image">
                   <span class="remove" @click="removeImage(index)">×</span>
                   <div class="drag-handle">⋮⋮</div>
                 </div>
@@ -87,7 +87,7 @@
           <!-- 图片画廊 -->
           <div class="gallery">
             <div class="gallery-main">
-              <img :src="currentImage" alt="主图">
+              <img v-image="currentImage" alt="主图">
               <button 
                 class="gallery-nav prev" 
                 @click="prevImage"
@@ -112,7 +112,7 @@
                 :class="{ active: index === currentImageIndex }"
                 @click="selectImage(index)"
               >
-                <img :src="img" :alt="`缩略图 ${index + 1}`">
+                <img v-image="img" :alt="`缩略图 ${index + 1}`">
               </div>
             </div>
           </div>
