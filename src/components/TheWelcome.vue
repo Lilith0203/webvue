@@ -15,7 +15,7 @@ const fetchData = async () => {
   error.value = null
 
   try {
-    const response = await axios.get('/article?size=5')
+    const response = await axios.get('/article?size=6')
     backendData.value = response.data
   } catch (err) {
     error.value = "获取数据失败：" + err.message
@@ -39,14 +39,12 @@ onMounted(() => {
       </h3>
       <div v-if="loading">加载中……</div>
       <div v-else-if="error" class="error">{{ error }}</div>
-      <div v-if="backendData">
-        <span>共 {{ backendData.count }} 篇</span>
-        <ul class="article-list">
-          <li v-for="article in backendData.articles" :key="article.id">
+      <div v-if="backendData" class="article-list">
+        <span class="article-count">共 {{ backendData.count }} 篇</span>
+        <section v-for="article in backendData.articles" :key="article.id">
             <a :href="`/article/${article.id}`">{{ article.title }}</a>
-          </li>
-        </ul>
-        <span><a :href="`/article`">更多…</a></span>
+        </section>
+        <span class="more"><a :href="`/article`">更多…</a></span>
       </div>
     </div>
 </template>
@@ -60,7 +58,6 @@ onMounted(() => {
 .article-title {
     font-size: 1rem;
     color: var(--color-heading);
-    margin-bottom: 10px;
     text-align: center;
     display: flex;
     justify-content: center;
@@ -75,12 +72,42 @@ onMounted(() => {
   .article-title a {
     color: var(--color-text);
     padding: 0 10px;
+    font-weight: bold;
   }
 
-  .icon-huawen1, .icon-huawen2 {
+.article-list {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.article-count {
+  color: #949494;
+}
+
+.article-list section {
+  width: 100%;
+  text-align: center;
+  line-height: 2;
+}
+
+.article-list a {
+  color: var(--color-text);
+}
+
+.article-list a:hover {
+  color: hsla(160, 100%, 37%, 1);
+}
+
+.more a {
+  color: hsla(160, 100%, 37%, 1);
+}
+
+.icon-huawen1, .icon-huawen2 {
     font-size: 1.5rem;
     color: var(--color-text);
-  }
+}
 
 @media (min-width: 1024px) {
   .article-title {

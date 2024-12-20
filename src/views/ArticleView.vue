@@ -42,7 +42,6 @@ const handleDelete = async (id) => {
     await fetchData()
   } catch (error) {
     console.error('删除失败:', error)
-    alert('删除文章失败：' + error.message)
   } finally {
   }
 }
@@ -75,7 +74,7 @@ onMounted(() => {
             <p>{{article.abbr}}
               <a :href="`/article/${article.id}`" class="read-detail">（阅读全文）</a>
               <span v-if="authStore.isAuthenticated"><a :href="`/article/${article.id}/edit`">编辑</a></span>
-              <a href="#" @click.prevent="handleDelete(article.id)">删除</a>
+              <a v-if="authStore.isAuthenticated" href="#" @click.prevent="handleDelete(article.id)">删除</a>
             </p>
           </div>
         </article>

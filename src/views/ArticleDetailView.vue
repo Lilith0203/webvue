@@ -153,6 +153,10 @@ onMounted(() => {
   border-bottom: 1px dashed #C9DFFB;
 }
 
+:deep(.article-content strong) {
+  font-weight: bold;
+}
+
 :deep(.article-content .demo) {
   display: inline-block;
   width: 60px;
@@ -175,13 +179,15 @@ onMounted(() => {
   margin: 10px 35px;
   font-size: 13px;
   font-family: inherit;
+  color: #575757;
 }
 
 :deep(.article-content img) {
+  display: block;
   max-width: 100%;
   border: 3px solid #fff;
   box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.2);
-  margin: 8px 0;
+  margin: 8px auto;
 }
 
 :deep(.article-content blockquote) {

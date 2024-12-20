@@ -113,6 +113,7 @@ const thumbnailWorks = computed(() => {
   .gallery-title a {
     color: var(--color-font);
     padding: 0 10px;
+    font-weight: bold;
   }
 
   .gallery-title a:hover {

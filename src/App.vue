@@ -171,8 +171,8 @@ onMounted(() => {
           </div>
         </template>
       </nav>
-      
-        <div class="social-links" >
+
+      <div class="social-links" >
           <span>欢迎关注：</span>
           <div class="social-item" 
               v-for="(item, index) in socialLinks" 
@@ -192,7 +192,8 @@ onMounted(() => {
         </div>
           
         <div v-if="authStore.isAuthenticated" class="logout">
-          <a href="#" @click.prevent="handleLogout">退出登录</a></div>
+          <button type="button" @click.prevent="handleLogout">退出</button>
+        </div>
     </div>
   </header>
 
@@ -205,6 +206,8 @@ onMounted(() => {
 header {
   line-height: 1.3;
   max-height: 100vh;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--color-border);
 }
 
 .logo {
@@ -215,7 +218,7 @@ header {
 nav {
   width: 100%;
   text-align: center;
-  margin: 0.5rem 0;
+  margin: 0.5rem 0 0 0;
   display: flex;  /* 添加 flex 布局 */
   align-items: center;  /* 垂直居中 */
   justify-content: center;
@@ -302,15 +305,26 @@ nav a.router-link-exact-active {
 
 .logout {
   position: absolute;
-  top: 10px;
-  right: 30px;
+  top: 15px;
+  right: 15px;
+}
+
+.logout button {
+  font-size: 12px;
+  background-color: #f44336; /* 红色 */
+  color: white;
+  padding: 3px 6px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
 }
 
 .social-links {
   display: flex;
-  gap: 20px;
+  justify-content: center;
   line-height: 32px;
-  padding-left: 10px;
+  width: 100%;
+  font-size: 14px;
 }
 
 .social-item {
@@ -327,7 +341,7 @@ nav a.router-link-exact-active {
 }
 
 .social-icon i {
-  font-size: 32px;
+  font-size: 26px;
   transition: color 0.3s;
 }
 
@@ -385,10 +399,13 @@ nav a.router-link-exact-active {
     place-items: center;
     margin-right: calc(var(--section-gap) / 2);
     border-right: 1px dashed var(--color-border);
+    border-bottom: none;
   }
 
   .logout {
-    margin-top: 60px;
+    position: initial;
+    width: 100%;
+    margin-top: 20px;
   }
 
   .logo {
@@ -413,6 +430,7 @@ nav a.router-link-exact-active {
   .router-view-container {
     transition: margin-top 0.3s ease;
     min-width: 800px;
+    max-width: 800px;
   }
 
   .qr-popup img {
@@ -421,7 +439,8 @@ nav a.router-link-exact-active {
   }
 
   .social-links {
-    padding-left: 0px;
+    justify-content: left;
+    font-size: 15px;
   }
 }
 </style>
