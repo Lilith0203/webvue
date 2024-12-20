@@ -12,6 +12,7 @@ const router = useRouter()
 const menuConfig = [
   {
     label: 'Home',
+    key: 'home',
     path: '/',
   },
   {
@@ -25,10 +26,12 @@ const menuConfig = [
   },
   {
     label: '文章',
+    key: 'article',
     path: '/article',
   },
   {
     label: 'About',
+    key: 'about',
     path: '/about',
   }
 ]
@@ -128,7 +131,11 @@ onMounted(() => {
               v-if="!menu.children" 
               :to="menu.path"
               class="nav-link">
-            {{ menu.label }}
+              <div class="nav-link-text">
+                <i class="iconfont icon-huawen"></i>
+                {{ menu.label }}
+                <i v-if="menu.key===`about`" class="iconfont icon-huawen"></i>
+              </div>
           </RouterLink>
 
           <!-- 带子菜单的菜单项 -->
@@ -137,9 +144,10 @@ onMounted(() => {
             class="submenu-container">
 
             <div 
-              class="submenu-trigger"
+              class="submenu-trigger green"
               @click="toggleSubmenu(menu.key)"
             >
+            <i class="iconfont icon-huawen"></i>
             {{ menu.label }}
           </div>
           
@@ -206,37 +214,38 @@ header {
 
 nav {
   width: 100%;
-  font-size: 14px;
   text-align: center;
-  margin-top: 1rem;
-  position: relative;
-}
-
-nav a.router-link-exact-active {
-  color: var(--color-text);
-}
-
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
+  margin: 0.5rem 0;
+  display: flex;  /* 添加 flex 布局 */
+  align-items: center;  /* 垂直居中 */
+  justify-content: center;
 }
 
 nav a {
   display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
 }
 
 nav a:first-of-type {
   border: 0;
 }
 
-.nav-link,
+.nav-link-text,
 .submenu-trigger {
-  display: inline-block;
-  padding: 12px 16px;
+  padding: 0px 0px;
   text-decoration: none;
   cursor: pointer;
-  color: hsla(160, 100%, 37%, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.submenu-trigger:hover,
+.nav-link-text:hover {
+  color: var(--color-text);
+}
+
+nav a.router-link-exact-active {
+  color: var(--color-text);
 }
 
 .submenu {
@@ -275,13 +284,6 @@ nav a:first-of-type {
 .submenu-container {
   display: inline-block;
   position: relative;
-  border-left: 1px solid var(--color-border);
-}
-
-.submenu-trigger {
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 /* 箭头图标 */
@@ -307,8 +309,8 @@ nav a:first-of-type {
 .social-links {
   display: flex;
   gap: 20px;
-  padding: 20px 10px 0 0;
   line-height: 32px;
+  padding-left: 10px;
 }
 
 .social-item {
@@ -332,7 +334,6 @@ nav a:first-of-type {
 /* 二维码弹出层样式 */
 .qr-popup {
   position: absolute;
-  bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
   background: white;
@@ -340,7 +341,7 @@ nav a:first-of-type {
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   z-index: 1000;
-  margin-bottom: 10px;
+  margin-top: 10px;
   
   /* 添加动画 */
   animation: fadeIn 0.3s ease;
@@ -349,17 +350,21 @@ nav a:first-of-type {
 .qr-popup::after {
   content: '';
   position: absolute;
-  top: 100%;
+  top: -16px;
   left: 50%;
   transform: translateX(-50%);
   border: 8px solid transparent;
-  border-top-color: white;
+  border-bottom-color: white;
 }
 
 .qr-popup img {
-  width: 120px;
-  height: 120px;
+  width: 240px;
+  height: 240px;
   display: block;
+}
+
+.icon-huawen {
+  font-size: 28px;
 }
 
 @keyframes fadeIn {
@@ -375,11 +380,11 @@ nav a:first-of-type {
 
 @media (min-width: 1024px) {
   header {
-    width: 400px;
-    min-width: 390px;
+    width: 340px;
     display: flex;
     place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
+    margin-right: calc(var(--section-gap) / 2);
+    border-right: 1px dashed var(--color-border);
   }
 
   .logout {
@@ -400,7 +405,7 @@ nav a:first-of-type {
     text-align: left;
     margin-left: -1rem;
     font-size: 1rem;
-
+    justify-content: left;
     padding: 1rem 0;
     margin-top: 1rem;
   }
@@ -411,8 +416,12 @@ nav a:first-of-type {
   }
 
   .qr-popup img {
-    width: 240px;
-    height: 240px;
+    width: 280px;
+    height: 280px;
+  }
+
+  .social-links {
+    padding-left: 0px;
   }
 }
 </style>

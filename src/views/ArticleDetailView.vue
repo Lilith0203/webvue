@@ -12,6 +12,25 @@ const route = useRoute()
 const article = ref(null)
 const loading = ref(false)
 const error = ref(null)
+// 修改 marked 渲染器配置
+const renderer = new marked.Renderer()
+
+// 自定义链接渲染
+renderer.link = (link) => {
+  // 确保 href 是字符串
+  const url = link.href || ''
+  
+  // 检查是否为外部链接
+  const isExternal = url.startsWith('http') || url.startsWith('https')
+  const attrs = [
+    `href="${url}"`,
+    isExternal ? 'target="_blank"' : '',  // 外部链接添加 target="_blank"
+    isExternal ? 'rel="noopener noreferrer"' : '',  // 安全属性
+    link.title ? `title="${title}"` : ''
+  ].filter(Boolean).join(' ')
+  
+  return `<a ${attrs}>${link.text}</a>`
+}
 
 const fetchArticle = async () => {
   loading.value = true
@@ -32,6 +51,9 @@ const fetchArticle = async () => {
     loading.value = false
   }
 }
+
+// 使用自定义渲染器
+marked.use({ renderer })
 
 // 处理文章内容中的图片链接
 const processContent = async (content) => {

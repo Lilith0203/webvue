@@ -1,7 +1,10 @@
 <!-- components/WorkGallery.vue -->
 <template>
     <div class="work-gallery">
-      <h3 class="gallery-title">作品展示</h3>
+      <h3 class="gallery-title">
+        <i class="iconfont icon-huawen2"></i>
+        <a :href="`/works`">作品展示</a>
+        <i class="iconfont icon-huawen1"></i></h3>
       <div class="gallery-grid">
         <div v-for="work in thumbnailWorks" 
              :key="work.id" 
@@ -91,16 +94,34 @@ const thumbnailWorks = computed(() => {
   onMounted(fetchWorks)
   </script>
   
-  <style scoped>
-  .work-gallery {
-    padding: 20px;
-  }
+<style scoped>
+.work-gallery {
+  margin-top: 5px;
+}
   
   .gallery-title {
-    font-size: 1.5rem;
+    font-size: 1.1rem;
     color: var(--color-heading);
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+  }
+
+  .gallery-title a {
+    color: var(--color-font);
+    padding: 0 10px;
+  }
+
+  .gallery-title a:hover {
+    color: var(--color-blue);
+  }
+
+  .icon-huawen1, .icon-huawen2 {
+    font-size: 1.5rem;
+    color: var(--color-text);
   }
   
   .gallery-grid {
@@ -212,7 +233,8 @@ const thumbnailWorks = computed(() => {
     }
   
     .gallery-title {
-      font-size: 1.2rem;
+      font-size: 1rem;
+      margin-bottom: 0px;
     }
   
     .item-name {
