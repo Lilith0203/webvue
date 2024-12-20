@@ -25,7 +25,7 @@
         <!-- 作品信息 -->
         <div class="work-info">
           <h3>{{ work.name }}</h3>
-          <p class="description">{{ work.description }}</p>
+          <!--<p class="description">{{ work.description }}</p>-->
           <div class="tags">
             <span 
               v-for="tag in work.tags" 
@@ -79,7 +79,7 @@
                   class="tag"
                 >
                   {{ tag }}
-                  <span class="remove" @click="removeTag(tag)">×</span>
+                  <span class="tag-remove" @click="removeTag(tag)">×</span>
                 </span>
               </div>
             </div>
@@ -600,6 +600,10 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   color: #999;
+}
+
+.tag-remove {
+  cursor: pointer;
 }
 
 @media (max-width: 768px) {

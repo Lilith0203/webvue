@@ -2,12 +2,13 @@
 import axios from '../api'
 //import axios from 'axios'
 import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 
 const route = useRoute()
+const router = useRouter()
 const backendData = ref(null)
 const loading = ref(false)
 const error = ref(null)
@@ -30,6 +31,19 @@ const fetchData = async () => {
     error.value = "获取数据失败：" + err.message
   } finally {
     loading.value = false
+  }
+}
+
+// 处理删除
+const handleDelete = async (id) => {
+  try {
+    await axios.post(`/article/delete`, {id:id})
+    router.push('/article')
+    await fetchData()
+  } catch (error) {
+    console.error('删除失败:', error)
+    alert('删除文章失败：' + error.message)
+  } finally {
   }
 }
 
@@ -59,8 +73,10 @@ onMounted(() => {
           </div>
           <div class="a-brief-text">
             <p>{{article.abbr}}
-            <a :href="`/article/${article.id}`" class="read-detail">（阅读全文）</a>
-            <span v-if="authStore.isAuthenticated"><a :href="`/article/${article.id}/edit`">编辑</a></span></p>
+              <a :href="`/article/${article.id}`" class="read-detail">（阅读全文）</a>
+              <span v-if="authStore.isAuthenticated"><a :href="`/article/${article.id}/edit`">编辑</a></span>
+              <a href="#" @click.prevent="handleDelete(article.id)">删除</a>
+            </p>
           </div>
         </article>
 

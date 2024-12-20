@@ -37,7 +37,7 @@
                   class="tag"
                 >
                   {{ tag }}
-                  <span class="remove" @click="removeTag(tag)">×</span>
+                  <span class="tag-remove" @click="removeTag(tag)">×</span>
                 </span>
               </div>
             </div>
@@ -587,6 +587,10 @@ const handleDrop = (e) => {
     justify-content: center;
     cursor: pointer;
   }
+
+.tag-remove {
+  cursor: pointer;
+}
   
   .form-actions {
     display: flex;

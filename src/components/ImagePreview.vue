@@ -49,7 +49,7 @@
   }
   
   .preview-content img {
-    max-width: 300px;
+    max-width: 100%;
     max-height: calc(90vh - 60px);
     object-fit: contain;
   }
@@ -82,5 +82,11 @@
   .fade-leave-to {
     opacity: 0;
     transform: scale(0.9);
+  }
+
+  @media (min-width: 1024px) {
+    .preview-content img {
+      max-width: 600px;
+    }
   }
   </style>

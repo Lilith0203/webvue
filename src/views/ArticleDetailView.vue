@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import axios from '../api'
 import { marked } from 'marked'
 import { useAuthStore } from '../stores/auth'
+import { refreshImageUrl} from '../utils/image'
 
 const authStore = useAuthStore()
 
@@ -20,7 +21,9 @@ const fetchArticle = async () => {
     const response = await axios.get(`/article/${route.params.id}`)
     article.value = response.data.article
     if (article.value.content) {
-      article.value.renderedContent = renderContent(article.value.content)
+        // 处理文章内容中的所有图片链接
+      const processedContent = await processContent(article.value.content)
+      article.value.renderedContent = await marked(processedContent)
     }
   } catch (err) {
     error.value = "获取文章失败：" + err.message
@@ -30,14 +33,22 @@ const fetchArticle = async () => {
   }
 }
 
-const renderContent = (content) => {
-    if (!content) return ''
-    try {
-    return marked(content)
-  } catch (err) {
-    console.error('Markdown parsing error:', err)
-    return content
+// 处理文章内容中的图片链接
+const processContent = async (content) => {
+  if (!content) return ''
+
+  // 使用正则表达式匹配Markdown图片语法
+  const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
+  const matches = content.matchAll(imageRegex)
+  
+  let processedContent = content
+  for (const match of matches) {
+    const [fullMatch, alt, url] = match
+    const signedUrl = await refreshImageUrl(url)
+    processedContent = processedContent.replace(fullMatch, `![${alt}](${signedUrl})`)
   }
+
+  return processedContent
 }
 
 onMounted(() => {

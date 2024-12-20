@@ -2,6 +2,7 @@
 import axios from '../api'
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import WorkGallery from '../components/WorkGallery.vue'
 
 const authStore = useAuthStore()
 
@@ -29,6 +30,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <WorkGallery />
   <div class="item">
     <div class="details">
       <h3>

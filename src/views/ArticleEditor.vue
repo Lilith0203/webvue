@@ -213,6 +213,12 @@ const insertImageMarkdown = (imageUrl) => {
   const end = textarea.selectionEnd
   const content = articleForm.value.content
   
+  // 解析 URL
+  const urlObj = new URL(imageUrl);
+  // 移除签名相关参数
+  const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token','x-oss-process'];
+  paramsToRemove.forEach(param => urlObj.searchParams.delete(param));
+  imageUrl = urlObj.toString();
   const imageMarkdown = `![image](${imageUrl})`
   articleForm.value.content = 
     content.substring(0, start) + 
@@ -333,7 +339,8 @@ const handleDrop = (event) => {
   const handleSubmit = async () => {
     try {
       if (isEdit.value) {
-        await axios.put(`/article/${route.params.id}`, articleForm.value)
+        articleForm.value.id = route.params.id
+        await axios.post(`/article/edit`, articleForm.value)
         alert('文章更新成功')
         router.push(`/article/${route.params.id}`)
       } else {
