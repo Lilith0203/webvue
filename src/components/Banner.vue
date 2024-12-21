@@ -11,9 +11,7 @@ defineProps({
   <div class="greetings">
     <h1 class="green">{{ msg }}</h1>
     <h3>
-      常用链接：
-      <a href="https://github.com/Lilith0203/" target="_blank" rel="noopener">Git</a>,
-      <a href="https://www.iconfont.cn/" target="_blank" rel="noopener">iconfont</a> 
+      <p>一个简单的个人网站。</p> 
     </h3>
   </div>
 </template>

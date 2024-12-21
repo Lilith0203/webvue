@@ -80,16 +80,18 @@ onMounted(() => {
 
 <template>
   <div class="article-detail">
-    <a :href="/article/" class="a-back">&lt;&lt;返回列表</a>
+    <a :href="/article/" class="a-back"><i class="iconfont icon-back"></i></a>
     <div v-if="loading" class="loading">加载中...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <article v-else-if="article" class="a-complete">
-      <h1 class="a-title">{{ article.title }}</h1>
-      <p v-if="authStore.isAuthenticated"><a :href="`/article/${article.id}/edit`">编辑</a></p>
+      <h1 class="a-title">{{ article.title }} 
+        <a :href="`/article/${article.id}/edit`" v-if="authStore.isAuthenticated">
+          <i class="iconfont icon-bianji"></i></a>
+      </h1>
       <div class="meta">
         <span class="date">最后更新时间: {{ article.updatedAt }}</span>
         <p v-if="article.tags" class="tags">Tags：
-            <a v-for="tag in article.tags">{{ tag }}</a>
+            <a v-for="tag in article.tags" :href="`/article?tag=${tag}`">{{ tag }}</a>
         </p>
       </div>
       <div class="article-content" v-html="article.renderedContent"></div>
@@ -99,7 +101,7 @@ onMounted(() => {
 
 <style scoped>
 .article-detail {
-    margin: 20px auto 20px;
+    margin: 20px auto 0;
 }
 
 .a-title {
@@ -117,6 +119,37 @@ onMounted(() => {
 .article-content {
     margin-top: 20px;
     font-size: 14px;
+}
+
+.date {
+  font-size: 0.7rem;
+  color: #9da09e;
+}
+
+.tags {
+  margin-top: 0.5rem;
+}
+
+.tags a {
+  padding: 0 0 1px 0;
+  margin-right: 0.3rem;
+  border-bottom: 1px dashed #499e8d;
+}
+
+.tags a:hover {
+  opacity: 0.8;
+}
+
+.icon-back {
+  font-size: 1.5rem;
+}
+
+.icon-bianji {
+  font-size: 1.2rem;
+}
+
+.icon-bianji:hover {
+  border: 1px dashed #9da09e;
 }
 
 :deep(.article-content p) {

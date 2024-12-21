@@ -96,7 +96,7 @@ const thumbnailWorks = computed(() => {
   
 <style scoped>
 .work-gallery {
-  margin-top: 5px;
+  margin: 1rem 0 1rem 0;
 }
   
   .gallery-title {

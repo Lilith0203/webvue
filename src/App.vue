@@ -107,7 +107,7 @@ onUnmounted(() => {
 
 const handleLogout = async () => {
   authStore.clearAuth()
-  await router.push('/login')
+  await router.push('/')
 }
 
 onMounted(() => {
@@ -119,6 +119,16 @@ onMounted(() => {
 </script>
 
 <template>
+  <footer class="top-fixed">
+    <h3 class="links">
+      常用链接：
+      <a href="https://github.com/Lilith0203/" target="_blank" rel="noopener">Git</a>,
+      <a href="https://www.iconfont.cn/" target="_blank" rel="noopener">iconfont</a> 
+    </h3>
+    <div v-if="authStore.isAuthenticated" class="logout">
+      <button type="button" @click.prevent="handleLogout">退出</button>
+    </div>
+  </footer>
   <header>
     <div class="wrapper">
       <Banner msg="&nbsp;" />
@@ -190,24 +200,83 @@ onMounted(() => {
             </div>
           </div>
         </div>
-          
-        <div v-if="authStore.isAuthenticated" class="logout">
-          <button type="button" @click.prevent="handleLogout">退出</button>
-        </div>
+        
     </div>
   </header>
 
   <div class="router-view-container">
     <RouterView />
   </div>
+
+  <footer class="bottom-fixed">
+    <p>Copyright © 2024-2024 沪ICP备2024106280号</p>
+  </footer>
 </template>
 
 <style scoped>
+.top-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 30px;
+  background-color: #3E3E3E;
+  z-index: 1000;
+  margin-bottom: 10px;
+  line-height: 30px;
+}
+
+.logout {
+  position: absolute;
+  top: 4px;
+  right: 2rem;
+}
+
+.logout button {
+  float: right;
+  font-size: 12px;
+  background-color: var(--color-red);
+  color: white;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.logout button:hover {
+  background-color: var(--color-red-hover);
+}
+
+.bottom-fixed {
+  width: 100%;
+  background-color: #3E3E3E;
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
+  margin-top: 30px;
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+.links {
+  color: #fff;
+  font-size: 0.75rem;
+  margin-left: 2rem;
+}
+
+.links a:hover {
+  color: #fff;
+}
+
 header {
   line-height: 1.3;
   max-height: 100vh;
-  padding-bottom: 8px;
+  padding: 3.5rem 2rem 1rem 2rem;
   border-bottom: 1px dashed var(--color-border);
+}
+
+.router-view-container {
+  padding: 0 2rem 0.5rem;
 }
 
 .logo {
@@ -228,10 +297,6 @@ nav a {
   display: inline-block;
 }
 
-nav a:first-of-type {
-  border: 0;
-}
-
 .nav-link-text,
 .submenu-trigger {
   padding: 0px 0px;
@@ -240,6 +305,7 @@ nav a:first-of-type {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: bold;
 }
 
 .submenu-trigger:hover,
@@ -270,53 +336,12 @@ nav a.router-link-exact-active {
   color: var(--color-text);
   text-decoration: none;
   transition: background-color 0.2s;
-}
-
-/* 子菜单动画 */
-.submenu-enter-active,
-.submenu-leave-active {
-  transition: all 0.3s ease;
-}
-
-.submenu-enter-from,
-.submenu-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
+  border-bottom: 1px dashed var(--color-border);
 }
 
 .submenu-container {
   display: inline-block;
   position: relative;
-}
-
-/* 箭头图标 */
-.arrow {
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid currentColor;
-  transition: transform 0.3s ease;
-}
-
-.arrow-down {
-  transform: rotate(180deg);
-}
-
-.logout {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-}
-
-.logout button {
-  font-size: 12px;
-  background-color: #f44336; /* 红色 */
-  color: white;
-  padding: 3px 6px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
 .social-links {
@@ -394,18 +419,12 @@ nav a.router-link-exact-active {
 
 @media (min-width: 1024px) {
   header {
-    width: 340px;
+    width: 350px;
     display: flex;
     place-items: center;
-    margin-right: calc(var(--section-gap) / 2);
+    padding-right: 0;
     border-right: 1px dashed var(--color-border);
     border-bottom: none;
-  }
-
-  .logout {
-    position: initial;
-    width: 100%;
-    margin-top: 20px;
   }
 
   .logo {

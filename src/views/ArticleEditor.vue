@@ -341,11 +341,11 @@ const handleDrop = (event) => {
       if (isEdit.value) {
         articleForm.value.id = route.params.id
         await axios.post(`/article/edit`, articleForm.value)
-        alert('文章更新成功')
+        //alert('文章更新成功')
         router.push(`/article/${route.params.id}`)
       } else {
         await axios.post('/articleAdd', articleForm.value)
-        alert('文章发布成功')
+        //alert('文章发布成功')
         router.push('/article')
       }
     } catch (error) {

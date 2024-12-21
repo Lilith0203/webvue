@@ -1,9 +1,7 @@
 @import './base.css';
 
 #app {
-  max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
   font-weight: normal;
 }
 
@@ -11,8 +9,10 @@ a,
 .green {
   text-decoration: none;
   color: hsla(160, 100%, 37%, 1);
+  color: #499e8d;
   transition: 0.4s;
   padding: 3px;
+  cursor: pointer;
 }
 
 /* 禁止选择和拖拽 */
@@ -38,7 +38,7 @@ img {
 
   #app {
     display: flex;
+    flex-wrap: wrap;
     grid-template-columns: 1fr 1fr;
-    padding: 0 2rem;
   }
 }
