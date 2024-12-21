@@ -10,8 +10,7 @@
       <div v-if="backendData" class="article-list">
         <span class="article-count">共 {{ backendData.count }} 篇</span>
         <section v-for="article in backendData.articles" :key="article.id">
-            <a :href="`/article/${article.id}`">{{ article.title }}</a>
-            <span class="tags">
+          <span class="tags">
                 <a v-for="tag in article.tags"
                    :href="`/article?tag=${tag}`"
                    :key="tag"
@@ -19,7 +18,8 @@
                    :style="getTagStyle(tag)">
                    {{ tag }}
                 </a>
-            </span>
+          </span>  
+          <a :href="`/article/${article.id}`">{{ article.title }}</a>
         </section>
         <span class="more"><a :href="`/article`">更多…</a></span>
       </div>
@@ -54,7 +54,8 @@ const getTagStyle = (tag) => {
   const textColor = getTextColor(bgColor)
   return {
     backgroundColor: bgColor,
-    color: textColor
+    color: textColor,
+    fontSize: '0.7rem'
   }
 }
 
@@ -125,7 +126,6 @@ onMounted(() => {
 .tags a {
     margin-right: 5px;
     padding: 2px 5px;
-    font-size: 12px;
     border-radius: 4px;
     color: #fff;
     transition: all 0.3s ease;
