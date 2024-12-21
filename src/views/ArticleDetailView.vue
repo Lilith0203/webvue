@@ -101,12 +101,12 @@ onMounted(() => {
 
 <style scoped>
 .article-detail {
-    margin: 20px auto 0;
+    margin: 0px auto 0;
 }
 
 .a-title {
     font-size: 24px;
-    line-height: 3;
+    line-height: 2;
     font-weight: bold;
 }
 

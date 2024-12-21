@@ -125,7 +125,7 @@ onMounted(() => {
 .tags a {
     margin-right: 5px;
     padding: 2px 5px;
-    font-size: 0.7rem;
+    font-size: 12px;
     border-radius: 4px;
     color: #fff;
     transition: all 0.3s ease;

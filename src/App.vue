@@ -330,6 +330,10 @@ nav a.router-link-exact-active {
   z-index: 100;
 }
 
+.submenu a {
+  color: #FA7C9B;
+}
+
 .submenu-item {
   display: block;
   padding: 12px 16px;
