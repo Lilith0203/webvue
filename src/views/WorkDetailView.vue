@@ -1,7 +1,7 @@
 <template>
     <div class="work-detail">
       <!-- 返回按钮 -->
-      <button class="back-btn" @click="router.back()">返回</button>
+      <a @click="router.back()" class="a-back"><i class="iconfont icon-back"></i></a>
   
       <div v-if="work" class="work-content">
         <!-- 作品标题和操作按钮 -->
@@ -127,7 +127,7 @@
                 :key="tag" 
                 class="tag"
               >
-                {{ tag }}
+                <a>{{ tag }}</a>
               </span>
             </div>
   
@@ -380,8 +380,12 @@ const handleDrop = (e) => {
   </script>
   
   <style scoped>
+  .icon-back {
+    font-size: 1.5rem;
+  }
+
   .work-detail {
-    padding: 20px;
+    padding: 40px 0 20px;
     max-width: 1200px;
     margin: 0 auto;
   }
@@ -400,6 +404,15 @@ const handleDrop = (e) => {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+  }
+
+  .header button {
+    cursor: pointer;
+  }
+
+  .header h2 {
+    font-size: 1rem;
+    font-weight: bold;
   }
   
   .gallery {
@@ -428,10 +441,10 @@ const handleDrop = (e) => {
     background: rgba(0,0,0,0.5);
     color: white;
     border: none;
-    width: 40px;
-    height: 40px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    font-size: 24px;
+    font-size: 17px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -490,7 +503,7 @@ const handleDrop = (e) => {
   }
   
   .tag {
-    padding: 4px 8px;
+    padding: 2px 6px;
     background-color: #f0f0f0;
     border-radius: 4px;
     font-size: 12px;
@@ -600,6 +613,9 @@ const handleDrop = (e) => {
   }
   
   @media (max-width: 768px) {
+    .work-detail {
+      padding-top: 0;
+    }
     .gallery-main {
       aspect-ratio: 4/3;
     }

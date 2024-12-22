@@ -106,7 +106,7 @@ onMounted(() => {
 
 .a-title {
     font-size: 24px;
-    line-height: 2;
+    line-height: 2.5;
     font-weight: bold;
 }
 
@@ -138,10 +138,6 @@ onMounted(() => {
 
 .tags a:hover {
   opacity: 0.8;
-}
-
-.icon-back {
-  font-size: 1.5rem;
 }
 
 .icon-bianji {
@@ -230,9 +226,21 @@ onMounted(() => {
   color: #3E3E3E;
 }
 
+.a-back {
+  display: none;
+}
+
 @media (min-width: 1024px) {
     .article-detail {
         margin: 100px auto 120px;
+    }
+
+    .a-back {
+      display: initial;
+    }
+
+    .icon-back {
+      font-size: 1.5rem;
     }
 }
 </style>

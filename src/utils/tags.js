@@ -1,7 +1,7 @@
 // 标签颜色映射
 export const tagColors = {
     // 技术类
-    'Vue': '#42b883',
+    '前端': '#99CCCC',
     'React': '#61dafb',
     'JavaScript': '#f7df1e',
     'TypeScript': '#3178c6',
@@ -10,14 +10,14 @@ export const tagColors = {
     'Java': '#007396',
     
     // 领域类
-    '编程': '#E3A6A1',
-    '手工': '#FE929F',
+    '编程': '#738ABF',
+    '手工': '#E1ABCE',
     '全栈': '#7952b3',
     '设计': '#ff7f50',
     '数据库': '#336791',
     
     // 状态类
-    '进行中': '#28a745',
+    '进行中': '#899980',
     '已完成': '#17a2b8',
     '规划中': '#ffc107',
     
@@ -52,7 +52,7 @@ export const getTextColor = (bgColor) => {
       const b = parseInt(color.slice(5, 7), 16)
       // 计算亮度
       const brightness = (r * 299 + g * 587 + b * 114) / 1000
-      return brightness > 200 ? '#000000' : '#ffffff'
+      return brightness > 220 ? '#000000' : '#ffffff'
     } else if (color.startsWith('hsl')) {
       // 对于HSL颜色，亮度小于50%使用白色文字
       const l = parseInt(color.match(/\d+/g)[2])

@@ -129,6 +129,7 @@ onMounted(() => {
       <button type="button" @click.prevent="handleLogout">退出</button>
     </div>
   </footer>
+  <div id="container">
   <header>
     <div class="wrapper">
       <Banner msg="&nbsp;" />
@@ -207,13 +208,18 @@ onMounted(() => {
   <div class="router-view-container">
     <RouterView />
   </div>
-
-  <footer class="bottom-fixed">
+</div>
+<footer class="bottom-fixed">
     <p>Copyright © 2024-2024 沪ICP备2024106280号</p>
-  </footer>
+</footer>
 </template>
 
 <style scoped>
+#container {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
 .top-fixed {
   position: fixed;
   top: 0;
@@ -271,7 +277,7 @@ onMounted(() => {
 header {
   line-height: 1.3;
   max-height: 100vh;
-  padding: 3.5rem 2rem 1rem 2rem;
+  padding: 3.5rem 2rem 0.5rem 2rem;
   border-bottom: 1px dashed var(--color-border);
 }
 
@@ -294,7 +300,7 @@ nav {
 }
 
 nav a {
-  display: inline-block;
+  display: block;
 }
 
 .nav-link-text,
@@ -422,6 +428,12 @@ nav a.router-link-exact-active {
 }
 
 @media (min-width: 1024px) {
+  #container {
+    display: flex;
+    flex-wrap: wrap;
+    grid-template-columns: 1fr 1fr;
+  }
+
   header {
     width: 350px;
     display: flex;
@@ -452,8 +464,8 @@ nav a.router-link-exact-active {
 
   .router-view-container {
     transition: margin-top 0.3s ease;
-    min-width: 800px;
-    max-width: 800px;
+    flex: 1;
+    max-width: 960px;
   }
 
   .qr-popup img {

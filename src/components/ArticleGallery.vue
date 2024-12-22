@@ -1,10 +1,12 @@
 <template>
     <div class="details">
-      <h3 class="article-title">
+      <div class="article-title">
+      <h3>
         <i class="iconfont icon-huawen2"></i>
         <a :href="`/article`">文章</a>
         <i class="iconfont icon-huawen1"></i>
       </h3>
+    </div>
       <div v-if="loading">加载中……</div>
       <div v-else-if="error" class="error">{{ error }}</div>
       <div v-if="backendData" class="article-list">
@@ -21,7 +23,7 @@
           </span>  
           <a :href="`/article/${article.id}`">{{ article.title }}</a>
         </section>
-        <span class="more"><a :href="`/article`">更多…</a></span>
+        <span class="more"><a :href="`/article`">More</a></span>
       </div>
     </div>
 </template>
@@ -66,13 +68,18 @@ onMounted(() => {
 
 <style scoped>
 .article-title {
-    font-size: 1rem;
     color: var(--color-heading);
     text-align: center;
     display: flex;
     justify-content: center;
     align-items: center;
     cursor: pointer;
+    margin-bottom: 10px;
+  }
+
+  .article-title h3 {
+    padding: 0 36px;
+    border-bottom: 1px solid #949494;
   }
 
   .article-title a:hover {
@@ -80,6 +87,7 @@ onMounted(() => {
   }
 
   .article-title a {
+    font-size: 1.1rem;
     color: var(--color-text);
     padding: 0 10px;
     font-weight: bold;

@@ -1,132 +1,3 @@
-<template>
-  <div class="work-view">
-    <div class="header">
-      <h2>作品展示</h2>
-      <button v-if="canEdit" class="add-btn" @click="showAddWork">新增作品</button>
-    </div>
-
-    <!-- 作品网格展示 -->
-    <div class="work-grid">
-      <div 
-        v-for="work in works" 
-        :key="work.id" 
-        class="work-card"
-      >
-        <!-- 封面图 -->
-        <div class="work-cover" @click="goToDetail(work.id)">
-          <img
-          v-if="work.pictures && work.pictures.length > 0" 
-          v-image="work.pictures[0]" alt="封面">
-          <div v-else class="no-image">
-            暂无图片
-          </div>
-        </div>
-        
-        <!-- 作品信息 -->
-        <div class="work-info">
-          <h3>{{ work.name }}</h3>
-          <!--<p class="description">{{ work.description }}</p>-->
-          <div class="tags">
-            <span 
-              v-for="tag in work.tags" 
-              :key="tag" 
-              class="tag"
-            >
-              {{ tag }}
-            </span>
-          </div>
-          <div class="update-time">
-            更新时间: {{ formatDate(work.updatedAt) }}
-          </div>
-        </div>
-
-        <!-- 操作按钮 -->
-        <div class="actions" v-if="canEdit">
-          <button @click="editWork(work)">编辑</button>
-          <button @click="deleteWork(work.id)">删除</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 新增/编辑弹窗 -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal">
-        <h3>{{ isEditing ? '编辑作品' : '新增作品' }}</h3>
-        <form @submit.prevent="saveWork">
-          <div class="form-item">
-            <label>名称</label>
-            <input v-model="workForm.name" required>
-          </div>
-
-          <div class="form-item">
-            <label>描述</label>
-            <textarea v-model="workForm.description" rows="4"></textarea>
-          </div>
-
-          <div class="form-item">
-            <label>标签</label>
-            <div class="tag-input">
-              <input 
-                v-model="newTag"
-                @keydown.enter.prevent="addTag"
-                @keydown.comma.prevent="addTag"
-                placeholder="输入标签后回车"
-              >
-              <div class="tags">
-                <span 
-                  v-for="tag in workForm.tags" 
-                  :key="tag" 
-                  class="tag"
-                >
-                  {{ tag }}
-                  <span class="tag-remove" @click="removeTag(tag)">×</span>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-item">
-            <label>图片</label>
-            <div class="image-uploader">
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*"
-                @change="handleImageUpload"
-              >
-              <div class="preview-images"
-              @dragover.prevent
-              @drop.prevent="handleDrop">
-                <div 
-                  v-for="(img, index) in workForm.pictures" 
-                  :key="index"
-                  class="preview-item"
-                  draggable="true"
-                  @dragstart="handleDragStart($event, index)"
-                  @dragenter.prevent="handleDragEnter($event, index)"
-                  @dragend="handleDragEnd"
-                  @touchstart="handleTouchStart($event, index)"
-                  @touchmove.prevent="handleTouchMove($event)"
-                  @touchend="handleTouchEnd"
-                >
-                  <img v-image="img" class="interactive-image">
-                  <span class="remove" @click="removeImage(index)">×</span>
-                  <div class="drag-handle">⋮⋮</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-actions">
-            <button type="submit">保存</button>
-            <button type="button" @click="closeModal">取消</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
@@ -389,11 +260,139 @@ onUnmounted(() => {
 })
 </script>
 
+<template>
+  <div class="work-view">
+    <div class="header">
+      <h2>作品展示</h2>
+      <button v-if="canEdit" class="add-btn" @click="showAddWork">新增 +</button>
+    </div>
+
+    <!-- 作品网格展示 -->
+    <div class="work-grid">
+      <div 
+        v-for="work in works" 
+        :key="work.id" 
+        class="work-card"
+      >
+        <!-- 封面图 -->
+        <div class="work-cover" @click="goToDetail(work.id)">
+          <img
+          v-if="work.pictures && work.pictures.length > 0" 
+          v-image="work.pictures[0]" alt="封面">
+          <div v-else class="no-image">
+            暂无图片
+          </div>
+        </div>
+        
+        <!-- 作品信息 -->
+        <div class="work-info">
+          <h3 @click="goToDetail(work.id)">{{ work.name }}</h3>
+          <!--<p class="description">{{ work.description }}</p>-->
+          <div class="tags">
+            <span 
+              v-for="tag in work.tags" 
+              :key="tag" 
+              class="tag"
+            >
+              <a>{{ tag }}</a>
+            </span>
+          </div>
+          <div class="update-time">
+            更新时间: {{ formatDate(work.updatedAt) }}
+          </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="actions" v-if="canEdit">
+          <button @click="editWork(work)">编辑</button>
+          <button @click="deleteWork(work.id)">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 新增/编辑弹窗 -->
+    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal">
+        <h3>{{ isEditing ? '编辑作品' : '新增作品' }}</h3>
+        <form @submit.prevent="saveWork">
+          <div class="form-item">
+            <label>名称</label>
+            <input v-model="workForm.name" required>
+          </div>
+
+          <div class="form-item">
+            <label>描述</label>
+            <textarea v-model="workForm.description" rows="4"></textarea>
+          </div>
+
+          <div class="form-item">
+            <label>标签</label>
+            <div class="tag-input">
+              <input 
+                v-model="newTag"
+                @keydown.enter.prevent="addTag"
+                @keydown.comma.prevent="addTag"
+                placeholder="输入标签后回车"
+              >
+              <div class="tags">
+                <span 
+                  v-for="tag in workForm.tags" 
+                  :key="tag" 
+                  class="tag"
+                >
+                    {{ tag }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-item">
+            <label>图片</label>
+            <div class="image-uploader">
+              <input 
+                type="file" 
+                multiple 
+                accept="image/*"
+                @change="handleImageUpload"
+              >
+              <div class="preview-images"
+              @dragover.prevent
+              @drop.prevent="handleDrop">
+                <div 
+                  v-for="(img, index) in workForm.pictures" 
+                  :key="index"
+                  class="preview-item"
+                  draggable="true"
+                  @dragstart="handleDragStart($event, index)"
+                  @dragenter.prevent="handleDragEnter($event, index)"
+                  @dragend="handleDragEnd"
+                  @touchstart="handleTouchStart($event, index)"
+                  @touchmove.prevent="handleTouchMove($event)"
+                  @touchend="handleTouchEnd"
+                >
+                  <img v-image="img" class="interactive-image">
+                  <span class="remove" @click="removeImage(index)">×</span>
+                  <div class="drag-handle">⋮⋮</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit">保存</button>
+            <button type="button" @click="closeModal">取消</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</template>
+
 <style scoped>
 .work-view {
   padding: 20px;
   max-width: 1200px;
-  margin: 0 auto;
+  margin: 30px auto;
 }
 
 .header {
@@ -403,9 +402,14 @@ onUnmounted(() => {
   margin-bottom: 20px;
 }
 
+.header h2 {
+  font-size: 1rem;
+  font-weight: bold;
+}
+
 .add-btn {
-  padding: 8px 16px;
-  background-color: #409EFF;
+  padding: 4px 6px;
+  background-color: var(--color-blue);
   color: white;
   border: none;
   border-radius: 4px;
@@ -444,6 +448,12 @@ onUnmounted(() => {
 
 .work-info {
   padding: 15px;
+  font-size: 1rem;
+}
+
+.work-info h3 {
+  font-size: 1rem;
+  cursor: pointer;
 }
 
 .description {
@@ -451,6 +461,7 @@ onUnmounted(() => {
   margin: 10px 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -463,7 +474,7 @@ onUnmounted(() => {
 }
 
 .tag {
-  padding: 4px 8px;
+  padding: 2px 5px;
   background-color: #f0f0f0;
   border-radius: 4px;
   font-size: 12px;
@@ -475,10 +486,14 @@ onUnmounted(() => {
 }
 
 .actions {
-  padding: 15px;
+  padding: 10px;
   border-top: 1px solid #eee;
   display: flex;
   gap: 10px;
+}
+
+.actions button {
+  cursor: pointer;
 }
 
 .modal-overlay {
@@ -607,6 +622,10 @@ onUnmounted(() => {
 }
 
 @media (max-width: 768px) {
+  .work-view {
+    margin-top: 0;
+  }
+
   .work-grid {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   }

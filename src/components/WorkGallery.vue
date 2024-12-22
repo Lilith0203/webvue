@@ -1,15 +1,17 @@
 <!-- components/WorkGallery.vue -->
 <template>
     <div class="work-gallery">
-      <h3 class="gallery-title">
+      <div class="gallery-title">
+      <h3>
         <i class="iconfont icon-huawen2"></i>
-        <a :href="`/works`">作品展示</a>
+        <a :href="`/works`">作品</a>
         <i class="iconfont icon-huawen1"></i></h3>
+      </div>
       <div class="gallery-grid">
-        <div v-for="work in thumbnailWorks" 
+        <div v-for="(work, index) in thumbnailWorks" 
              :key="work.id" 
              class="gallery-item"
-             @click="showPreview(work)">
+             @click="showPreview(work, index)">
           <div class="image-wrapper">
             <img v-image="work.thumbnailUrl" :alt="work.name">
             <div class="item-overlay">
@@ -18,6 +20,7 @@
           </div>
         </div>
       </div>
+      <span class="more"><a :href="`/work`">More</a></span>
   
       <!-- 图片预览组件 -->
       <ImagePreview
@@ -25,7 +28,12 @@
         :visible="previewVisible"
         :image-url="previewImage"
         :title="previewTitle"
+        :total="thumbnailWorks.length"
         @close="closePreview"
+        :current="currentIndex + 1"
+        @prev="changeImage('prev')"
+        @next="changeImage('next')"
+        @detail="goToDetail"
       />
     </div>
   </template>
@@ -34,7 +42,9 @@
   import { ref, onMounted, computed } from 'vue'
   import axios from '../api'
   import ImagePreview from './ImagePreview.vue'
+  import { useRouter } from 'vue-router'
   
+  const router = useRouter()
   const works = ref([])
   const loading = ref(false)
   const error = ref(null)
@@ -43,6 +53,8 @@
   const previewVisible = ref(false)
   const previewImage = ref('')
   const previewTitle = ref('')
+  const currentWork = ref(null)  // 新增：存储当前预览的作品
+  const currentIndex = ref(0)  // 当前显示的作品索引
   
   // 获取作品数据
   const fetchWorks = async () => {
@@ -59,13 +71,38 @@
       loading.value = false
     }
   }
+
+  // 跳转到详情页
+const goToDetail = () => {
+  if (currentWork.value) {
+   router.push(`/works/${currentWork.value.id}`)
+ }
+}
   
   // 显示预览
-  const showPreview = (work) => {
-    previewImage.value = work.pictures[0]
-    previewTitle.value = work.name
-    previewVisible.value = true
+  const showPreview = (work, index) => {
+    currentIndex.value = index
+    currentWork.value = work
+ previewImage.value = work.pictures[0]
+ previewTitle.value = work.name
+ previewVisible.value = true
   }
+
+  // 新增：切换图片的方法
+const changeImage = (direction) => {
+  const works = thumbnailWorks.value
+  const len = works.length
+ if (len <= 1) return
+if (direction === 'next') {
+    currentIndex.value = (currentIndex.value + 1) % len
+ } else {
+  currentIndex.value = (currentIndex.value - 1 + len) % len
+ }
+ const nextWork = works[currentIndex.value]
+ currentWork.value = nextWork
+ previewImage.value = nextWork.pictures[0]
+ previewTitle.value = nextWork.name
+}
   
   // 关闭预览
   const closePreview = () => {
@@ -96,12 +133,10 @@ const thumbnailWorks = computed(() => {
   
 <style scoped>
 .work-gallery {
-  margin: 1rem 0 1rem 0;
+  margin: 0.5rem 0 0.4rem 0;
 }
   
   .gallery-title {
-    font-size: 1.1rem;
-    color: var(--color-heading);
     margin-bottom: 10px;
     text-align: center;
     display: flex;
@@ -110,8 +145,14 @@ const thumbnailWorks = computed(() => {
     cursor: pointer;
   }
 
+  .gallery-title h3 {
+    padding: 0 36px;
+    border-bottom: 1px solid #949494;
+  }
+
   .gallery-title a {
-    color: var(--color-font);
+    font-size: 1.1rem;
+    color: var(--color-text);
     padding: 0 10px;
     font-weight: bold;
   }
@@ -225,6 +266,16 @@ const thumbnailWorks = computed(() => {
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
+
+  .more {
+    display: block;
+    text-align: center;
+  }
+
+.more a {
+  color: #499e8d;
+  padding: 0;
+}
   
   /* 响应式调整 */
   @media (max-width: 768px) {
@@ -235,7 +286,7 @@ const thumbnailWorks = computed(() => {
   
     .gallery-title {
       font-size: 1rem;
-      margin-bottom: 0px;
+      margin-bottom: 10px;
     }
   
     .item-name {
