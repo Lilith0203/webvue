@@ -1,44 +1,4 @@
-<!-- components/WorkGallery.vue -->
-<template>
-    <div class="work-gallery">
-      <div class="gallery-title">
-      <h3>
-        <i class="iconfont icon-huawen2"></i>
-        <a :href="`/works`">作品</a>
-        <i class="iconfont icon-huawen1"></i></h3>
-      </div>
-      <div class="gallery-grid">
-        <div v-for="(work, index) in thumbnailWorks" 
-             :key="work.id" 
-             class="gallery-item"
-             @click="showPreview(work, index)">
-          <div class="image-wrapper">
-            <img v-image="work.thumbnailUrl" :alt="work.name">
-            <div class="item-overlay">
-              <span class="item-name">{{ work.name }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <span class="more"><a :href="`/work`">More</a></span>
-  
-      <!-- 图片预览组件 -->
-      <ImagePreview
-        v-if="previewVisible"
-        :visible="previewVisible"
-        :image-url="previewImage"
-        :title="previewTitle"
-        :total="thumbnailWorks.length"
-        @close="closePreview"
-        :current="currentIndex + 1"
-        @prev="changeImage('prev')"
-        @next="changeImage('next')"
-        @detail="goToDetail"
-      />
-    </div>
-  </template>
-  
-  <script setup>
+<script setup>
   import { ref, onMounted, computed } from 'vue'
   import axios from '../api'
   import ImagePreview from './ImagePreview.vue'
@@ -129,7 +89,48 @@ const thumbnailWorks = computed(() => {
   
   // 组件挂载时获取数据
   onMounted(fetchWorks)
-  </script>
+</script>
+<!-- components/WorkGallery.vue -->
+<template>
+    <div class="work-gallery">
+      <div class="gallery-title">
+      <h3>
+        <i class="iconfont icon-huawen2"></i>
+        <a href="/works" @click.prevent="router.push('/works')">作品</a>
+        <i class="iconfont icon-huawen1"></i></h3>
+      </div>
+      <div class="gallery-grid">
+        <div v-for="(work, index) in thumbnailWorks" 
+             :key="work.id" 
+             class="gallery-item"
+             @click="showPreview(work, index)">
+          <div class="image-wrapper">
+            <img v-image="work.thumbnailUrl" :alt="work.name">
+            <div class="item-overlay">
+              <span class="item-name">{{ work.name }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="more">
+        <a href="/works" @click.prevent="router.push('/works')">More</a>
+      </span>
+  
+      <!-- 图片预览组件 -->
+      <ImagePreview
+        v-if="previewVisible"
+        :visible="previewVisible"
+        :image-url="previewImage"
+        :title="previewTitle"
+        :total="thumbnailWorks.length"
+        @close="closePreview"
+        :current="currentIndex + 1"
+        @prev="changeImage('prev')"
+        @next="changeImage('next')"
+        @detail="goToDetail"
+      />
+    </div>
+  </template>
   
 <style scoped>
 .work-gallery {

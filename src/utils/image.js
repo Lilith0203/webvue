@@ -1,5 +1,31 @@
 import axios from '../api'
 
+// 新建工具文件存放图片签名相关逻辑
+const signatureCache = new Map()
+const SIGNATURE_EXPIRE_TIME = 3480000 // 58分钟过期，单位毫秒
+
+const getImageSignature = async (url) => {
+  // 检查缓存是否存在且未过期
+  const cached = signatureCache.get(url)
+  if (cached && cached.expireTime > Date.now()) {
+    return cached.signature
+  }
+   try {
+    const response = await axios.post('/oss-refresh', { url })
+    const signature = response.data.url
+    // 存入缓存
+    signatureCache.set(url, {
+      signature,
+      expireTime: Date.now() + SIGNATURE_EXPIRE_TIME
+    })
+    
+    return signature
+  } catch (error) {
+    console.error('获取图片签名失败:', error)
+    return null
+  }
+}
+
 // 检查是否是需要刷新的图片URL
 const needsRefresh = (url) => {
   return url && url.includes('static.lilithu.com')
@@ -7,48 +33,34 @@ const needsRefresh = (url) => {
 
 export const vImage = {
   mounted: async (el, binding) => {
-    if (el.tagName === 'IMG') {
-      // 保存原始URL
-      el.dataset.originalSrc = binding.value
-
-      // 如果是需要刷新的URL，立即刷新
-      if (needsRefresh(binding.value)) {
-        try {
-          const newUrl = await refreshImageUrl(binding.value)
-          el.src = newUrl
-        } catch (error) {
-          console.error('刷新图片URL失败:', error)
-          el.src = binding.value
-        }
-      }
-
-      // 添加错误处理
-      el.onerror = async () => {
-        if (needsRefresh(el.src)) {
-          try {
-            const newUrl = await refreshImageUrl(el.dataset.originalSrc)
-            el.src = newUrl
-          } catch (error) {
-            console.error('刷新失败的图片URL失败:', error)
-          }
-        }
-      }
-    }
+    const url = binding.value
+   if (!url) return
+    try {
+     const signature = await getImageSignature(url)
+     if (signature) {
+       el.src = signature
+     } else {
+       el.src = url
+     }
+   } catch (error) {
+     console.error('加载图片失败:', error)
+     el.src = url
+   }
   },
   updated: async (el, binding) => {
-    if (el.tagName === 'IMG' && binding.value !== binding.oldValue) {
-      el.dataset.originalSrc = binding.value
-      
-      if (needsRefresh(binding.value)) {
-        try {
-          const newUrl = await refreshImageUrl(binding.value)
-          el.src = newUrl
-        } catch (error) {
-          console.error('刷新图片URL失败:', error)
-          el.src = binding.value
+    if (binding.value !== binding.oldValue) {
+      const url = binding.value
+      if (!url) return
+       try {
+        const signature = await getImageSignature(url)
+        if (signature) {
+          el.src = signature
+        } else {
+          el.src = url
         }
-      } else {
-        el.src = binding.value
+      } catch (error) {
+        console.error('更新图片失败:', error)
+        el.src = url
       }
     }
   }

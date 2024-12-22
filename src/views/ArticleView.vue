@@ -1,7 +1,7 @@
 <script setup>
 import axios from '../api'
 //import axios from 'axios'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -63,6 +63,15 @@ const formatDate = (dateString) => {
 onMounted(() => {
   fetchData()
 })
+
+// 监听路由变化
+watch(
+ () => route.query,
+ () => {
+   fetchData()
+ },
+ { deep: true }
+)
 </script>
 
 <template>
@@ -74,10 +83,13 @@ onMounted(() => {
         <p id="all-info" v-if="backendData">
           <span v-if="route.query.tag">
             当前标签：<span class="current-tag">
-              {{route.query.tag}}<a href="/article" class="clear-tag">×</a></span>，</span>
+              {{route.query.tag}}
+              <a href="/article" @click.prevent="router.push('/article')" class="clear-tag">×</a>
+            </span>，</span>
           共 <span>{{backendData.count}}</span> 篇文章
         </p>
-        <span v-if="authStore.isAuthenticated" class="publish-new"><a :href="`/publish`">发布+</a></span>
+        <span v-if="authStore.isAuthenticated" class="publish-new">
+          <a href="/publish" @click.prevent="router.push('/publish')">发布+</a></span>
       </div>
       <div class="list-wrapper" v-if="backendData">
         <article class="a-brief" v-for="article in backendData.articles" :key="article.id">
@@ -91,17 +103,20 @@ onMounted(() => {
               <div v-if="article.tags" class="a-label">Tag: 
                 <a v-for="tag in article.tags"
                 :key="tag"
-                :href="`article?tag=${tag}`">{{tag}}</a>
+                href="`/article?tag=${tag}`"
+                @click.prevent="router.push(`/article?tag=${tag}`)">{{tag}}</a>
               </div>
               <span v-if="authStore.isAuthenticated" class="edit-delete">
-                <a class="edit" :href="`/article/${article.id}/edit`"><i class="iconfont icon-bianji"></i></a>
+                <a class="edit" 
+                href="#"
+                @click.prevent="router.push(`/article/${article.id}/edit`)"><i class="iconfont icon-bianji"></i></a>
                 <a class="delete" href="#" @click.prevent="handleDelete(article.id)"><i class="iconfont icon-shanchu"></i></a>
               </span>
             </div>
-            <h1 class="a-title"><a :href="`/article/${article.id}`">{{article.title}}</a></h1>
+            <h1 class="a-title"><a href="#" @click.prevent="router.push(`/article/${article.id}`)">{{article.title}}</a></h1>
             <div class="a-brief-text">
               <p>{{article.abbr}}
-                <a :href="`/article/${article.id}`" class="read-detail">（阅读全文）</a>
+                <a href="#" @click.prevent="router.push(`/article/${article.id}`)" class="read-detail">（阅读全文）</a>
               </p>
             </div>
             <time class="update-time" :datetime="article?.updatedAt">最后更新时间：<span>{{ article.updatedAt }}</span></time>

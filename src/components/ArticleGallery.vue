@@ -1,37 +1,9 @@
-<template>
-    <div class="details">
-      <div class="article-title">
-      <h3>
-        <i class="iconfont icon-huawen2"></i>
-        <a :href="`/article`">文章</a>
-        <i class="iconfont icon-huawen1"></i>
-      </h3>
-    </div>
-      <div v-if="loading">加载中……</div>
-      <div v-else-if="error" class="error">{{ error }}</div>
-      <div v-if="backendData" class="article-list">
-        <span class="article-count">共 {{ backendData.count }} 篇</span>
-        <section v-for="article in backendData.articles" :key="article.id">
-          <span class="tags">
-                <a v-for="tag in article.tags"
-                   :href="`/article?tag=${tag}`"
-                   :key="tag"
-                   class="tag"
-                   :style="getTagStyle(tag)">
-                   {{ tag }}
-                </a>
-          </span>  
-          <a :href="`/article/${article.id}`">{{ article.title }}</a>
-        </section>
-        <span class="more"><a :href="`/article`">More</a></span>
-      </div>
-    </div>
-</template>
-
 <script setup>
 import axios from '../api'
 import { ref, onMounted } from 'vue'
 import { getTagColor, getTextColor } from '../utils/tags'
+import { useRouter } from 'vue-router'
+const router = useRouter()
 
 const backendData = ref(null)
 const loading = ref(false)
@@ -65,6 +37,37 @@ onMounted(() => {
   fetchData()
 })
 </script>
+
+<template>
+    <div class="details">
+      <div class="article-title">
+      <h3>
+        <i class="iconfont icon-huawen2"></i>
+        <a href="/article" @click.prevent="router.push('/article')">文章</a>
+        <i class="iconfont icon-huawen1"></i>
+      </h3>
+    </div>
+      <div v-if="loading">加载中……</div>
+      <div v-else-if="error" class="error">{{ error }}</div>
+      <div v-if="backendData" class="article-list">
+        <span class="article-count">共 {{ backendData.count }} 篇</span>
+        <section v-for="article in backendData.articles" :key="article.id">
+          <span class="tags">
+                <a v-for="tag in article.tags"
+                   href="`/article?tag=${tag}`"
+                   @click.prevent="router.push(`/article?tag=${tag}`)"
+                   :key="tag"
+                   class="tag"
+                   :style="getTagStyle(tag)">
+                   {{ tag }}
+                </a>
+          </span>  
+          <a href="#" @click.prevent="router.push(`/article/${article.id}`)">{{ article.title }}</a>
+        </section>
+        <span class="more"><a href="/article" @click.prevent="router.push('/article')">More</a></span>
+      </div>
+    </div>
+</template>
 
 <style scoped>
 .article-title {

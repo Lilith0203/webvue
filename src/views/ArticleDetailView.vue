@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import axios from '../api'
 import { marked } from 'marked'
 import { useAuthStore } from '../stores/auth'
@@ -9,6 +9,7 @@ import { refreshImageUrl} from '../utils/image'
 const authStore = useAuthStore()
 
 const route = useRoute()
+const router = useRouter()
 const article = ref(null)
 const loading = ref(false)
 const error = ref(null)
@@ -80,12 +81,14 @@ onMounted(() => {
 
 <template>
   <div class="article-detail">
-    <a :href="/article/" class="a-back"><i class="iconfont icon-back"></i></a>
+    <a href="/article" @click.prevent="router.push('/article')" class="a-back"><i class="iconfont icon-back"></i></a>
     <div v-if="loading" class="loading">加载中...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <article v-else-if="article" class="a-complete">
       <h1 class="a-title">{{ article.title }} 
-        <a :href="`/article/${article.id}/edit`" v-if="authStore.isAuthenticated">
+        <a href="#" 
+           v-if="authStore.isAuthenticated"
+           @click.prevent="router.push(`/article/${article.id}/edit`)">
           <i class="iconfont icon-bianji"></i></a>
       </h1>
       <div class="meta">
