@@ -147,14 +147,14 @@ marked.use({ renderer })
                 @click="prevImage"
                 v-show="currentImageIndex > 0"
               >
-                ‹
+                <i class="iconfont icon-zuojiantou"></i>
               </button>
               <button 
                 class="gallery-nav next" 
                 @click="nextImage"
                 v-show="currentImageIndex < work.pictures.length - 1"
               >
-                ›
+              <i class="iconfont icon-youjiantou"></i>
               </button>
             </div>
             
@@ -258,13 +258,8 @@ marked.use({ renderer })
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(0,0,0,0.5);
-    color: white;
+    background: transparent;
     border: none;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    font-size: 1rem;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -272,13 +267,23 @@ marked.use({ renderer })
     padding: 0;
     margin: 0;
   }
+
+  .gallery-nav i {
+    font-size: 1.5rem;
+    opacity: 0.4;
+    font-size: 2rem;
+  }
+
+  .gallery-nav i:hover {
+    opacity: 1;
+  }
   
   .gallery-nav.prev {
-    left: 10px;
+    left: 5px;
   }
   
   .gallery-nav.next {
-    right: 10px;
+    right: 5px;
   }
   
   .gallery-thumbs {
@@ -341,7 +346,7 @@ marked.use({ renderer })
       padding-top: 0;
     }
     .gallery-main {
-      aspect-ratio: 4/3;
+      aspect-ratio: 1/1;
     }
   
     .gallery-thumbs {
@@ -355,6 +360,10 @@ marked.use({ renderer })
   .drag-handle {
     opacity: 1; /* 在移动端始终显示拖动手柄 */
     padding: 4px 8px; /* 更大的点击区域 */
+  }
+
+  .gallery-nav i {
+    font-size: 1.5rem;
   }
   }
   </style>
