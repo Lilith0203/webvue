@@ -1,142 +1,10 @@
-<template>
-    <div class="publish-article">
-      <h2>{{ isEdit ? '编辑文章' : '发布文章' }}</h2>
-      
-      <!-- 加载状态 -->
-      <div v-if="loading" class="loading">加载中...</div>
-      
-      <!-- 文章表单 -->
-      <form v-else @submit.prevent="handleSubmit" class="article-form">
-        <!-- 标题 -->
-        <div class="form-group">
-          <label for="title">标题</label>
-          <input 
-            type="text" 
-            id="title"
-            v-model="articleForm.title"
-            required
-            placeholder="请输入文章标题"
-          >
-        </div>
-  
-        <!-- 标签 -->
-        <div class="form-group">
-          <label>标签</label>
-          <div class="tags-input">
-            <div class="tags-container">
-              <span 
-                v-for="(tag, index) in articleForm.tags" 
-                :key="index"
-                class="tag"
-              >
-                {{ tag }}
-                <button 
-                    type="button" 
-                    @click.prevent="removeTag(index)"
-                >&times;
-                </button>
-              </span>
-            </div>
-            <div class="tag-input-wrapper">
-            <!-- 修改标签输入框，添加 @keydown.enter.prevent -->
-            <input 
-              type="text"
-              v-model="newTag"
-              @keydown.enter.prevent="addTag"
-              @keydown.comma.prevent="addTag"
-              placeholder="输入标签，按Enter或逗号添加"
-              maxlength="20"
-            >
-          </div>
-          </div>
-        </div>
-  
-        <!-- 内容 -->
-        <div class="form-group">
-          <label for="content">内容</label>
-          <div class="editor-toolbar">
-            <button type="button" @click="insertMarkdown('**', '**')">粗体</button>
-            <button type="button" @click="insertMarkdown('*', '*')">斜体</button>
-            <button type="button" @click="insertMarkdown('### ')">标题</button>
-            <button type="button" @click="insertMarkdown('> ')">引用</button>
-            <button type="button" @click="insertMarkdown('- ')">列表</button>
-            <button type="button" @click="insertMarkdown('[]() ')">链接</button>
-            <button type="button" @click="insertMarkdown('```\n', '\n```')">代码块</button>
-
-            <button type="button" @click="triggerImageUpload">插入图片</button>
-            <input 
-              type="file"
-              ref="imageInput"
-              @change="handleImageUpload"
-              accept="image/*"
-              style="display: none"
-            >
-          </div>
-
-          <!-- 添加拖拽上传区域 -->
-        <div 
-          class="editor-container"
-          @drop.prevent="handleDrop"
-          @dragover.prevent="handleDragOver"
-          @dragleave.prevent="handleDragLeave"
-          :class="{ 'drag-over': isDragging }"
-        >
-          <textarea 
-            id="content"
-            v-model="articleForm.content"
-            rows="20"
-            required
-            placeholder="请输入文章内容（支持Markdown）"
-            ref="contentEditor"
-          ></textarea>
-
-          <!-- 上传进度提示 -->
-          <div v-if="uploading" class="upload-progress">
-            <div class="progress-bar" :style="{ width: uploadProgress + '%' }"></div>
-            <span>上传中... {{ uploadProgress }}%</span>
-          </div>
-        </div>
-          <!-- 预览区域 -->
-          <div v-if="showPreview" class="markdown-preview" v-html="renderedContent"></div>
-        </div>
-
-        <!-- 摘要 -->
-        <div class="form-group">
-          <label for="abbr">摘要</label>
-          <textarea 
-            id="abbr"
-            v-model="articleForm.abbr"
-            rows="3"
-            placeholder="请输入文章摘要"
-          ></textarea>
-        </div>
-  
-        <!-- 控制按钮 -->
-        <div class="form-actions">
-          <button type="button" @click="togglePreview" class="preview-btn">
-            {{ showPreview ? '关闭预览' : '预览' }}
-          </button>
-          <button type="submit" class="publish-btn">
-            {{ isEdit ? '保存修改' : '发布文章' }}
-          </button>
-          <button 
-            v-if="isEdit" 
-            type="button" 
-            @click="cancelEdit" 
-            class="cancel-btn"
-          >
-            取消编辑
-          </button>
-        </div>
-      </form>
-    </div>
-  </template>
-  
-  <script setup>
+<script setup>
   import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { marked } from 'marked'
   import axios from '../api'
   import { useRouter, useRoute } from 'vue-router'
+  import { message } from '../utils/message'
+  import { confirm } from '../utils/confirm'
   
   const router = useRouter()
   const route = useRoute()
@@ -167,7 +35,7 @@
   // 处理文件上传
   const uploadImage = async (file) => {
     if (!file || !file.type.startsWith('image/')) {
-      alert('请选择图片文件')
+      message.alert('请选择图片文件')
       return
     }
 
@@ -341,7 +209,7 @@ const handleDrop = (event) => {
       if (isEdit.value) {
         articleForm.value.id = route.params.id
         await axios.post(`/article/edit`, articleForm.value)
-        //alert('文章更新成功')
+        //message.alert('文章更新成功')
         router.push(`/article/${route.params.id}`)
       } else {
         await axios.post('/articleAdd', articleForm.value)
@@ -355,8 +223,9 @@ const handleDrop = (event) => {
   }
   
   // 取消编辑
-  const cancelEdit = () => {
-    if (confirm('确定要取消编辑吗？未保存的修改将丢失')) {
+  const cancelEdit = async() => {
+    const confirmed = await confirm('确定要取消编辑吗？未保存的修改将丢失')
+    if (confirmed) {
       router.back()
     }
   }
@@ -375,12 +244,152 @@ const handleDrop = (event) => {
     window.removeEventListener('beforeunload', beforeUnload)
   })
   </script>
+
+<template>
+    <div class="publish-article">
+      <h2>{{ isEdit ? '编辑文章' : '发布文章' }}</h2>
+      
+      <!-- 加载状态 -->
+      <div v-if="loading" class="loading">加载中...</div>
+      
+      <!-- 文章表单 -->
+      <form v-else @submit.prevent="handleSubmit" class="article-form">
+        <!-- 标题 -->
+        <div class="form-group">
+          <label for="title">标题</label>
+          <input 
+            type="text" 
+            id="title"
+            v-model="articleForm.title"
+            required
+            placeholder="请输入文章标题"
+          >
+        </div>
+  
+        <!-- 标签 -->
+        <div class="form-group">
+          <label>标签</label>
+          <div class="tags-input">
+            <div class="tags-container">
+              <span 
+                v-for="(tag, index) in articleForm.tags" 
+                :key="index"
+                class="tag"
+              >
+                {{ tag }}
+                <button 
+                    type="button" 
+                    @click.prevent="removeTag(index)"
+                >&times;
+                </button>
+              </span>
+            </div>
+            <div class="tag-input-wrapper">
+            <!-- 修改标签输入框，添加 @keydown.enter.prevent -->
+            <input 
+              type="text"
+              v-model="newTag"
+              @keydown.enter.prevent="addTag"
+              @keydown.comma.prevent="addTag"
+              placeholder="输入标签，按Enter或逗号添加"
+              maxlength="20"
+            >
+          </div>
+          </div>
+        </div>
+  
+        <!-- 内容 -->
+        <div class="form-group">
+          <label for="content">内容</label>
+          <div class="editor-toolbar">
+            <button type="button" @click="insertMarkdown('**', '**')">粗体</button>
+            <button type="button" @click="insertMarkdown('*', '*')">斜体</button>
+            <button type="button" @click="insertMarkdown('### ')">标题</button>
+            <button type="button" @click="insertMarkdown('> ')">引用</button>
+            <button type="button" @click="insertMarkdown('- ')">列表</button>
+            <button type="button" @click="insertMarkdown('[]() ')">链接</button>
+            <button type="button" @click="insertMarkdown('```\n', '\n```')">代码块</button>
+
+            <button type="button" @click="triggerImageUpload">插入图片</button>
+            <input 
+              type="file"
+              ref="imageInput"
+              @change="handleImageUpload"
+              accept="image/*"
+              style="display: none"
+            >
+          </div>
+
+          <!-- 添加拖拽上传区域 -->
+        <div 
+          class="editor-container"
+          @drop.prevent="handleDrop"
+          @dragover.prevent="handleDragOver"
+          @dragleave.prevent="handleDragLeave"
+          :class="{ 'drag-over': isDragging }"
+        >
+          <textarea 
+            id="content"
+            v-model="articleForm.content"
+            rows="20"
+            required
+            placeholder="请输入文章内容（支持Markdown）"
+            ref="contentEditor"
+          ></textarea>
+
+          <!-- 上传进度提示 -->
+          <div v-if="uploading" class="upload-progress">
+            <div class="progress-bar" :style="{ width: uploadProgress + '%' }"></div>
+            <span>上传中... {{ uploadProgress }}%</span>
+          </div>
+        </div>
+          <!-- 预览区域 -->
+          <div v-if="showPreview" class="markdown-preview" v-html="renderedContent"></div>
+        </div>
+
+        <!-- 摘要 -->
+        <div class="form-group">
+          <label for="abbr">摘要</label>
+          <textarea 
+            id="abbr"
+            v-model="articleForm.abbr"
+            rows="3"
+            placeholder="请输入文章摘要"
+          ></textarea>
+        </div>
+  
+        <!-- 控制按钮 -->
+        <div class="form-actions">
+          <button type="button" @click="togglePreview" class="preview-btn">
+            {{ showPreview ? '关闭预览' : '预览' }}
+          </button>
+          <button type="submit" class="publish-btn">
+            {{ isEdit ? '保存修改' : '发布文章' }}
+          </button>
+          <button 
+            v-if="isEdit" 
+            type="button" 
+            @click="cancelEdit" 
+            class="cancel-btn"
+          >
+            取消编辑
+          </button>
+        </div>
+      </form>
+    </div>
+  </template>
   
 <style scoped>
 .publish-article {
   max-width: 800px;
-  margin: 0 auto;
+  margin: 30px auto;
   padding: 20px;
+}
+
+.publish-article h2 {
+  font-weight: bold;
+  margin-bottom: 20px;
+  font-size: 1.1rem;
 }
 
 .article-form {
@@ -445,7 +454,7 @@ textarea:focus {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   background-color: #e0e0e0;
   border-radius: 4px;
   font-size: 14px;
@@ -477,11 +486,25 @@ textarea:focus {
 }
 
 .markdown-preview {
-  margin-top: 20px;
+  margin-top: 10px;
   padding: 20px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: #fff;
+}
+
+:deep(.markdown-preview p) {
+  text-indent: 2em;
+  line-height: 1.8em;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+:deep(.markdown-preview h3) {
+  line-height: 2;
+  margin-top: 10px;
+  font-weight: bold;
+  text-align: left;
 }
 
 .form-actions {

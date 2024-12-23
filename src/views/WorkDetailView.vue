@@ -1,150 +1,9 @@
-<template>
-    <div class="work-detail">
-      <!-- 返回按钮 -->
-      <a @click="router.back()" class="a-back"><i class="iconfont icon-back"></i></a>
-  
-      <div v-if="work" class="work-content">
-        <!-- 作品标题和操作按钮 -->
-        <div class="header">
-          <h2>{{ work.name }}</h2>
-          <button v-if="!isEditing && canEdit" @click="startEdit">编辑</button>
-        </div>
-  
-        <!-- 编辑表单 -->
-        <form v-if="isEditing" @submit.prevent="saveWork">
-          <div class="form-item">
-            <label>名称</label>
-            <input v-model="editForm.name" required>
-          </div>
-  
-          <div class="form-item">
-            <label>描述</label>
-            <textarea v-model="editForm.description" rows="4"></textarea>
-          </div>
-  
-          <div class="form-item">
-            <label>标签</label>
-            <div class="tag-input">
-              <input 
-                v-model="newTag"
-                @keyup.enter="addTag"
-                placeholder="输入标签后回车"
-              >
-              <div class="tags">
-                <span 
-                  v-for="tag in editForm.tags" 
-                  :key="tag" 
-                  class="tag"
-                >
-                  {{ tag }}
-                  <span class="tag-remove" @click="removeTag(tag)">×</span>
-                </span>
-              </div>
-            </div>
-          </div>
-  
-          <div class="form-item">
-            <label>图片</label>
-            <div class="image-uploader">
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*"
-                @change="handleImageUpload"
-              >
-              <div 
-                class="preview-images"
-                @dragover.prevent
-                @drop.prevent="handleDrop">
-                <div 
-                  v-for="(img, index) in editForm.pictures" 
-                  :key="index"
-                  class="preview-item"
-                  draggable="true"
-                  @dragstart="handleDragStart($event, index)"
-                  @dragenter.prevent="handleDragEnter($event, index)"
-                  @dragend="handleDragEnd"
-                  @touchstart="handleTouchStart($event, index)"
-                  @touchmove.prevent="handleTouchMove($event)"
-                  @touchend="handleTouchEnd"
-                >
-                  <img v-image="img" class="interactive-image">
-                  <span class="remove" @click="removeImage(index)">×</span>
-                  <div class="drag-handle">⋮⋮</div>
-                </div>
-              </div>
-            </div>
-          </div>
-  
-          <div class="form-actions">
-            <button type="submit">保存</button>
-            <button type="button" @click="cancelEdit">取消</button>
-          </div>
-        </form>
-  
-        <!-- 作品展示 -->
-        <template v-else>
-          <!-- 图片画廊 -->
-          <div class="gallery">
-            <div class="gallery-main">
-              <img v-image="currentImage" alt="主图">
-              <button 
-                class="gallery-nav prev" 
-                @click="prevImage"
-                v-show="currentImageIndex > 0"
-              >
-                ‹
-              </button>
-              <button 
-                class="gallery-nav next" 
-                @click="nextImage"
-                v-show="currentImageIndex < work.pictures.length - 1"
-              >
-                ›
-              </button>
-            </div>
-            
-            <div class="gallery-thumbs">
-              <div 
-                v-for="(img, index) in work.pictures" 
-                :key="index"
-                class="thumb"
-                :class="{ active: index === currentImageIndex }"
-                @click="selectImage(index)"
-              >
-                <img v-image="img" :alt="`缩略图 ${index + 1}`">
-              </div>
-            </div>
-          </div>
-  
-          <!-- 作品信息 -->
-          <div class="work-info">
-            <p class="description">{{ work.description }}</p>
-            
-            <div class="tags">
-              <span 
-                v-for="tag in work.tags" 
-                :key="tag" 
-                class="tag"
-              >
-                <a>{{ tag }}</a>
-              </span>
-            </div>
-  
-            <div class="update-time">
-              更新时间: {{ formatDate(work.updatedAt) }}
-            </div>
-          </div>
-        </template>
-      </div>
-    </div>
-  </template>
-  
-  <script setup>
+<script setup>
   import { ref, onMounted, computed } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import axios from '../api'
   import { useAuthStore } from '../stores/auth'
+  import WorkEditor from '../components/WorkEditor.vue'
 
 const authStore = useAuthStore()
 //判断是否有编辑权限
@@ -165,106 +24,31 @@ const touchStartY = ref(0)
 const touchStartIndex = ref(null)
 const touchElement = ref(null)
 const initialY = ref(0)
+const editorMode = ref('create')
+const showEditor = ref(false)
+const currentWork = ref(null)
 
-// 处理触摸开始
-const handleTouchStart = (e, index) => {
-  touchStartIndex.value = index
-  touchElement.value = e.target.closest('.preview-item')
-  
-  const touch = e.touches[0]
-  touchStartY.value = touch.pageY
-  initialY.value = touch.pageY
-  
-  // 添加拖动样式
-  touchElement.value.classList.add('dragging')
-  touchElement.value.style.position = 'relative'
-  touchElement.value.style.zIndex = '1000'
+// 处理编辑成功
+const handleEditorSuccess = (work) => {
+  // 更新列表数据
+  showEditor.value = false
 }
 
-// 处理触摸移动
-const handleTouchMove = (e) => {
-  if (!touchElement.value) return
-  
-  const touch = e.touches[0]
-  const currentY = touch.pageY
-  const deltaY = currentY - touchStartY.value
-  
-  // 移动元素
-  touchElement.value.style.transform = `translateY(${deltaY}px)`
-  
-  // 检查是否需要交换位置
-  const elements = document.querySelectorAll('.preview-item')
-  const elementHeight = elements[0].offsetHeight
-  const moveThreshold = elementHeight / 2
-  
-  elements.forEach((el, index) => {
-    if (el === touchElement.value) return
-    
-    const rect = el.getBoundingClientRect()
-    const centerY = rect.top + rect.height / 2
-    
-    if (Math.abs(touch.clientY - centerY) < moveThreshold) {
-      // 交换位置
-      if (index !== touchStartIndex.value) {
-        const images = [...editForm.value.pictures]
-        const [removed] = images.splice(touchStartIndex.value, 1)
-        images.splice(index, 0, removed)
-        editForm.value.pictures = images
-        touchStartIndex.value = index
-      }
-    }
-  })
+// 关闭编辑器
+const closeEditor = () => {
+  showEditor.value = false
 }
 
-// 处理触摸结束
-const handleTouchEnd = () => {
-  if (!touchElement.value) return
-  
-  // 移除拖动样式
-  touchElement.value.classList.remove('dragging')
-  touchElement.value.style.position = ''
-  touchElement.value.style.zIndex = ''
-  touchElement.value.style.transform = ''
-  
-  // 重置状态
-  touchStartIndex.value = null
-  touchElement.value = null
-  touchStartY.value = 0
-  initialY.value = 0
-}
+// 表单数据
+const workForm = ref({
+  id: null,
+  name: '',
+  description: '',
+  tags: [],
+  pictures: []
+})
 
-// 开始拖拽
-const handleDragStart = (e, index) => {
-  dragIndex.value = index
-  e.target.classList.add('dragging')
-}
 
-// 拖拽进入新位置
-const handleDragEnter = (e, index) => {
-  if (dragIndex.value === null) return
-  if (dragIndex.value === index) return
-  
-  dragTarget.value = index
-  
-  // 重新排序图片
-  const pictures = [...editForm.value.pictures]
-  const [removed] = pictures.splice(dragIndex.value, 1)
-  pictures.splice(index, 0, removed)
-  editForm.value.pictures = pictures
-  dragIndex.value = index
-}
-
-// 拖拽结束
-const handleDragEnd = (e) => {
-  dragIndex.value = null
-  dragTarget.value = null
-  e.target.classList.remove('dragging')
-}
-
-// 处理拖放（用于移动设备）
-const handleDrop = (e) => {
-  e.preventDefault()
-}
   
   // 编辑表单
   const editForm = ref({
@@ -378,6 +162,86 @@ const handleDrop = (e) => {
     fetchWorkDetail()
   })
   </script>
+
+<template>
+    <div class="work-detail">
+      <!-- 返回按钮 -->
+      <a @click="router.back()" class="a-back"><i class="iconfont icon-back"></i></a>
+  
+      <div v-if="work" class="work-content">
+        <!-- 作品标题和操作按钮 -->
+        <div class="header">
+          <h2>{{ work.name }}</h2>
+          <button v-if="!isEditing && canEdit" @click="startEdit">编辑</button>
+        </div>
+  
+        <!-- 编辑表单 -->
+        <WorkEditor 
+          v-if="isEditing"
+          :visible="showEditor"
+          :mode="editorMode"
+          :work="editForm"
+          @success="handleEditorSuccess"
+          @cancel="closeEditor"
+        />
+  
+        <!-- 作品展示 -->
+        <template v-else>
+          <!-- 图片画廊 -->
+          <div class="gallery">
+            <div class="gallery-main">
+              <img v-image="currentImage" alt="主图">
+              <button 
+                class="gallery-nav prev" 
+                @click="prevImage"
+                v-show="currentImageIndex > 0"
+              >
+                ‹
+              </button>
+              <button 
+                class="gallery-nav next" 
+                @click="nextImage"
+                v-show="currentImageIndex < work.pictures.length - 1"
+              >
+                ›
+              </button>
+            </div>
+            
+            <div class="gallery-thumbs">
+              <div 
+                v-for="(img, index) in work.pictures" 
+                :key="index"
+                class="thumb"
+                :class="{ active: index === currentImageIndex }"
+                @click="selectImage(index)"
+              >
+                <img v-image="img" :alt="`缩略图 ${index + 1}`">
+              </div>
+            </div>
+          </div>
+  
+          <!-- 作品信息 -->
+          <div class="work-info">
+            <p class="description">{{ work.description }}</p>
+            
+            <div class="tags">
+              <span 
+                v-for="tag in work.tags" 
+                :key="tag" 
+                class="tag"
+              >
+                <a>{{ tag }}</a>
+              </span>
+            </div>
+  
+            <div class="update-time">
+              更新时间: {{ formatDate(work.updatedAt) }}
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
   
   <style scoped>
   .icon-back {
@@ -444,11 +308,13 @@ const handleDrop = (e) => {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    font-size: 17px;
+    font-size: 1rem;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
+    margin: 0;
   }
   
   .gallery-nav.prev {
@@ -512,104 +378,6 @@ const handleDrop = (e) => {
   .update-time {
     color: #999;
     font-size: 12px;
-  }
-  
-  /* 编辑表单样式 */
-  .form-item {
-    margin-bottom: 20px;
-  }
-  
-  .form-item label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-  }
-  
-  .form-item input,
-  .form-item textarea {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-  }
-  
-  .tag-input {
-    margin-top: 10px;
-  }
-  
-  .preview-images {
-    display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 10px;
-  margin-top: 10px;
-  padding: 10px;
-  background: #f9f9f9;
-  border-radius: 4px;
-  min-height: 120px; /* 确保空时也有拖放区域 */
-  }
-  
-  .preview-item {
-    position: relative;
-    aspect-ratio: 1;
-    cursor: move; /* 指示可拖动 */
-    transition: transform 0.2s;
-  }
-  
-  .preview-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 4px;
-  }
-
-  .preview-item.dragging {
-  opacity: 0.5;
-  transform: scale(0.95);
-}
-
-.preview-item:hover .drag-handle {
-  opacity: 1;
-}
-
-.drag-handle {
-  position: absolute;
-  bottom: 5px;
-  right: 5px;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  padding: 2px 4px;
-  border-radius: 4px;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.2s;
-  cursor: move;
-  user-select: none;
-}
-  
-  .remove {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    width: 20px;
-    height: 20px;
-    background: #ff4444;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
-
-.tag-remove {
-  cursor: pointer;
-}
-  
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 20px;
   }
   
   @media (max-width: 768px) {

@@ -3,6 +3,8 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
+import WorkEditor from '../components/WorkEditor.vue'
+import { confirm } from '../utils/confirm'
 
 const authStore = useAuthStore()
 //判断是否有编辑权限
@@ -22,6 +24,9 @@ const touchStartY = ref(0)
 const touchStartIndex = ref(null)
 const touchElement = ref(null)
 const initialY = ref(0)
+const showEditor = ref(false)
+const editorMode = ref('create')
+const currentWork = ref(null)
 
 // 处理触摸开始
 const handleTouchStart = (e, index) => {
@@ -123,6 +128,31 @@ const handleDrop = (e) => {
   e.preventDefault()
 }
 
+// 打开新建编辑器
+const openCreateEditor = () => {
+  currentWork.value = null
+  editorMode.value = 'create'
+  showEditor.value = true
+}
+
+// 打开编辑编辑器
+const openEditEditor = (work) => {
+  currentWork.value = work
+  editorMode.value = 'edit'
+  showEditor.value = true
+}
+
+// 处理编辑成功
+const handleEditorSuccess = (work) => {
+  // 更新列表数据
+  showEditor.value = false
+}
+
+// 关闭编辑器
+const closeEditor = () => {
+  showEditor.value = false
+}
+
 // 表单数据
 const workForm = ref({
   id: null,
@@ -145,21 +175,21 @@ const fetchWorks = async () => {
 // 显示新增作品弹窗
 const showAddWork = () => {
   isEditing.value = false
-  workForm.value = {
+  currentWork.value = {
     id: null,
     name: '',
     description: '',
     tags: [],
     pictures: []
   }
-  showModal.value = true
+  showEditor.value = true
 }
 
 // 显示编辑作品弹窗
 const editWork = (work) => {
   isEditing.value = true
-  workForm.value = { ...work }
-  showModal.value = true
+  currentWork.value = { ...work }
+  showEditor.value = true
 }
 
 // 关闭弹窗
@@ -191,7 +221,10 @@ const saveWork = async () => {
 
 // 删除作品
 const deleteWork = async (id) => {
-  if (!confirm('确定要删除这个作品吗？')) return
+  const confirmed = await confirm('确定要删除这个作品吗？')
+  if (!confirmed) {
+    return
+  }
   
   try {
     await axios.post(`/works/delete`, {id:id})
@@ -261,136 +294,70 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="work-view">
-    <div class="header">
-      <h2>作品展示</h2>
-      <button v-if="canEdit" class="add-btn" @click="showAddWork">新增 +</button>
-    </div>
-
-    <!-- 作品网格展示 -->
-    <div class="work-grid">
-      <div 
-        v-for="work in works" 
-        :key="work.id" 
-        class="work-card"
-      >
-        <!-- 封面图 -->
-        <div class="work-cover" @click="goToDetail(work.id)">
-          <img
-          v-if="work.pictures && work.pictures.length > 0" 
-          v-image="work.pictures[0]" alt="封面">
-          <div v-else class="no-image">
-            暂无图片
-          </div>
-        </div>
-        
-        <!-- 作品信息 -->
-        <div class="work-info">
-          <h3 @click="goToDetail(work.id)">{{ work.name }}</h3>
-          <!--<p class="description">{{ work.description }}</p>-->
-          <div class="tags">
-            <span 
-              v-for="tag in work.tags" 
-              :key="tag" 
-              class="tag"
-            >
-              <a>{{ tag }}</a>
-            </span>
-          </div>
-          <div class="update-time">
-            更新时间: {{ formatDate(work.updatedAt) }}
-          </div>
-        </div>
-
-        <!-- 操作按钮 -->
-        <div class="actions" v-if="canEdit">
-          <button @click="editWork(work)">编辑</button>
-          <button @click="deleteWork(work.id)">删除</button>
-        </div>
+  
+    <WorkEditor 
+      v-if="showEditor"
+      :visible="showEditor"
+      :mode="editorMode"
+      :work="currentWork"
+      @success="handleEditorSuccess"
+      @cancel="closeEditor"
+    /><!-- 编辑弹窗 -->
+    <template v-else>
+      <div class="header">
+        <h2>作品展示</h2>
+        <button v-if="canEdit" class="add-btn" @click="openCreateEditor">新增 +</button>
       </div>
-    </div>
 
-    <!-- 新增/编辑弹窗 -->
-    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
-      <div class="modal">
-        <h3>{{ isEditing ? '编辑作品' : '新增作品' }}</h3>
-        <form @submit.prevent="saveWork">
-          <div class="form-item">
-            <label>名称</label>
-            <input v-model="workForm.name" required>
-          </div>
-
-          <div class="form-item">
-            <label>描述</label>
-            <textarea v-model="workForm.description" rows="4"></textarea>
-          </div>
-
-          <div class="form-item">
-            <label>标签</label>
-            <div class="tag-input">
-              <input 
-                v-model="newTag"
-                @keydown.enter.prevent="addTag"
-                @keydown.comma.prevent="addTag"
-                placeholder="输入标签后回车"
-              >
-              <div class="tags">
-                <span 
-                  v-for="tag in workForm.tags" 
-                  :key="tag" 
-                  class="tag"
-                >
-                    {{ tag }}
-                </span>
-              </div>
+      <!-- 作品网格展示 -->
+      <div class="work-grid">
+        <div 
+          v-for="work in works" 
+          :key="work.id" 
+          class="work-card"
+        >
+          <!-- 封面图 -->
+          <div class="work-cover" @click="goToDetail(work.id)">
+            <img
+            v-if="work.pictures && work.pictures.length > 0" 
+            v-image="work.pictures[0]" alt="封面">
+            <div v-else class="no-image">
+              暂无图片
             </div>
           </div>
-
-          <div class="form-item">
-            <label>图片</label>
-            <div class="image-uploader">
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*"
-                @change="handleImageUpload"
-              >
-              <div class="preview-images"
-              @dragover.prevent
-              @drop.prevent="handleDrop">
-                <div 
-                  v-for="(img, index) in workForm.pictures" 
-                  :key="index"
-                  class="preview-item"
-                  draggable="true"
-                  @dragstart="handleDragStart($event, index)"
-                  @dragenter.prevent="handleDragEnter($event, index)"
-                  @dragend="handleDragEnd"
-                  @touchstart="handleTouchStart($event, index)"
-                  @touchmove.prevent="handleTouchMove($event)"
-                  @touchend="handleTouchEnd"
-                >
-                  <img v-image="img" class="interactive-image">
-                  <span class="remove" @click="removeImage(index)">×</span>
-                  <div class="drag-handle">⋮⋮</div>
-                </div>
+          
+          <!-- 作品信息 -->
+          <div class="work-info">
+            <div class="work-header">
+              <h3 @click="goToDetail(work.id)">{{ work.name }}</h3>
+              <!-- 操作按钮 -->
+              <div class="actions" v-if="canEdit">
+                <button @click="openEditEditor(work)"><i class="iconfont icon-bianji"></i></button>
+                <button @click="deleteWork(work.id)"><i class="iconfont icon-shanchu"></i></button>
               </div>
             </div>
+            <!--<p class="description">{{ work.description }}</p>-->
+            <div class="tags">
+              <span 
+                v-for="tag in work.tags" 
+                :key="tag" 
+                class="tag"
+              >
+                <a>{{ tag }}</a>
+              </span>
+            </div>
+            <div class="update-time">
+              更新时间: {{ formatDate(work.updatedAt) }}
+            </div>
           </div>
-
-          <div class="form-actions">
-            <button type="submit">保存</button>
-            <button type="button" @click="closeModal">取消</button>
-          </div>
-        </form>
+        </div>
       </div>
-    </div>
-  </div>
+    </template>
 </template>
 
 <style scoped>
 .work-view {
-  padding: 20px;
+  padding: 20px 0;
   max-width: 1200px;
   margin: 30px auto;
 }
@@ -447,8 +414,14 @@ onUnmounted(() => {
 }
 
 .work-info {
-  padding: 15px;
+  padding: 10px 15px;
   font-size: 1rem;
+}
+
+.work-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .work-info h3 {
@@ -486,14 +459,18 @@ onUnmounted(() => {
 }
 
 .actions {
-  padding: 10px;
-  border-top: 1px solid #eee;
   display: flex;
   gap: 10px;
 }
 
 .actions button {
+  background-color: transparent;
+  border: none;
   cursor: pointer;
+}
+
+.actions button:hover {
+  border: 1px dashed #ddd;
 }
 
 .modal-overlay {

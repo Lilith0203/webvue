@@ -125,11 +125,17 @@ watch(
 
         <div class="pages">
           <span>当前页：<span class="cur">{{backendData.page_now}}</span>/{{backendData.page_all}}页</span>
-          <a v-if="backendData.page_now !== 1" 
-          :href="`/article?page=${backendData.page_now-1}${route.query.tag ? '&tag=' + route.query.tag : ''}`" class='able'>上一页</a>
+          <a v-if="backendData.page_now !== 1"
+          @click.prevent="router.push(`/article?page=${backendData.page_now-1}${route.query.tag ? '&tag=' + route.query.tag : ''}`)"
+          href="#" 
+          class='able'>上一页</a>
           <a v-if="backendData.page_now !== backendData.page_all" 
-          :href="`/article?page=${backendData.page_now+1}${route.query.tag ? '&tag=' + route.query.tag : ''}`" class='able'>下一页</a>
-          <a :href="`/article?page=${backendData.page_all}${route.query.tag ? '&tag=' + route.query.tag : ''}`" class='able'>尾页</a>
+          href="#" 
+          @click.prevent="router.push(`/article?page=${backendData.page_now+1}${route.query.tag ? '&tag=' + route.query.tag : ''}`)"
+          class='able'>下一页</a>
+          <a href="#" 
+          @click.prevent="router.push(`/article?page=${backendData.page_all}${route.query.tag ? '&tag=' + route.query.tag : ''}`)"
+          class='able'>尾页</a>
         </div>
       </div>
     </div>

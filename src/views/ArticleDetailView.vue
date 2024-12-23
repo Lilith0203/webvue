@@ -94,7 +94,7 @@ onMounted(() => {
       <div class="meta">
         <span class="date">最后更新时间: {{ article.updatedAt }}</span>
         <p v-if="article.tags" class="tags">Tags：
-            <a v-for="tag in article.tags" :href="`/article?tag=${tag}`">{{ tag }}</a>
+            <a v-for="tag in article.tags" href="#" @click.prevent="router.push(`/article?tag=${tag}`)">{{ tag }}</a>
         </p>
       </div>
       <div class="article-content" v-html="article.renderedContent"></div>
