@@ -91,7 +91,7 @@
   }
   
   .btn {
-    padding: 6px 8px;
+    padding: 3px 8px;
     border-radius: 4px;
     text-decoration: none;
     font-size: 14px;

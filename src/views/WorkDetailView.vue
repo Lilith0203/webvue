@@ -4,6 +4,10 @@
   import axios from '../api'
   import { useAuthStore } from '../stores/auth'
   import WorkEditor from '../components/WorkEditor.vue'
+  import { marked } from 'marked'
+
+  // 修改 marked 渲染器配置
+const renderer = new marked.Renderer()
 
 const authStore = useAuthStore()
 //判断是否有编辑权限
@@ -17,14 +21,7 @@ const canEdit = computed(() => {
   const isEditing = ref(false)
   const currentImageIndex = ref(0)
   const newTag = ref('')
-  // 拖拽相关状态
-const dragIndex = ref(null)
-const dragTarget = ref(null)
-const touchStartY = ref(0)
-const touchStartIndex = ref(null)
-const touchElement = ref(null)
-const initialY = ref(0)
-const editorMode = ref('create')
+const editorMode = ref('edit')
 const showEditor = ref(false)
 const currentWork = ref(null)
 
@@ -32,6 +29,7 @@ const currentWork = ref(null)
 const handleEditorSuccess = (work) => {
   // 更新列表数据
   showEditor.value = false
+  fetchWorkDetail()
 }
 
 // 关闭编辑器
@@ -39,18 +37,7 @@ const closeEditor = () => {
   showEditor.value = false
 }
 
-// 表单数据
-const workForm = ref({
-  id: null,
-  name: '',
-  description: '',
-  tags: [],
-  pictures: []
-})
-
-
-  
-  // 编辑表单
+ // 编辑表单
   const editForm = ref({
     name: '',
     description: '',
@@ -68,6 +55,7 @@ const workForm = ref({
     try {
       const response = await axios.get(`/works/${route.params.id}`)
       work.value = response.data.works
+      work.value.renderedContent = await marked(work.value.description)
       currentImageIndex.value = 0
     } catch (error) {
       console.error('获取作品详情失败:', error)
@@ -75,26 +63,10 @@ const workForm = ref({
   }
   
   // 开始编辑
-  const startEdit = () => {
-    editForm.value = { ...work.value }
-    isEditing.value = true
-  }
-  
-  // 取消编辑
-  const cancelEdit = () => {
-    isEditing.value = false
-    editForm.value = { ...work.value }
-  }
-  
-  // 保存编辑
-  const saveWork = async () => {
-    try {
-      await axios.post(`/works/edit`, editForm.value)
-      work.value = { ...editForm.value }
-      isEditing.value = false
-    } catch (error) {
-      console.error('保存失败:', error)
-    }
+  const startEdit = (work) => {
+    currentWork.value = work
+    editorMode.value = 'edit'
+    showEditor.value = true
   }
   
   // 图片相关操作
@@ -114,49 +86,30 @@ const workForm = ref({
     currentImageIndex.value = index
   }
   
-  // 标签相关操作
-  const addTag = () => {
-    if (newTag.value && !editForm.value.tags.includes(newTag.value)) {
-      editForm.value.tags.push(newTag.value)
-    }
-    newTag.value = ''
-  }
-  
-  const removeTag = (tag) => {
-    editForm.value.tags = editForm.value.tags.filter(t => t !== tag)
-  }
-  
-  // 图片上传相关操作
-  const handleImageUpload = async (event) => {
-    const files = event.target.files
-    if (!files.length) return
-
-    try {
-      for (let file of files) {
-        let formData = new FormData()
-        formData.append('file', file)
-        formData.append('folder', 'works');
-        let response = await axios.post('/upload', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-        })
-        editForm.value.pictures.push(response.data.url)
-      }
-
-    } catch (error) {
-      console.error('上传图片失败:', error)
-    }
-  }
-  
-  const removeImage = (index) => {
-    editForm.value.pictures.splice(index, 1)
-  }
-  
   // 格式化日期
   const formatDate = (date) => {
     return new Date(date).toLocaleString()
   }
+
+  // 自定义链接渲染
+renderer.link = (link) => {
+  // 确保 href 是字符串
+  const url = link.href || ''
+  
+  // 检查是否为外部链接
+  const isExternal = url.startsWith('http') || url.startsWith('https')
+  const attrs = [
+    `href="${url}"`,
+    isExternal ? 'target="_blank"' : '',  // 外部链接添加 target="_blank"
+    isExternal ? 'rel="noopener noreferrer"' : '',  // 安全属性
+    link.title ? `title="${title}"` : ''
+  ].filter(Boolean).join(' ')
+  
+  return `<a ${attrs}>${link.text}</a>`
+}
+
+// 使用自定义渲染器
+marked.use({ renderer })
   
   onMounted(() => {
     fetchWorkDetail()
@@ -165,28 +118,26 @@ const workForm = ref({
 
 <template>
     <div class="work-detail">
-      <!-- 返回按钮 -->
-      <a @click="router.back()" class="a-back"><i class="iconfont icon-back"></i></a>
   
       <div v-if="work" class="work-content">
-        <!-- 作品标题和操作按钮 -->
-        <div class="header">
-          <h2>{{ work.name }}</h2>
-          <button v-if="!isEditing && canEdit" @click="startEdit">编辑</button>
-        </div>
-  
         <!-- 编辑表单 -->
         <WorkEditor 
-          v-if="isEditing"
+          v-if="showEditor"
           :visible="showEditor"
           :mode="editorMode"
-          :work="editForm"
+          :work="currentWork"
           @success="handleEditorSuccess"
           @cancel="closeEditor"
         />
   
         <!-- 作品展示 -->
         <template v-else>
+          <!-- 作品标题和操作按钮 -->
+          <a @click="router.back()" class="a-back"><i class="iconfont icon-back"></i></a>
+        <div class="header">
+          <h2>{{ work.name }}</h2>
+          <div v-if="canEdit" @click="startEdit(work)"><i class="iconfont icon-bianji"></i></div>
+        </div>
           <!-- 图片画廊 -->
           <div class="gallery">
             <div class="gallery-main">
@@ -222,7 +173,7 @@ const workForm = ref({
   
           <!-- 作品信息 -->
           <div class="work-info">
-            <p class="description">{{ work.description }}</p>
+            <div class="description" v-html="work.renderedContent"></div>
             
             <div class="tags">
               <span 
@@ -265,13 +216,18 @@ const workForm = ref({
   
   .header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
   }
 
-  .header button {
+  .header div {
+    margin-left: 10px;
     cursor: pointer;
+    padding: 0 5px;
+  }
+
+  .header div:hover {
+    border: 1px dashed #999;
   }
 
   .header h2 {

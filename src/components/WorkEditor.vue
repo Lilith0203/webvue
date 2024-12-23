@@ -12,8 +12,8 @@ const touchElement = ref(null)
 const initialY = ref(0)
 // 状态
 const submitting = ref(false)
-const fileInput = ref(null)
 const newTag = ref('')
+const contentEditor = ref(null)
 
 const props = defineProps({
   visible: Boolean,
@@ -35,21 +35,35 @@ const props = defineProps({
 
 const emit = defineEmits(['cancel', 'success'])
 
+const initFormData = () => {
+  return {
+    id: props.work?.id || null,
+    name: props.work?.name || '',
+    description: props.work?.description || '',
+    pictures: [...(props.work?.pictures || [])],
+    tags: [...(props.work?.tags || [])]
+  }
+}
+
 // 表单数据
-const formData = reactive({
-  id: props.work.id,
-  name: props.work.name,
-  description: props.work.description,
-  pictures: [...props.work.pictures],
-  tags: [...props.work.tags]
-})
+const formData = reactive(initFormData())
 
 // 图片上传相关操作
 const handleImageUpload = async (event) => {
     const files = event.target.files
     if (!files.length) return
 
-    try {
+    await uploadFiles(files)
+  }
+
+const handleDrop = async (event) => {
+  const files = Array.from(event.dataTransfer.files)
+    .filter(file => file.type.startsWith('image/'))
+  await uploadFiles(files)
+}
+
+const uploadFiles = async (files) => {
+  try {
       for (let file of files) {
         let upload = new FormData()
         upload.append('file', file)
@@ -65,25 +79,6 @@ const handleImageUpload = async (event) => {
     } catch (error) {
       console.error('上传图片失败:', error)
     }
-  }
-
-const handleDrop = async (event) => {
-  const files = Array.from(event.dataTransfer.files)
-    .filter(file => file.type.startsWith('image/'))
-  await uploadFiles(files)
-}
-
-const uploadFiles = async (files) => {
-  for (const file of files) {
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const response = await axios.post('/upload', formData)
-      formData.pictures.push(response.data.url)
-    } catch (error) {
-      message.error(`上传失败: ${file.name}`)
-    }
-  }
 }
 
 const removePicture = (index) => {
@@ -99,8 +94,8 @@ const addTag = () => {
   newTag.value = ''
 }
 
-const removeTag = (index) => {
-  formData.tags.splice(index, 1)
+const removeTag = (tag) => {
+  formData.tags = formData.tags.filter(t => t !== tag)
 }
 
 // 提交表单
@@ -111,8 +106,16 @@ const handleSubmit = async () => {
   try {
     const url = props.mode === 'create' ? '/works/add' : `/works/edit`
     const method = 'post'
+
+    // 确保发送的数据格式正确
+    const submitData = {
+      ...formData,
+      id: props.mode === 'create' ? null : formData.id,
+      pictures: formData.pictures || [],
+      tags: formData.tags || []
+    }
     
-    const response = await axios[method](url, formData)
+    const response = await axios[method](url, submitData)
     message.success(props.mode === 'create' ? '创建成功' : '更新成功')
     emit('success', response.data.work)
   } catch (error) {
@@ -222,6 +225,28 @@ const cancel = () => {
   emit('cancel')
 }
 
+// 插入Markdown语法
+const insertMarkdown = (prefix, suffix = '') => {
+    const textarea = contentEditor.value
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const text = formData.description
+    
+    const beforeText = text.substring(0, start)
+    const selectedText = text.substring(start, end)
+    const afterText = text.substring(end)
+  
+    formData.description = beforeText + prefix + selectedText + suffix + afterText
+    
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(
+        start + prefix.length,
+        end + prefix.length
+      )
+    })
+  }
+
 onMounted(() => {
 })
 </script>
@@ -238,7 +263,18 @@ onMounted(() => {
   
           <div class="form-item">
             <label>描述</label>
-            <textarea v-model="formData.description" rows="4"></textarea>
+            <div class="editor-toolbar">
+              <button type="button" @click="insertMarkdown('**', '**')">粗体</button>
+              <button type="button" @click="insertMarkdown('### ')">标题</button>
+              <button type="button" @click="insertMarkdown('> ')">引用</button>
+              <button type="button" @click="insertMarkdown('- ')">列表</button>
+              <button type="button" @click="insertMarkdown('[]() ')">链接</button>
+            </div>
+            <textarea v-model="formData.description" 
+              rows="18"
+              placeholder="请输入作品描述（支持Markdown）"
+              ref="contentEditor"
+            ></textarea>
           </div>
   
           <div class="form-item">
@@ -377,6 +413,20 @@ onMounted(() => {
   transition: opacity 0.2s;
   cursor: move;
   user-select: none;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.tag {
+  padding: 2px 5px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  font-size: 12px;
 }
   
   .remove {
