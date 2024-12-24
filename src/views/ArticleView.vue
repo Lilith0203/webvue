@@ -1,6 +1,5 @@
 <script setup>
 import axios from '../api'
-//import axios from 'axios'
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
@@ -12,6 +11,7 @@ const router = useRouter()
 const backendData = ref(null)
 const loading = ref(false)
 const error = ref(null)
+const searchQuery = ref('')
 
 const fetchData = async () => {
   loading.value = true
@@ -25,7 +25,8 @@ const fetchData = async () => {
       params: {
         page,
         size,
-        tag
+        tag,
+        search: searchQuery.value   //添加搜索关键词
       }
     })
     backendData.value = response.data
@@ -34,6 +35,10 @@ const fetchData = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const searchArticles = () => {
+  fetchData()
 }
 
 // 处理删除
@@ -58,6 +63,12 @@ const formatDate = (dateString) => {
     month_en: date.toLocaleString('en', { month: 'short' }),
     year: date.getFullYear()
   }
+}
+
+// 清空搜索框
+const clearSearch = () => {
+ searchQuery.value = '' // 清空搜索关键词
+ fetchData() // 重新获取数据
 }
 
 onMounted(() => {
@@ -90,6 +101,16 @@ watch(
         </p>
         <span v-if="authStore.isAuthenticated" class="publish-new">
           <a href="/publish" @click.prevent="router.push('/publish')">发布+</a></span>
+      </div>
+      <div class="search-wrapper">
+        <input 
+          type="text" 
+          v-model="searchQuery" 
+          placeholder="搜索文章..." 
+          class="search-input" 
+        />
+        <button @click="clearSearch" class="clear-button">x</button>
+        <button @click="searchArticles" class="search-button"><i class="iconfont icon-sousuo"></i></button>
       </div>
       <div class="list-wrapper" v-if="backendData">
         <article class="a-brief" v-for="article in backendData.articles" :key="article.id">
@@ -300,7 +321,42 @@ watch(
   border: 1px dashed #9da09e;
 }
 
-@media (min-width: 1024px) {
+.search-wrapper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
 
+.search-input {
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.search-wrapper button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.clear-button {
+  color: #9da09e;
+  position: relative;
+  left: -20px;
+}
+
+.search-button {
+  position: relative;
+  left: -15px;
+}
+
+.icon-sousuo {
+  font-size: 1.3rem;
+}
+
+@media (min-width: 1024px) {
+  .search-wrapper {
+    justify-content: left;
+  }
 }
 </style>
