@@ -86,6 +86,13 @@ const thumbnailWorks = computed(() => {
     originalUrl: work.pictures[0]  // 保存原图URL
   }))
 })
+
+// 判断是否为宽图（4:3）
+const isWideImage = (url) => {
+  // 如果需要，你可以在这里添加实际的图片比例检测逻辑
+  // 现在简单返回 true 用于测试
+  return true
+}
   
   // 组件挂载时获取数据
   onMounted(fetchWorks)
@@ -105,7 +112,10 @@ const thumbnailWorks = computed(() => {
              class="gallery-item"
              @click="showPreview(work, index)">
           <div class="image-wrapper">
-            <img v-image="work.thumbnailUrl" :alt="work.name">
+            <img v-image="work.thumbnailUrl" 
+            :alt="work.name"
+            :class="{ 'contain-image': isWideImage(work.originalUrl) }"
+            >
             <div class="item-overlay">
               <span class="item-name">{{ work.name }}</span>
             </div>
@@ -203,6 +213,12 @@ const thumbnailWorks = computed(() => {
     object-fit: cover;
     transition: transform 0.3s ease;
   }
+
+  /* 4:3 图片使用 contain */
+.image-wrapper img.contain-image {
+  object-fit: contain;
+  background-color: #323232;
+}
   
   .item-overlay {
     position: absolute;
@@ -281,7 +297,7 @@ const thumbnailWorks = computed(() => {
   /* 响应式调整 */
   @media (max-width: 768px) {
     .gallery-grid {
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
       gap: 10px;
     }
   

@@ -73,7 +73,12 @@ const uploadFiles = async (files) => {
             'Content-Type': 'multipart/form-data'
           },
         })
-        formData.pictures.push(response.data.url)
+        // 解析 URL
+        const urlObj = new URL(response.data.url);
+        // 移除签名相关参数
+        const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token','x-oss-process'];
+        paramsToRemove.forEach(param => urlObj.searchParams.delete(param));
+        formData.pictures.push(urlObj.toString())
       }
 
     } catch (error) {

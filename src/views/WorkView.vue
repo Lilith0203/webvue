@@ -12,13 +12,33 @@ const canEdit = computed(() => {
     return authStore.isAuthenticated
 })
 
+const pageSize = 12
+const page = ref(1)
+const loading = ref(false)
+const hasMore = ref(true)
+const allTags = ref([])
+const selectedTags = ref([])
 const router = useRouter()
 const works = ref([])
-const showModal = ref(false)
 // 拖拽相关状态
 const showEditor = ref(false)
 const editorMode = ref('create')
 const currentWork = ref(null)
+
+// 切换标签
+const toggleTag = (tag) => {
+  const index = selectedTags.value.indexOf(tag)
+  if (index > -1) {
+    selectedTags.value.splice(index, 1)
+  } else {
+    selectedTags.value.push(tag)
+  }
+  // 重置并重新加载
+  works.value = []
+  page.value = 1
+  hasMore.value = true
+  fetchWorks()
+}
 
 // 打开新建编辑器
 const openCreateEditor = () => {
@@ -35,10 +55,15 @@ const openEditEditor = (work) => {
 }
 
 // 处理编辑成功
-const handleEditorSuccess = (work) => {
+const handleEditorSuccess = async () => {
   // 更新列表数据
   showEditor.value = false
-  fetchWorks()
+  //重置列表状态
+  hasMore.value = true
+  works.value = []
+  page.value = 1
+  await fetchWorks()
+  await fetchTags()
 }
 
 // 关闭编辑器
@@ -46,23 +71,36 @@ const closeEditor = () => {
   showEditor.value = false
 }
 
-// 表单数据
-const workForm = ref({
-  id: null,
-  name: '',
-  description: '',
-  tags: [],
-  pictures: []
-})
-
 // 获取作品列表
 const fetchWorks = async () => {
+  if (loading.value || !hasMore.value) return
+
+  loading.value = true
   try {
-    const response = await axios.get('/works')
-    works.value = response.data.works
+    const response = await axios.get('/works', {
+      params: {
+        page: page.value,
+        size: pageSize,
+        tags: selectedTags.value.length > 0 ? selectedTags.value.join(',') : undefined
+      }
+    })
+    if (page.value === 1) {
+      works.value = response.data.works
+    } else {
+      works.value = [...works.value, ...response.data.works]
+    }
+    hasMore.value = response.data.works.length === pageSize
+    page.value++
   } catch (error) {
     console.error('获取作品列表失败:', error)
+  } finally {
+    loading.value = false
   }
+}
+
+// 加载更多
+const loadMore = () => {
+  fetchWorks()
 }
 
 // 删除作品
@@ -75,6 +113,7 @@ const deleteWork = async (id) => {
   try {
     await axios.post(`/works/delete`, {id:id})
     await fetchWorks()
+    await fetchTags()
   } catch (error) {
     console.error('删除作品失败:', error)
   }
@@ -90,8 +129,19 @@ const formatDate = (date) => {
   return new Date(date).toLocaleString()
 }
 
+// 获取所有标签
+const fetchTags = async () => {
+  try {
+    const response = await axios.get('/worktags')
+    allTags.value = response.data.data.tags
+  } catch (error) {
+    console.error('获取标签失败:', error)
+  }
+}
+
 onMounted(() => {
   fetchWorks()
+  fetchTags()
 })
 
 onUnmounted(() => {
@@ -113,6 +163,14 @@ onUnmounted(() => {
         <h2>作品展示</h2>
         <button v-if="canEdit" class="add-btn" @click="openCreateEditor">新增 +</button>
       </div>
+      <div class="filter-tags">
+          <a v-for="tag in allTags" 
+              :key="tag"
+              href="#"
+              :class="['tag', { active: selectedTags.includes(tag) }]"
+              @click.prevent="toggleTag(tag)"
+          >{{ tag }}</a>
+        </div>
 
       <!-- 作品网格展示 -->
       <div class="work-grid">
@@ -147,6 +205,7 @@ onUnmounted(() => {
                 v-for="tag in work.tags" 
                 :key="tag" 
                 class="tag"
+                @click.prevent="toggleTag(tag)"
               >
                 <a>{{ tag }}</a>
               </span>
@@ -156,6 +215,12 @@ onUnmounted(() => {
             </div>
           </div>
         </div>
+      </div>
+      <!-- 加载更多 -->
+      <div class="load-more" v-if="hasMore">
+        <a href="#" @click.prevent="loadMore">
+          {{ loading ? '加载中...' : '查看更多' }}
+        </a>
       </div>
     </template>
 </template>
@@ -257,6 +322,44 @@ onUnmounted(() => {
   background-color: #f0f0f0;
   border-radius: 4px;
   font-size: 12px;
+}
+
+/* 添加新样式 */
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.tag.active {
+  background: var(--color-blue);
+  color: white;
+}
+
+.load-more {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.load-more a {
+  display: inline-block;
+  padding: 8px 24px;
+  color: var(--color-primary);
+  text-decoration: none;
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.load-more a:hover {
+  background: var(--color-primary);
+  color: white;
+}
+
+.load-more a.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .update-time {

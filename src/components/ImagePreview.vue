@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted,computed } from 'vue'
 
 const imageLoaded = ref(false)
 
-defineProps({
+const props =defineProps({
   visible: Boolean,
   imageUrl: String,
   title: String,

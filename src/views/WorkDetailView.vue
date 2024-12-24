@@ -241,7 +241,7 @@ marked.use({ renderer })
   
   .gallery-main {
     position: relative;
-    aspect-ratio: 16/9;
+    aspect-ratio: 4/3;
     background: #f5f5f5;
     margin-bottom: 10px;
     border-radius: 8px;
@@ -317,9 +317,12 @@ marked.use({ renderer })
   }
   
   .description {
-    white-space: pre-line;
-    line-height: 1.6;
+    line-height: 1.5;
     color: #333;
+  }
+
+  :deep(.description p) {
+    margin-bottom: 8px;
   }
   
   .tags {

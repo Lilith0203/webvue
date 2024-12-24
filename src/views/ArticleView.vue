@@ -301,8 +301,6 @@ watch(
 }
 
 @media (min-width: 1024px) {
-    .content-wrapper {
-        margin: 100px auto 120px;
-    }
+
 }
 </style>

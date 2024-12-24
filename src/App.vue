@@ -466,6 +466,7 @@ nav a.router-link-exact-active {
     transition: margin-top 0.3s ease;
     flex: 1;
     max-width: 960px;
+    margin-top: 30px;
   }
 
   .qr-popup img {

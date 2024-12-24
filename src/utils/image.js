@@ -1,8 +1,11 @@
 import axios from '../api'
 
 // 新建工具文件存放图片签名相关逻辑
-const signatureCache = new Map()
 const SIGNATURE_EXPIRE_TIME = 3480000 // 58分钟过期，单位毫秒
+const SIGNATURE_CACHE_KEY = 'image_signatures'
+
+// 从 localStorage 初始化缓存
+const signatureCache = new Map(JSON.parse(localStorage.getItem(SIGNATURE_CACHE_KEY) || '[]'))
 
 const getImageSignature = async (url) => {
   // 检查缓存是否存在且未过期
@@ -14,10 +17,18 @@ const getImageSignature = async (url) => {
     const response = await axios.post('/oss-refresh', { url })
     const signature = response.data.url
     // 存入缓存
-    signatureCache.set(url, {
+    // 存入缓存
+    const cacheData = {
       signature,
       expireTime: Date.now() + SIGNATURE_EXPIRE_TIME
-    })
+    }
+    signatureCache.set(url, cacheData)
+
+    // 更新 localStorage
+    localStorage.setItem(
+      SIGNATURE_CACHE_KEY, 
+      JSON.stringify(Array.from(signatureCache.entries()))
+    )
     
     return signature
   } catch (error) {
