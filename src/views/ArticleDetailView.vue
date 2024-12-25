@@ -17,6 +17,29 @@ const error = ref(null)
 // 修改 marked 渲染器配置
 const renderer = new marked.Renderer()
 
+const comments = ref([])  // 存储评论
+const loadingComments = ref(false)
+const errorComments = ref(null)
+
+const fetchComments = async (itemId) => {
+  loadingComments.value = true
+  errorComments.value = null
+
+  try {
+    const response = await axios.get(`/comments/${itemId}`, {
+      params: {
+        type: 1,
+      }
+    })
+    comments.value = response.data.comments  // 假设返回的评论数据在 comments 字段中
+  } catch (error) {
+    errorComments.value = "获取评论失败：" + error.message
+    console.error('Fetch comments error:', error)
+  } finally {
+    loadingComments.value = false
+  }
+}
+
 // 自定义链接渲染
 renderer.link = (link) => {
   // 确保 href 是字符串
@@ -81,12 +104,33 @@ const goBack = () => {
 }
 
 // 提交评论
-const submitComment = (commentText) => {
-  article.value.comments.push({ id: Date.now(), text: commentText }) // 添加评论
+const submitComment = async (commentData) => {
+  return;
+  if (!commentData.name || !commentData.content) {
+    alert('请填写姓名和内容')
+    return
+  }
+
+  try {
+    const response = await axios.post('/comment', {
+      name: commentData.name,
+      content: commentData.content,
+      type: 1,
+      itemId: article.value.id,
+      reply: commentData.reply
+    })
+    console.log(response.data.comment)
+    comments.value.push(response.data.data.comment)  // 假设返回的评论数据在 comment 字段中
+  } catch (error) {
+    console.error('提交评论失败:', error)
+    alert('提交评论失败：' + error.message)
+  }
 }
 
-onMounted(() => {
-  fetchArticle()
+onMounted(async () => {
+  await fetchArticle()
+  const itemId = article.value.id/* 获取当前文章或作品的 ID */
+  await fetchComments(itemId)
 })
 </script>
 
@@ -112,7 +156,7 @@ onMounted(() => {
     
     <!-- 使用评论组件 -->
     <CommentSection 
-        :comments="article.comments" 
+        :comments="comments" 
         :onCommentSubmit="submitComment" 
       />
     </article>

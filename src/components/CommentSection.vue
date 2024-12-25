@@ -1,26 +1,10 @@
-<template>
-    <div class="comments-section">
-      <h3 class="comment-title">最新评论.</h3>
-      <div v-for="comment in comments" :key="comment.id" class="comment">
-        <p class="comm-name">{{ comment.name }}</p>
-        <p class="comm-text">{{ comment.text }}</p>
-      </div>
-      <form class="comment-form">
-        <label for="revname">Name：</label>
-        <input id="revname" name="revname" type="text" placeholder="昵称请不要多于10个字" required>
-        <textarea v-model="newComment" placeholder="添加评论..." rows="3"></textarea>
-        <button @click="submitComment" class="comment-submit">发表评论</button>
-      </form>
-    </div>
-  </template>
-  
-  <script setup>
-  import { ref } from 'vue'
+<script setup>
+  import { ref,defineProps } from 'vue'
   
   const props = defineProps({
     comments: {
       type: Array,
-      required: true
+      default: () => []
     },
     onCommentSubmit: {
       type: Function,
@@ -28,16 +12,58 @@
     }
   })
   
-  const newComment = ref('')
+  const newComment = ref({
+  name: '',
+  content: ''
+})
   
   // 提交评论
   const submitComment = () => {
-    if (newComment.value.trim()) {
-      props.onCommentSubmit(newComment.value) // 调用父组件的提交方法
-      newComment.value = '' // 清空输入框
+    if (!newComment.value.name || !newComment.value.content) {
+      alert('请填写姓名和评论内容')
+      return
     }
+    const commentData = {
+      name: newComment.value.name,
+      content: newComment.value.content,
+      reply: 0  // 初始化回复数组
+    }
+    // 调用父组件的提交评论方法
+    props.onCommentSubmit(commentData)
+    // 清空输入框
+    newComment.value.name = ''
+    newComment.value.content = ''
   }
   </script>
+
+<template>
+    <div class="comments-section">
+      <h3 class="comment-title">最新评论.</h3>
+      <div class="comments-list">
+        <div v-for="comment in comments" :key="comment.id" class="comment-item">
+          <p class="comm-name">{{ comment.name }}</p>
+          <p class="comm-text">{{ comment.text }}</p>
+          <p>发表于: {{ new Date(comment.createdAt).toLocaleString() }}</p>
+          <!-- 如果有回复，可以在这里递归显示 -->
+          <div v-if="comment.replies && comment.replies.length">
+            <h4>回复:</h4>
+            <ul>
+              <li v-for="reply in comment.replies" :key="reply.id">
+                <p><strong>{{ reply.name }}</strong>: {{ reply.content }}</p>
+                <p>发表于: {{ new Date(reply.createdAt).toLocaleString() }}</p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <form class="comment-form" @submit.prevent="submitComment">
+        <label for="revname">Name：</label>
+        <input v-model="newComment.name" type="text" placeholder="昵称请不要多于10个字" required>
+        <textarea v-model="newComment.content" placeholder="添加评论..." rows="4" required></textarea>
+        <button type="submit" class="comment-submit">发表评论</button>
+      </form>
+    </div>
+  </template>
   
   <style scoped>
   .comments-section {

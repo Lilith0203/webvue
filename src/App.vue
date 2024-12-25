@@ -282,7 +282,7 @@ header {
 }
 
 .router-view-container {
-  padding: 0 2rem 0.5rem;
+  padding: 0 1.5rem 0.5rem;
 }
 
 .logo {

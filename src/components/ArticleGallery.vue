@@ -142,10 +142,6 @@ onMounted(() => {
     color: var(--color-text);
 }
 
-.tags {
-    margin-left: 15px;
-}
-
 .tags a {
     margin-right: 5px;
     padding: 2px 5px;
