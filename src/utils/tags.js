@@ -7,7 +7,6 @@ export const tagColors = {
     'TypeScript': '#3178c6',
     'Node.js': '#339933',
     'Python': '#3776ab',
-    'Java': '#007396',
     
     // 领域类
     '编程': '#738ABF',
@@ -23,7 +22,7 @@ export const tagColors = {
     
     // 类型类
     '项目': '#0366d6',
-    '博客': '#fc6d26',
+    '网站': '#fc6d26',
     '教程': '#563d7c',
     '工具': '#ff6b6b'
 }

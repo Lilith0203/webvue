@@ -22,7 +22,7 @@
     error.value = null
     
     try {
-      const response = await axios.get('/works?size=12')
+      const response = await axios.get('/works?size=9')
       works.value = response.data.works
     } catch (err) {
       error.value = "获取作品失败：" + err.message
@@ -297,7 +297,7 @@ const isWideImage = (url) => {
   /* 响应式调整 */
   @media (max-width: 768px) {
     .gallery-grid {
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
       gap: 10px;
     }
   

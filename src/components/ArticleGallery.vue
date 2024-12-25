@@ -23,6 +23,12 @@ const fetchData = async () => {
   }
 }
 
+// 格式化日期的函数
+const formatDate = (dateString) => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString() // 只返回日期部分
+}
+
 const getTagStyle = (tag) => {
   const bgColor = getTagColor(tag)
   const textColor = getTextColor(bgColor)
@@ -52,6 +58,7 @@ onMounted(() => {
       <div v-if="backendData" class="article-list">
         <span class="article-count">共 {{ backendData.count }} 篇</span>
         <section v-for="article in backendData.articles" :key="article.id">
+          <div class="article-head">
           <span class="tags">
                 <a v-for="tag in article.tags"
                    href="`/article?tag=${tag}`"
@@ -61,8 +68,13 @@ onMounted(() => {
                    :style="getTagStyle(tag)">
                    {{ tag }}
                 </a>
-          </span>  
+          </span>
+            
           <a href="#" @click.prevent="router.push(`/article/${article.id}`)">{{ article.title }}</a>
+          </div>
+          <div class="article-time">
+            {{ formatDate(article.createdAt) }}
+          </div>
         </section>
         <span class="more"><a href="/article" @click.prevent="router.push('/article')">More</a></span>
       </div>
@@ -145,6 +157,24 @@ onMounted(() => {
 .tag:hover {
     opacity: 0.6;
     transform: translateY(-1px);
+}
+
+.article-list section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.article-head, .article-time {
+  display: inline-flex;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.article-time {
+  font-size: 0.8rem;
+  color: #9da09e;
 }
 
 @media (min-width: 1024px) {

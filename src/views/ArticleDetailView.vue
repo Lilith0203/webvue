@@ -5,6 +5,7 @@ import axios from '../api'
 import { marked } from 'marked'
 import { useAuthStore } from '../stores/auth'
 import { refreshImageUrl} from '../utils/image'
+import CommentSection from '../components/CommentSection.vue'
 
 const authStore = useAuthStore()
 
@@ -74,6 +75,16 @@ const processContent = async (content) => {
   return processedContent
 }
 
+// 返回上一个页面
+const goBack = () => {
+ router.go(-1) 
+}
+
+// 提交评论
+const submitComment = (commentText) => {
+  article.value.comments.push({ id: Date.now(), text: commentText }) // 添加评论
+}
+
 onMounted(() => {
   fetchArticle()
 })
@@ -81,7 +92,7 @@ onMounted(() => {
 
 <template>
   <div class="article-detail">
-    <a href="/article" @click.prevent="router.push('/article')" class="a-back"><i class="iconfont icon-back"></i></a>
+    <a href="/article" @click.prevent="goBack" class="a-back"><i class="iconfont icon-back"></i></a>
     <div v-if="loading" class="loading">加载中...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <article v-else-if="article" class="a-complete">
@@ -98,6 +109,12 @@ onMounted(() => {
         </p>
       </div>
       <div class="article-content" v-html="article.renderedContent"></div>
+    
+    <!-- 使用评论组件 -->
+    <CommentSection 
+        :comments="article.comments" 
+        :onCommentSubmit="submitComment" 
+      />
     </article>
   </div>
 </template>

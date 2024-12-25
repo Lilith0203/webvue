@@ -191,6 +191,8 @@ const handleDrop = (event) => {
     const beforeText = text.substring(0, start)
     const selectedText = text.substring(start, end)
     const afterText = text.substring(end)
+    // 记录插入前的滚动位置
+    const scrollTop = textarea.scrollTop;
   
     articleForm.value.content = beforeText + prefix + selectedText + suffix + afterText
     
@@ -199,7 +201,9 @@ const handleDrop = (event) => {
       textarea.setSelectionRange(
         start + prefix.length,
         end + prefix.length
-      )
+      ),
+      // 恢复滚动位置
+      textarea.scrollTop = scrollTop;
     })
   }
   
