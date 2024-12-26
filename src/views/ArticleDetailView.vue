@@ -6,6 +6,8 @@ import { marked } from 'marked'
 import { useAuthStore } from '../stores/auth'
 import { refreshImageUrl} from '../utils/image'
 import CommentSection from '../components/CommentSection.vue'
+import { confirm } from '../utils/confirm'
+import { message } from '../utils/message'
 
 const authStore = useAuthStore()
 
@@ -105,11 +107,6 @@ const goBack = () => {
 
 // 提交评论
 const submitComment = async (commentData) => {
-  return;
-  if (!commentData.name || !commentData.content) {
-    alert('请填写姓名和内容')
-    return
-  }
 
   try {
     const response = await axios.post('/comment', {
@@ -119,13 +116,28 @@ const submitComment = async (commentData) => {
       itemId: article.value.id,
       reply: commentData.reply
     })
-    console.log(response.data.comment)
+    if (!response.data.success) {
+      message.alert(response.data.message)
+      return
+    }
     comments.value.push(response.data.data.comment)  // 假设返回的评论数据在 comment 字段中
   } catch (error) {
     console.error('提交评论失败:', error)
-    alert('提交评论失败：' + error.message)
+    message.alert('提交评论失败：' + error.message)
   }
 }
+
+const deleteComment = async(commentId) => {
+    if (await confirm('确定要删除吗？')) {
+      try {
+      await axios.post(`/comment_delete`, {id:commentId})
+    } catch (error) {
+      console.error('删除失败:', error)
+    } finally {
+      await fetchComments(article.value.id)
+    }
+    }
+  }
 
 onMounted(async () => {
   await fetchArticle()
@@ -157,7 +169,8 @@ onMounted(async () => {
     <!-- 使用评论组件 -->
     <CommentSection 
         :comments="comments" 
-        :onCommentSubmit="submitComment" 
+        :onCommentSubmit="submitComment"
+        :onCommentDelete="deleteComment"
       />
     </article>
   </div>
@@ -296,7 +309,7 @@ onMounted(async () => {
 
 @media (min-width: 1024px) {
     .article-detail {
-        margin: 100px auto 120px;
+        margin: 50px auto 120px;
     }
 
     .a-back {

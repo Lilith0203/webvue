@@ -110,6 +110,10 @@ const handleLogout = async () => {
   await router.push('/')
 }
 
+const handleAdmin = async () => {
+  await router.push('/admin')
+}
+
 onMounted(() => {
   isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   // 启动自动刷新服务
@@ -127,6 +131,7 @@ onMounted(() => {
     </h3>
     <div v-if="authStore.isAuthenticated" class="logout">
       <button type="button" @click.prevent="handleLogout">退出</button>
+      <button type="button" @click.prevent="handleAdmin" class="admin-button">管理</button>
     </div>
   </footer>
   <div id="container">
@@ -414,6 +419,14 @@ nav a.router-link-exact-active {
 
 .icon-huawen {
   font-size: 28px;
+}
+
+.logout .admin-button{
+  margin-right: 10px;
+  background-color: var(--color-blue);
+}
+.logout .admin-button:hover {
+  background-color: var(--color-blue);
 }
 
 @keyframes fadeIn {

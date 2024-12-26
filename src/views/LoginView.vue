@@ -85,7 +85,7 @@ const handleLogin = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 100vh;
+  margin: 60px auto;
 }
 
 .login-box {

@@ -4,12 +4,12 @@ export const tagColors = {
     '前端': '#99CCCC',
     'React': '#61dafb',
     'JavaScript': '#f7df1e',
-    'TypeScript': '#3178c6',
+    'java': '#3178c6',
     'Node.js': '#339933',
     'Python': '#3776ab',
     
     // 领域类
-    '编程': '#738ABF',
+    '编程': '#99CCCC',
     '手工': '#E1ABCE',
     '全栈': '#7952b3',
     '设计': '#ff7f50',

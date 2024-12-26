@@ -3,6 +3,7 @@ import axios from '../api'
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { confirm } from '../utils/confirm'
 
 const authStore = useAuthStore()
 
@@ -43,7 +44,7 @@ const searchArticles = () => {
 
 // 处理删除
 const handleDelete = async (id) => {
-  if (confirm('确定要取消编辑吗？未保存的修改将丢失')) {
+  if (await confirm('确定要删除这个作品吗？')) {
       try {
       await axios.post(`/article/delete`, {id:id})
       router.push('/article')

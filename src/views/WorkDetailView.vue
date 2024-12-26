@@ -5,6 +5,8 @@
   import { useAuthStore } from '../stores/auth'
   import WorkEditor from '../components/WorkEditor.vue'
   import { marked } from 'marked'
+  import CommentSection from '../components/CommentSection.vue'
+  import { confirm } from '../utils/confirm'
 
   // 修改 marked 渲染器配置
 const renderer = new marked.Renderer()
@@ -18,12 +20,66 @@ const canEdit = computed(() => {
   const router = useRouter()
   const route = useRoute()
   const work = ref(null)
-  const isEditing = ref(false)
   const currentImageIndex = ref(0)
-  const newTag = ref('')
 const editorMode = ref('edit')
 const showEditor = ref(false)
 const currentWork = ref(null)
+const comments = ref([])  // 存储评论
+const loadingComments = ref(false)
+const errorComments = ref(null)
+
+const fetchComments = async (itemId) => {
+  loadingComments.value = true
+  errorComments.value = null
+
+  try {
+    const response = await axios.get(`/comments/${itemId}`, {
+      params: {
+        type: 2,
+      }
+    })
+    comments.value = response.data.comments  // 假设返回的评论数据在 comments 字段中
+  } catch (error) {
+    errorComments.value = "获取评论失败：" + error.message
+    console.error('Fetch comments error:', error)
+  } finally {
+    loadingComments.value = false
+  }
+}
+
+// 提交评论
+const submitComment = async (commentData) => {
+
+try {
+  const response = await axios.post('/comment', {
+    name: commentData.name,
+    content: commentData.content,
+    type: 2,
+    itemId: work.value.id,
+    reply: commentData.reply
+  })
+  if (!response.data.success) {
+    message.alert(response.data.message)
+    return
+  }
+  comments.value.push(response.data.data.comment)  // 假设返回的评论数据在 comment 字段中
+} catch (error) {
+  console.error('提交评论失败:', error)
+  message.alert('提交评论失败：' + error.message)
+}
+}
+
+const deleteComment = async(commentId) => {
+  if (await confirm('确定要删除吗？')) {
+    try {
+    await axios.post(`/comment_delete`, {id:commentId})
+  } catch (error) {
+    console.error('删除失败:', error)
+  } finally {
+    await fetchComments(work.value.id)
+  }
+  }
+}
 
 // 处理编辑成功
 const handleEditorSuccess = (work) => {
@@ -111,8 +167,10 @@ renderer.link = (link) => {
 // 使用自定义渲染器
 marked.use({ renderer })
   
-  onMounted(() => {
-    fetchWorkDetail()
+  onMounted(async() => {
+    await fetchWorkDetail()
+    const itemId = work.value.id/* 获取当前文章或作品的 ID */
+    await fetchComments(itemId)
   })
   </script>
 
@@ -190,6 +248,11 @@ marked.use({ renderer })
             </div>
           </div>
         </template>
+        <CommentSection 
+          :comments="comments" 
+          :onCommentSubmit="submitComment"
+          :onCommentDelete="deleteComment"
+        />
       </div>
     </div>
   </template>

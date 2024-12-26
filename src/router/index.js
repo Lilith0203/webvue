@@ -8,6 +8,7 @@ import MaterialView from '../views/MaterialView.vue'
 import MaterialType from '../components/MaterialType.vue'
 import GridPainter from '../components/GridPainter.vue'
 import LoginView from '../views/LoginView.vue'
+import AdminView from '../views/Admin.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -78,6 +79,11 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: LoginView
+    },
+    {
+      path: '/admin',
+      name: 'admin',
+      component: AdminView
     }
   ],
 })
@@ -88,7 +94,8 @@ router.beforeEach((to, from, next) => {
   const privatePages = [
     '/material/type',
     '/publish',
-    '/article/:id/edit'
+    '/article/:id/edit',
+    '/admin'
   ]
   const authRequired = privatePages.includes(to.path)
 
