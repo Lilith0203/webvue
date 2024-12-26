@@ -154,6 +154,7 @@
     margin: 10px auto 0;
     border-radius: 4px;
     padding: 5px 6px;
+    font-size: 0.9rem;
   }
 
   .comment-submit:hover {

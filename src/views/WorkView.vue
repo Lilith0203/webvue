@@ -156,8 +156,7 @@ onUnmounted(() => {
       :mode="editorMode"
       :work="currentWork"
       @success="handleEditorSuccess"
-      @cancel="closeEditor"
-    /><!-- 编辑弹窗 -->
+      @cancel="closeEditor"/><!-- 编辑弹窗 -->
     <template v-else>
       <div class="header">
         <h2>作品展示</h2>

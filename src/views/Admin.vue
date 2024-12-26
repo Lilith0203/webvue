@@ -33,18 +33,34 @@ loadSettings()
 
 <template>
     <div class="comment-management">
-        <h2>评论管理</h2>
-        <div class="toggle-button" @click="toggleComments">
-            <div class="toggle-indicator" :class="{ 'active': commentsEnabled }"></div>
-        </div>
-        <span>{{ commentsEnabled ? '评论功能已启用' : '评论功能已禁用' }}</span>
+        <h2 class="header">网站配置</h2>
+        <section class="comment">
+          <div class="toggle-button" @click="toggleComments">
+              <div class="toggle-indicator" :class="{ 'active': commentsEnabled }"></div>
+          </div>
+          <span>{{ commentsEnabled ? '评论功能已启用' : '评论功能已禁用' }}</span>
+        </section>
+        <button @click="saveSettings" class="save-button">保存设置</button>
     </div>
-    <button @click="saveSettings">保存设置</button>
 </template>
 
 <style scoped>
+.header {
+  font-size: 1.3rem;
+  margin-bottom: 20px;
+}
+
 .comment-management {
     margin-top: 20px;
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.comment {
+  display: flex;
+  align-items: center;
 }
 
 .toggle-button {
@@ -55,6 +71,7 @@ loadSettings()
   position: relative;
   cursor: pointer;
   transition: background-color 0.3s;
+  margin-right: 20px;
 }
 
 .toggle-indicator {
@@ -75,5 +92,23 @@ loadSettings()
 
 .toggle-button.active {
   background-color: #499e8d; /* 切换开启时的背景颜色 */
+}
+
+.save-button {
+  display: block;
+  background-color: rgba(210,86,86,0.8);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  margin: 40px 0 0;
+  border-radius: 4px;
+  padding: 5px 6px;
+  font-size: 0.9rem;
+}
+
+@media (min-width: 1024px) {
+  .comment-management {
+    min-height: 100vh;
+  }
 }
 </style>

@@ -8,6 +8,12 @@ import { imageRefreshService } from './services/imageRefresh'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const activeMenu = ref('')
+const submenuHeight = ref(0)
+const menuTimeout = ref(null)
+// 当前显示的二维码索引
+const activeQR = ref(null)
+const isMobile = ref(false)
 
 const menuConfig = [
   {
@@ -30,9 +36,9 @@ const menuConfig = [
     path: '/article',
   },
   {
-    label: 'About',
-    key: 'about',
-    path: '/about',
+    label: '小程序',
+    key: 'program',
+    path: '/program',
   }
 ]
 
@@ -44,13 +50,6 @@ const socialLinks = [
     qrCode: '/images/bilibili.jpg'
   },
 ]
-
-const activeMenu = ref('')
-const submenuHeight = ref(0)
-const menuTimeout = ref(null)
-// 当前显示的二维码索引
-const activeQR = ref(null)
-const isMobile = ref(false)
 
 // 切换子菜单
 const toggleSubmenu = (key) => {
@@ -69,11 +68,6 @@ const closeSubmenu = () => {
   activeMenu.value = ''
   submenuHeight.value = 0
 }
-
-// 路由变化时关闭子菜单
-watch(() => router.path, (newPath) => {
-  closeSubmenu()
-})
 
 // 显示二维码
 const showQRCode = (index) => {
@@ -96,15 +90,6 @@ const toggleQRCode = (index) => {
   }
 }
 
-// 组件卸载时清理定时器
-onUnmounted(() => {
-  if (menuTimeout.value) {
-    clearTimeout(menuTimeout.value)
-  }
-  // 停止自动刷新服务
-  imageRefreshService.stopAutoRefresh()
-})
-
 const handleLogout = async () => {
   authStore.clearAuth()
   await router.push('/')
@@ -114,10 +99,24 @@ const handleAdmin = async () => {
   await router.push('/admin')
 }
 
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  if (menuTimeout.value) {
+    clearTimeout(menuTimeout.value)
+  }
+  // 停止自动刷新服务
+  imageRefreshService.stopAutoRefresh()
+})
+
 onMounted(() => {
   isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   // 启动自动刷新服务
   imageRefreshService.startAutoRefresh()
+})
+
+// 路由变化时关闭子菜单
+watch(() => router.path, (newPath) => {
+  closeSubmenu()
 })
 
 </script>
@@ -144,14 +143,14 @@ onMounted(() => {
         <template v-for="menu in menuConfig" :key="menu.key || menu.path">
           <!-- 一级菜单（无子菜单） -->
           <RouterLink 
-              v-if="!menu.children" 
-              :to="menu.path"
-              class="nav-link">
-              <div class="nav-link-text">
-                <i class="iconfont icon-huawen"></i>
-                {{ menu.label }}
-                <i v-if="menu.key===`about`" class="iconfont icon-huawen"></i>
-              </div>
+            v-if="!menu.children" 
+            :to="menu.path"
+            class="nav-link">
+            <div class="nav-link-text">
+              <i class="iconfont icon-huawen"></i>
+              {{ menu.label }}
+              <i v-if="menu.key===`program`" class="iconfont icon-huawen"></i>
+            </div>
           </RouterLink>
 
           <!-- 带子菜单的菜单项 -->
@@ -161,25 +160,22 @@ onMounted(() => {
 
             <div 
               class="submenu-trigger green"
-              @click="toggleSubmenu(menu.key)"
-            >
+              @click="toggleSubmenu(menu.key)">
             <i class="iconfont icon-huawen"></i>
             {{ menu.label }}
-          </div>
+            </div>
           
-          <!-- 子菜单 -->
-          <Transition name="submenu">
+            <!-- 子菜单 -->
+            <Transition name="submenu">
               <div 
                 v-show="activeMenu === menu.key"
-                class="submenu"
-              >
+                class="submenu">
                 <RouterLink 
                   v-for="subMenu in menu.children"
                   :key="subMenu.path"
                   :to="subMenu.path"
                   class="submenu-item"
-                  @click="closeSubmenu"
-                >
+                  @click="closeSubmenu">
                   {{ subMenu.label }}
                 </RouterLink>
               </div>
@@ -189,23 +185,23 @@ onMounted(() => {
       </nav>
 
       <div class="social-links" >
-          <span>欢迎关注：</span>
-          <div class="social-item" 
-              v-for="(item, index) in socialLinks" 
-              :key="index"
-              @mouseenter="showQRCode(index)"
-              @mouseleave="hideQRCode"
-              @click="toggleQRCode(index)">
-            <div class="social-icon">
-              <i :class="item.icon"></i>
-            </div>
+        <span>欢迎关注：</span>
+        <div class="social-item" 
+          v-for="(item, index) in socialLinks" 
+          :key="index"
+          @mouseenter="showQRCode(index)"
+          @mouseleave="hideQRCode"
+          @click="toggleQRCode(index)">
+          <div class="social-icon">
+            <i :class="item.icon"></i>
+          </div>
       
-            <!-- 二维码弹出层 -->
-            <div class="qr-popup" v-show="activeQR === index">
-              <img :src="item.qrCode" :alt="item.name">
-            </div>
+          <!-- 二维码弹出层 -->
+          <div class="qr-popup" v-show="activeQR === index">
+            <img :src="item.qrCode" :alt="item.name">
           </div>
         </div>
+      </div>
         
     </div>
   </header>
@@ -215,7 +211,9 @@ onMounted(() => {
   </div>
 </div>
 <footer class="bottom-fixed">
-    <p>Copyright © 2024-2024 沪ICP备2024106280号</p>
+    <p>Copyright © 2024-2024 沪ICP备2024106280号
+      <span class="about-link"><a href="#" @click.prevent="router.push('/about')">关于我</a></span>
+    </p>
 </footer>
 </template>
 
@@ -427,6 +425,16 @@ nav a.router-link-exact-active {
 }
 .logout .admin-button:hover {
   background-color: var(--color-blue);
+}
+
+.about-link {
+  margin-left: 10px;
+}
+
+.about-link a{
+  padding: 0;
+  color: #fff;
+  text-decoration: underline;
 }
 
 @keyframes fadeIn {

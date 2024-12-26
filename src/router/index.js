@@ -9,6 +9,7 @@ import MaterialType from '../components/MaterialType.vue'
 import GridPainter from '../components/GridPainter.vue'
 import LoginView from '../views/LoginView.vue'
 import AdminView from '../views/Admin.vue'
+import ProgramView from '../views/ProgramView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -74,6 +75,11 @@ const router = createRouter({
       // this generates a separate chunk (About.[hash].js) for this route
       // which is lazy-loaded when the route is visited.
       component: () => import('../views/AboutView.vue'),
+    },
+    {
+      path: '/program',
+      name: 'program',
+      component: ProgramView
     },
     {
       path: '/login',
