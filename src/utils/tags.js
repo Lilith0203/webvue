@@ -2,7 +2,7 @@
 export const tagColors = {
     // 技术类
     '前端': '#99CCCC',
-    'React': '#61dafb',
+    'linux': '#61dafb',
     'JavaScript': '#f7df1e',
     'java': '#3178c6',
     'Node.js': '#339933',

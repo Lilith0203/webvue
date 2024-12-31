@@ -175,7 +175,7 @@ const authStore = useAuthStore()
     '#000000', '#FFFFFF', '#0000FF', '#001166', '#FFFC9E',
     '#A30000', '#FFD1DF', '#FEE22A', '#C2EBFF', '#8BB1FE',
     '#B68FF0', '#FBF4DA', '#BABABA', '#D6FFAD', '#FF6666',
-    '#268000', '#FFBF0F', '#7CE4B3', '#491313', '#FEB690',
+    '#268000', '#FFBF0F', '#7CE4B3', '#491313', '#884535',
     '#FFD700', '#808080', '#F0E68C', '#E6E6FA', '#98FB98',
     '#FFD700', '#808080', '#F0E68C', '#E6E6FA', '#98FB98'
   ])
