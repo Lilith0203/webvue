@@ -21,6 +21,12 @@ export const useAuthStore = defineStore('auth', {
           localStorage.setItem('user', JSON.stringify(user))
           localStorage.setItem('token', token)
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+          
+          // 设置一个定时器来在令牌过期后清除认证信息
+          const tokenExpirationTime = 24 * 3600 * 1000; // 假设令牌有效期为24小时
+          setTimeout(() => {
+            this.clearAuth(); // 令牌过期后清除认证
+          }, tokenExpirationTime);
         },
     
         clearAuth() {
