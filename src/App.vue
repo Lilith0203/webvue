@@ -49,6 +49,11 @@ const socialLinks = [
     icon: 'iconfont icon-bzhan',
     qrCode: '/images/bilibili.jpg'
   },
+  {
+    name: '小红书',
+    icon: 'iconfont icon-xiaohongshu',
+    qrCode: '/images/xiaohongshu.png'
+  }
 ]
 
 // 切换子菜单
