@@ -1,152 +1,3 @@
-<template>
-    <!-- 网格控制区域添加暂存按钮 -->
-  <!-- 浮动的格子图列表窗口 -->
-  <div 
-    v-if="showSavedGrids" 
-    class="floating-window-overlay"
-    @click.self="closeSavedGrids"
-  >
-    <div class="floating-window">
-      <div class="floating-header">
-        <h3>已保存的格子图</h3>
-        <button class="close-btn" @click="closeSavedGrids">×</button>
-      </div>
-
-      <div class="saved-grids">
-        <div 
-          v-for="grid in savedGrids" 
-          :key="grid.id"
-          class="saved-grid-item"
-        >
-          <!-- 预览缩略图 -->
-          <div class="grid-thumbnail">
-            <div 
-              class="thumbnail-container"
-              :style="{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${grid.size}, 1fr)`,
-                gap: '1px'
-              }"
-            >
-              <div 
-                v-for="(cell, index) in grid.cells" 
-                :key="index"
-                class="thumbnail-cell"
-                :style="{ backgroundColor: cell.color }"
-              ></div>
-            </div>
-          </div>
-          
-          <!-- 操作按钮 -->
-          <div class="saved-grid-actions">
-            <button @click="loadSavedGrid(grid)">加载</button>
-            <button v-if="authStore.isAuthenticated" @click="deleteSavedGrid(grid.id)">删除</button>
-          </div>
-          
-          <!-- 时间戳 -->
-          <div class="saved-grid-time">{{ grid.timestamp }}</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-    <div class="grid-painter">
-      <!-- 添加样式选择器 -->
-      <div class="style-controls">
-        <button @click="toggleSavedGrids">加载</button>
-        <button 
-          :class="{ active: gridStyle === 'normal' }" 
-          @click="gridStyle = 'normal'"
-        >
-          普通网格
-        </button>
-        <button 
-          :class="{ active: gridStyle === 'brick' }" 
-          @click="gridStyle = 'brick'"
-        >
-          墙砖式
-        </button>
-      </div>
-      <!-- 颜色选择器 -->
-      <div class="color-tools">
-        <div class="preset-colors">
-        <div 
-          v-for="color in presetColors" 
-          :key="color"
-          class="color-item"
-          :style="{ backgroundColor: color }"
-          :class="{ active: currentColor === color }"
-          @click="selectColor(color)"></div>
-        </div>
-
-        <!-- 自定义颜色 -->
-        <div class="custom-color">
-          <input 
-            type="color" 
-            v-model="customColor"
-            @change="addCustomColor"
-          />
-          <span>自定义颜色</span>
-        </div>
-      </div>
-
-      <!-- 最近使用的颜色 -->
-      <div class="recent-colors">
-        <div 
-          v-for="(color, index) in recentColors" 
-          :key="index"
-          class="color-item"
-          :style="{ backgroundColor: color }"
-          :class="{ active: currentColor === color }"
-          @click="selectColor(color)"
-        ></div>
-      </div>
-  
-      <!-- 网格画布 -->
-      <div 
-        class="grid-container"
-        :class="{ 'brick-style': gridStyle === 'brick' }"
-        :style="{
-          gridTemplateColumns: `repeat(${gridSize}, 1fr)`
-        }"
-      >
-        <div 
-          v-for="(cell, index) in gridCells" 
-          :key="index"
-          class="grid-cell"
-          :class="{
-            'brick-cell': gridStyle === 'brick',
-            'brick-offset': gridStyle === 'brick' && Math.floor(index / gridSize) % 2 === 1
-          }"
-          :style="{ 
-            backgroundColor: cell.color,
-            transform: gridStyle === 'brick' && Math.floor(index / gridSize) % 2 === 1 
-            ? 'translateX(50%)' 
-            : ''
-          }"
-          @click="paintCell(index)"
-          @mouseover="handleMouseOver(index)"
-          @mousedown="isDrawing = true"
-          @mouseup="isDrawing = false"
-        ></div>
-      </div>
-
-      <!-- 网格控制 -->
-      <div class="grid-controls">
-        <input 
-          type="number" 
-          v-model.number="gridSize" 
-          min="1" 
-          max="64"
-          @change="createGrid"
-        >
-        <button @click="clearGrid">清除</button>
-        <button v-if="authStore.isAuthenticated" @click="saveCurrentGrid">存储</button>
-        <button @click="saveGrid">下载</button>
-      </div>
-    </div>
-  </template>
-  
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import axios from '../api'
@@ -338,6 +189,155 @@ const deleteSavedGrid = async (id) => {
     window.removeEventListener('mouseup', stopDrawing)
   })
   </script>
+
+<template>
+    <!-- 网格控制区域添加暂存按钮 -->
+  <!-- 浮动的格子图列表窗口 -->
+  <div 
+    v-if="showSavedGrids" 
+    class="floating-window-overlay"
+    @click.self="closeSavedGrids"
+  >
+    <div class="floating-window">
+      <div class="floating-header">
+        <h3>已保存的格子图</h3>
+        <button class="close-btn" @click="closeSavedGrids">×</button>
+      </div>
+
+      <div class="saved-grids">
+        <div 
+          v-for="grid in savedGrids" 
+          :key="grid.id"
+          class="saved-grid-item"
+        >
+          <!-- 预览缩略图 -->
+          <div class="grid-thumbnail">
+            <div 
+              class="thumbnail-container"
+              :style="{
+                display: 'grid',
+                gridTemplateColumns: `repeat(${grid.size}, 1fr)`,
+                gap: '1px'
+              }"
+            >
+              <div 
+                v-for="(cell, index) in grid.cells" 
+                :key="index"
+                class="thumbnail-cell"
+                :style="{ backgroundColor: cell.color }"
+              ></div>
+            </div>
+          </div>
+          
+          <!-- 操作按钮 -->
+          <div class="saved-grid-actions">
+            <button @click="loadSavedGrid(grid)">加载</button>
+            <button v-if="authStore.isAuthenticated" @click="deleteSavedGrid(grid.id)">删除</button>
+          </div>
+          
+          <!-- 时间戳 -->
+          <div class="saved-grid-time">{{ grid.timestamp }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+    <div class="grid-painter">
+      <!-- 添加样式选择器 -->
+      <div class="style-controls">
+        <button @click="toggleSavedGrids">加载</button>
+        <button 
+          :class="{ active: gridStyle === 'normal' }" 
+          @click="gridStyle = 'normal'"
+        >
+          普通网格
+        </button>
+        <button 
+          :class="{ active: gridStyle === 'brick' }" 
+          @click="gridStyle = 'brick'"
+        >
+          墙砖式
+        </button>
+      </div>
+      <!-- 颜色选择器 -->
+      <div class="color-tools">
+        <div class="preset-colors">
+        <div 
+          v-for="color in presetColors" 
+          :key="color"
+          class="color-item"
+          :style="{ backgroundColor: color }"
+          :class="{ active: currentColor === color }"
+          @click="selectColor(color)"></div>
+        </div>
+
+        <!-- 自定义颜色 -->
+        <div class="custom-color">
+          <input 
+            type="color" 
+            v-model="customColor"
+            @change="addCustomColor"
+          />
+          <span>自定义颜色</span>
+        </div>
+      </div>
+
+      <!-- 最近使用的颜色 -->
+      <div class="recent-colors">
+        <div 
+          v-for="(color, index) in recentColors" 
+          :key="index"
+          class="color-item"
+          :style="{ backgroundColor: color }"
+          :class="{ active: currentColor === color }"
+          @click="selectColor(color)"
+        ></div>
+      </div>
+  
+      <!-- 网格画布 -->
+      <div 
+        class="grid-container"
+        :class="{ 'brick-style': gridStyle === 'brick' }"
+        :style="{
+          gridTemplateColumns: `repeat(${gridSize}, 1fr)`
+        }"
+      >
+        <div 
+          v-for="(cell, index) in gridCells" 
+          :key="index"
+          class="grid-cell"
+          :class="{
+            'brick-cell': gridStyle === 'brick',
+            'brick-offset': gridStyle === 'brick' && Math.floor(index / gridSize) % 2 === 1
+          }"
+          :style="{ 
+            backgroundColor: cell.color,
+            transform: gridStyle === 'brick' && Math.floor(index / gridSize) % 2 === 1 
+            ? 'translateX(50%)' 
+            : ''
+          }"
+          @click="paintCell(index)"
+          @mouseover="handleMouseOver(index)"
+          @mousedown="isDrawing = true"
+          @mouseup="isDrawing = false"
+        ></div>
+      </div>
+
+      <!-- 网格控制 -->
+      <div class="grid-controls">
+        <input 
+          type="number" 
+          v-model.number="gridSize" 
+          min="1" 
+          max="64"
+          @change="createGrid"
+        >
+        <button @click="clearGrid">清除</button>
+        <button v-if="authStore.isAuthenticated" @click="saveCurrentGrid">存储</button>
+        <button @click="saveGrid">下载</button>
+      </div>
+    </div>
+  </template>
   
   <style scoped>
   .grid-painter {

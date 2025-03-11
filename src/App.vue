@@ -36,9 +36,12 @@ const menuConfig = [
     path: '/article',
   },
   {
-    label: '小程序',
+    label: '小工具',
     key: 'program',
-    path: '/program',
+    children: [
+      {label: '颜色管理', path: '/color'},
+      {label: '小游戏', path: '/program'},
+    ]
   }
 ]
 
@@ -216,7 +219,7 @@ watch(() => router.path, (newPath) => {
   </div>
 </div>
 <footer class="bottom-fixed">
-    <p>Copyright © 2024-2024 沪ICP备2024106280号
+    <p>Copyright © 2024-2025 沪ICP备2024106280号
       <span class="about-link"><a href="#" @click.prevent="router.push('/about')">关于我</a></span>
     </p>
 </footer>
