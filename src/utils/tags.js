@@ -1,30 +1,22 @@
+import axios from '../api'
+
 // 标签颜色映射
-export const tagColors = {
-    // 技术类
-    '前端': '#99CCCC',
-    'linux': '#61dafb',
-    'JavaScript': '#f7df1e',
-    'java': '#3178c6',
-    'Node.js': '#339933',
-    'Python': '#3776ab',
+export let tagColors = {}
+
+// 初始化标签颜色
+export const initTagColors = async () => {
+  try {
+    const response = await axios.get('/colors?category=2')
+    const colors = response.data.data
     
-    // 领域类
-    '编程': '#99CCCC',
-    '手工': '#E1ABCE',
-    '全栈': '#7952b3',
-    '设计': '#ff7f50',
-    '数据库': '#336791',
-    
-    // 状态类
-    '进行中': '#899980',
-    '已完成': '#17a2b8',
-    '规划中': '#ffc107',
-    
-    // 类型类
-    '项目': '#0366d6',
-    '网站': '#fc6d26',
-    '教程': '#563d7c',
-    '工具': '#ff6b6b'
+    // 将颜色数据转换为 tagColors 格式
+    tagColors = colors.reduce((acc, color) => {
+      acc[color.name] = color.code
+      return acc
+    }, {})
+  } catch (error) {
+    console.error('加载标签颜色失败:', error)
+  }
 }
 
 // 获取标签颜色

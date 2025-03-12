@@ -1,7 +1,7 @@
 <script setup>
 import axios from '../api'
 import { ref, onMounted } from 'vue'
-import { getTagColor, getTextColor } from '../utils/tags'
+import { getTagColor, getTextColor, initTagColors } from '../utils/tags'
 import { useRouter } from 'vue-router'
 const router = useRouter()
 
@@ -39,8 +39,9 @@ const getTagStyle = (tag) => {
   }
 }
 
-onMounted(() => {
-  fetchData()
+onMounted(async () => {
+  await initTagColors()  // 初始化标签颜色
+  fetchData()           // 获取文章数据
 })
 </script>
 

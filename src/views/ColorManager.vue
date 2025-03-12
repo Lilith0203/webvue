@@ -150,6 +150,60 @@ const groupedColors = computed(() => {
   return result
 })
 
+// 编辑格子图合集
+const editPixelSet = async (setName, colors) => {
+  editingColor.value = {
+    category: 3,
+    set: setName,
+    colors: colors.map(color => ({
+      id: color.id,
+      name: color.name,
+      code: color.code
+    }))
+  }
+}
+
+// 保存格子图合集
+const savePixelSet = async () => {
+  if (!editingColor.value) return
+  
+  try {
+    await axios.post('/color/update-set', {
+      category: 3,
+      oldSet: editingColor.value.set,
+      colors: editingColor.value.colors
+    })
+    
+    // 关闭编辑模式
+    editingColor.value = null
+    // 重新加载颜色数据
+    loadColors()
+  } catch (error) {
+    console.error('更新格子图合集失败:', error)
+  }
+}
+
+// 删除格子图合集
+const deletePixelSet = async (setName, category) => {
+  if (await confirm(`确定要删除合集"${setName}"吗？`)) {
+    try {
+      // 获取该合集中所有颜色的ID
+      const colorIds = groupedColors.value[category][setName].map(color => color.id)
+      
+      // 删除合集中的所有颜色
+      await axios.post('/color/delete-set', {
+        category: category,
+        set: setName
+      })
+      
+      // 更新本地数据
+      loadColors()
+    } catch (error) {
+      console.error('删除合集失败:', error)
+    }
+  }
+}
+
 onMounted(() => {
   loadColors()
 })
@@ -216,8 +270,8 @@ onMounted(() => {
                   <span class="color-code">{{ color.code }}</span>
                 </div>
                 <div class="color-actions">
-                  <button class="edit-btn" @click="startEdit(1, color)" v-if="authStore.isAuthenticated">编辑</button>
-                  <button class="delete-btn" @click="deleteColor(1, color.id)" v-if="authStore.isAuthenticated">删除</button>
+                  <button class="edit-btn" @click="startEdit(1, color)" v-if="authStore.isAuthenticated"><i class="iconfont icon-edit"></i></button>
+                  <button class="delete-btn" @click="deleteColor(1, color.id)" v-if="authStore.isAuthenticated"><i class="iconfont icon-ashbin"></i></button>
                 </div>
               </template>
               <template v-else>
@@ -266,8 +320,8 @@ onMounted(() => {
                   <span class="color-code">{{ color.code }}</span>
                 </div>
                 <div class="color-actions">
-                  <button class="edit-btn" @click="startEdit(2, color)" v-if="authStore.isAuthenticated">编辑</button>
-                  <button class="delete-btn" @click="deleteColor(2, color.id)" v-if="authStore.isAuthenticated">删除</button>
+                  <button class="edit-btn" @click="startEdit(2, color)" v-if="authStore.isAuthenticated"><i class="iconfont icon-edit"></i></button>
+                  <button class="delete-btn" @click="deleteColor(2, color.id)" v-if="authStore.isAuthenticated"><i class="iconfont icon-ashbin"></i></button>
                 </div>
               </template>
               <template v-else>
@@ -303,49 +357,47 @@ onMounted(() => {
       <div class="category-section">
         <h2>{{ getCategoryName(3) }}</h2>
         <div v-for="(setColors, setName) in groupedColors[3]" :key="setName" class="set-group">
-          <h3 class="set-title">{{ setName }}</h3>
-          <div class="pixel-color-grid">
-            <div v-for="color in setColors" :key="color.id" 
-                 class="pixel-color-item"
-                 :class="{ 'editing': editingColor?.id === color.id }">
-              <template v-if="!editingColor || editingColor.id !== color.id">
-                <div class="pixel-preview">
-                  <div class="pixel" :style="{ backgroundColor: color.code }"></div>
+          <div class="pixel-set" :class="{ 'editing': editingColor?.set === setName }">
+            <template v-if="editingColor?.set !== setName">
+              <div class="set-header">
+                <h3 class="set-title">{{ setName }}</h3>
+                <div class="set-actions">
+                  <button class="edit-btn" @click="editPixelSet(setName, setColors)" v-if="authStore.isAuthenticated">
+                    <i class="iconfont icon-edit"></i>
+                  </button>
+                  <button class="delete-btn" @click="deletePixelSet(setName, 3)" v-if="authStore.isAuthenticated">
+                    <i class="iconfont icon-ashbin"></i>
+                  </button>
                 </div>
-                <div class="color-info">
-                  <span class="color-name">{{ color.name }}</span>
-                  <span class="color-code">{{ color.code }}</span>
+              </div>
+              <div class="pixels-container">
+                <div v-for="color in setColors" :key="color.id" 
+                     class="pixel"
+                     :style="{ backgroundColor: color.code }"
+                     :title="color.code">
                 </div>
-                <div class="color-actions">
-                  <button class="edit-btn" @click="startEdit(3, color)" v-if="authStore.isAuthenticated">编辑</button>
-                  <button class="delete-btn" @click="deleteColor(3, color.id)" v-if="authStore.isAuthenticated">删除</button>
+              </div>
+            </template>
+            <template v-else>
+              <!-- 编辑表单 -->
+              <div class="edit-form">
+                <div class="form-group">
+                  <label>合集名称：</label>
+                  <input type="text" v-model="editingColor.set" placeholder="输入合集名称">
                 </div>
-              </template>
-              <template v-else>
-                <!-- 编辑表单 -->
-                <div class="edit-form">
-                  <div class="form-group">
-                    <input type="text" v-model="editingColor.name" placeholder="颜色名称">
-                  </div>
-                  <div class="form-group color-input">
-                    <input type="color" v-model="editingColor.code">
-                    <input type="text" v-model="editingColor.code">
-                  </div>
-                 
-                  <div class="form-group">
-                    <input 
-                      type="text" 
-                      v-model="editingColor.set" 
-                      placeholder="颜色合集名称"
-                    >
-                  </div>
-                  <div class="edit-actions">
-                    <button class="save-btn" @click="saveEdit">保存</button>
-                    <button class="cancel-btn" @click="cancelEdit">取消</button>
+                <!-- 颜色网格编辑 -->
+                <div class="colors-edit-grid">
+                  <div v-for="(color, index) in editingColor.colors" :key="index" class="color-edit-item">
+                    <input type="color" v-model="color.code" :title="color.code">
+                    <input type="text" v-model="color.code" class="color-code-input">
                   </div>
                 </div>
-              </template>
-            </div>
+                <div class="edit-actions">
+                  <button class="save-btn" @click="savePixelSet">保存</button>
+                  <button class="cancel-btn" @click="cancelEdit">取消</button>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -366,8 +418,8 @@ onMounted(() => {
                   <span class="color-code">{{ color.code }}</span>
                 </div>
                 <div class="color-actions">
-                  <button class="edit-btn" @click="startEdit(4, color)" v-if="authStore.isAuthenticated">编辑</button>
-                  <button class="delete-btn" @click="deleteColor(4, color.id)" v-if="authStore.isAuthenticated">删除</button>
+                  <button class="edit-btn" @click="startEdit(4, color)" v-if="authStore.isAuthenticated"><i class="iconfont icon-edit"></i></button>
+                  <button class="delete-btn" @click="deleteColor(4, color.id)" v-if="authStore.isAuthenticated"><i class="iconfont icon-ashbin"></i></button>
                 </div>
               </template>
               <template v-else>
@@ -455,6 +507,10 @@ onMounted(() => {
   margin-bottom: 30px;
 }
 
+.category-section h2 {
+  font-size: 1em;
+}
+
 .color-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -474,7 +530,6 @@ onMounted(() => {
   width: 40px;
   height: 40px;
   border-radius: 4px;
-  margin-right: 10px;
   border: 1px solid #ddd;
 }
 
@@ -483,6 +538,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin: 3px 0;
 }
 
 .color-name {
@@ -501,16 +557,12 @@ onMounted(() => {
 }
 
 .delete-btn {
-  padding: 4px 8px;
-  background-color: var(--color-red);
+  padding: 4px 4px;
+  background: transparent;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-}
-
-.delete-btn:hover {
-  background-color: var(--color-red-hover);
 }
 
 input, select {
@@ -522,7 +574,7 @@ input, select {
 }
 
 button {
-  padding: 6px 12px;  /* 减小按钮内边距 */
+  padding: 4px 8px;  /* 减小按钮内边距 */
   background-color: var(--color-blue);
   color: white;
   border: none;
@@ -537,11 +589,10 @@ button {
 }
 
 .edit-btn {
+  background-color: transparent;
   padding: 4px 8px;
-  background-color: var(--color-blue);
   color: white;
   border: none;
-  border-radius: 4px;
   cursor: pointer;
 }
 
@@ -573,9 +624,9 @@ button {
 }
 
 .set-title {
-  font-size: 1.1em;
+  font-size: 0.9em;
   color: #666;
-  margin: 10px 0;
+  margin: 10px 0 5px;
   padding-bottom: 5px;
   border-bottom: 1px solid var(--color-border);
 }
@@ -583,19 +634,56 @@ button {
 /* 材料颜色样式 */
 .material-color-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 15px;
 }
 
 .material-color-item {
   border: 1px solid var(--color-border);
   border-radius: 8px;
+  padding: 10px 10px 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+/* 编辑状态样式 */
+.material-color-item.editing {
+  grid-column: span 2;  /* 横跨两列 */
+  grid-row: span 2;     /* 横跨两行 */
+  background-color: var(--color-background-soft);
+  z-index: 1;
+}
+
+.material-color-item .edit-form {
+  width: 100%;
   padding: 10px;
 }
 
-.material-color-item .color-preview {
-  height: 80px;
-  border-radius: 6px;
+.material-color-item .edit-form .form-group {
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.material-color-item .edit-form label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.9em;
+}
+
+.material-color-item .edit-form .color-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.material-color-item .edit-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 /* 标签颜色样式 */
@@ -610,29 +698,65 @@ button {
 }
 
 .tag-preview {
-  padding: 4px 12px;
-  border-radius: 15px;
+  padding: 2px 5px;
+  border-radius: 5px;
   color: white;
   font-size: 0.9em;
 }
 
 /* 格子图颜色样式 */
 .pixel-color-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 10px;
+  margin: 10px 0;
 }
 
-.pixel-color-item {
-  text-align: center;
-  padding: 5px;
+.pixel-set {
+  background: var(--color-background-soft);
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+
+.pixels-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px;
+  background: var(--color-background-mute);
+  border-radius: 4px;
 }
 
 .pixel {
-  width: 30px;
-  height: 30px;
-  margin: 0 auto;
-  border: 1px solid #ddd;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+}
+
+.pixel-color-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.pixel-color-actions:last-child {
+  border-bottom: none;
+}
+
+.pixel-color-name {
+  font-size: 0.9em;
+  color: var(--color-text);
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.action-buttons button {
+  padding: 4px 8px;
+  font-size: 0.8em;
 }
 
 /* 收藏颜色样式 */
@@ -654,14 +778,6 @@ button {
   margin-bottom: 8px;
 }
 
-/* 通用样式调整 */
-.color-info {
-  margin: 8px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 .color-actions {
   display: flex;
   gap: 8px;
@@ -670,5 +786,111 @@ button {
 
 .editing {
   background-color: var(--color-background-soft);
+}
+
+.set-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.set-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.set-actions button {
+  padding: 4px 8px;
+  font-size: 0.8em;
+  background: transparent;
+}
+
+.set-actions button:hover {
+  background: var(--color-background-mute);
+}
+
+.pixel-set.editing {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.pixel-set .edit-form {
+  padding: 15px;
+}
+
+.pixel-set .edit-form .form-group {
+  margin-bottom: 15px;
+}
+
+.pixel-set .edit-form label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.pixel-set .edit-form .color-input {
+  display: flex;
+  gap: 8px;
+}
+
+.pixel-set .edit-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.colors-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  padding: 15px;
+  background: var(--color-background-mute);
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.color-edit-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+}
+
+.color-edit-item input[type="color"] {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.color-edit-item .color-code-input {
+  width: 80px;
+  text-align: center;
+  padding: 2px 4px;
+  font-size: 0.8em;
+}
+
+.pixel-set.editing {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.pixels-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 10px;
+  background: var(--color-background-mute);
+  border-radius: 4px;
+}
+
+.pixel {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
 }
 </style> 
