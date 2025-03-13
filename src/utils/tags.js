@@ -35,6 +35,7 @@ export const getTagColor = (tag) => {
 
 // 根据背景色计算文字颜色
 export const getTextColor = (bgColor) => {
+    return '#ffffff'
     // 将颜色转换为RGB
     let color = bgColor
     if (color.startsWith('#')) {
@@ -49,5 +50,4 @@ export const getTextColor = (bgColor) => {
       const l = parseInt(color.match(/\d+/g)[2])
       return l < 60 ? '#ffffff' : '#000000'
     }
-    return '#000000'
 }

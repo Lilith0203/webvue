@@ -1,37 +1,59 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
   
-  const gridStyle = ref('normal')  // 'normal' 或 'brick'
-  const gridSize = ref(32)  // 默认32x32
-  const currentColor = ref('#000000')  // 当前选择的颜色
-  const customColor = ref('#000000')
-  const gridCells = ref([])  // 网格数据
-  const gridId = ref(0)  // 加载的格子图
-  const isDrawing = ref(false)  // 是否正在绘制
+const gridStyle = ref('normal')  // 'normal' 或 'brick'
+const gridSize = ref(32)  // 默认32x32
+const currentColor = ref('#000000')  // 当前选择的颜色
+const customColor = ref('#000000')
+const gridCells = ref([])  // 网格数据
+const gridId = ref(0)  // 加载的格子图
+const isDrawing = ref(false)  // 是否正在绘制
 
-  // 最近使用的颜色
-  const recentColors = ref([])
-  const maxRecentColors = 10
-  // 暂存相关的状态
-  const savedGrids = ref([])  // 存储暂存的网格
-  // 控制格子图列表窗口的显示
-  const showSavedGrids = ref(false)
-  
-  // 预设颜色
-  const presetColors = ref([
-    '#000000', '#FFFFFF', '#0000FF', '#001166', '#FFFC9E',
-    '#A30000', '#FFD1DF', '#FEE22A', '#C2EBFF', '#8BB1FE',
-    '#B68FF0', '#FBF4DA', '#BABABA', '#D6FFAD', '#FF6666',
-    '#268000', '#FFBF0F', '#7CE4B3', '#491313', '#884535',
-    '#FFD700', '#808080', '#F0E68C', '#E6E6FA', '#98FB98',
-    '#FFD700', '#808080', '#F0E68C', '#E6E6FA', '#98FB98'
-  ])
+// 最近使用的颜色
+const recentColors = ref([])
+const maxRecentColors = 10
+// 暂存相关的状态
+const savedGrids = ref([])  // 存储暂存的网格
+// 控制格子图列表窗口的显示
+const showSavedGrids = ref(false)
 
-  // 切换格子图列表窗口
+// 从数据库获取的颜色
+const dbColors = ref([])
+// 当前选择的颜色集
+const selectedColorSet = ref('全部')
+// 颜色集列表
+const colorSets = computed(() => {
+  const sets = new Set()
+  sets.add('全部')
+  dbColors.value.forEach(color => {
+    if (color.set) sets.add(color.set)
+  })
+  return Array.from(sets)
+})
+
+// 根据选择的颜色集过滤颜色
+const filteredColors = computed(() => {
+  if (selectedColorSet.value === '全部') {
+    return dbColors.value
+  }
+  return dbColors.value.filter(color => color.set === selectedColorSet.value)
+})
+
+// 获取颜色数据
+const fetchColors = async () => {
+  try {
+    const response = await axios.get('/colors?category=3')
+    dbColors.value = response.data.data
+  } catch (error) {
+    console.error('获取颜色失败:', error)
+  }
+}
+
+// 切换格子图列表窗口
 const toggleSavedGrids = () => {
   showSavedGrids.value = !showSavedGrids.value
   if (showSavedGrids.value) {
@@ -107,8 +129,8 @@ const deleteSavedGrid = async (id) => {
   // 添加自定义颜色
   const addCustomColor = () => {
     selectColor(customColor.value)
-    if (!presetColors.value.includes(customColor.value)) {
-      presetColors.value.push(customColor.value)
+    if (!filteredColors.value.some(c => c.code === customColor.value)) {
+      dbColors.value.push({ code: customColor.value, name: '', set: null })
     }
   }
 
@@ -181,6 +203,7 @@ const deleteSavedGrid = async (id) => {
   
   onMounted(() => {
     fetchSavedGrids()
+    fetchColors()  // 获取颜色数据
     createGrid()
     window.addEventListener('mouseup', stopDrawing)
   })
@@ -261,14 +284,22 @@ const deleteSavedGrid = async (id) => {
       </div>
       <!-- 颜色选择器 -->
       <div class="color-tools">
+        <!-- 颜色集选择 -->
+        <div class="color-set-selector">
+          <select v-model="selectedColorSet">
+            <option v-for="set in colorSets" :key="set">{{ set }}</option>
+          </select>
+        </div>
+        
         <div class="preset-colors">
-        <div 
-          v-for="color in presetColors" 
-          :key="color"
-          class="color-item"
-          :style="{ backgroundColor: color }"
-          :class="{ active: currentColor === color }"
-          @click="selectColor(color)"></div>
+          <div 
+            v-for="color in filteredColors" 
+            :key="color.id"
+            class="color-item"
+            :style="{ backgroundColor: color.code }"
+            :class="{ active: currentColor === color.code }"
+            :title="color.name || color.code"
+            @click="selectColor(color.code)"></div>
         </div>
 
         <!-- 自定义颜色 -->
@@ -393,7 +424,7 @@ const deleteSavedGrid = async (id) => {
 
   .color-tools {
     display: flex;
-    gap: 20px;
+    gap: 10px;
     align-items: center;
   }
 
@@ -656,6 +687,15 @@ const deleteSavedGrid = async (id) => {
   background: #555;
 }
 
+
+.color-set-selector select {
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-size: 0.8em;
+}
+
 /* 响应式调整 */
 @media (max-width: 768px) {
   .grid-container {
@@ -694,4 +734,5 @@ const deleteSavedGrid = async (id) => {
     max-width: 400px;
   }
 }
+
 </style>

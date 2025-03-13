@@ -155,10 +155,12 @@ const editPixelSet = async (setName, colors) => {
   editingColor.value = {
     category: 3,
     set: setName,
+    newSet: setName,  // 添加新的合集名称字段
     colors: colors.map(color => ({
       id: color.id,
       name: color.name,
-      code: color.code
+      code: color.code,
+      set: setName  // 为每个颜色添加set信息
     }))
   }
 }
@@ -171,7 +173,11 @@ const savePixelSet = async () => {
     await axios.post('/color/update-set', {
       category: 3,
       oldSet: editingColor.value.set,
-      colors: editingColor.value.colors
+      newSet: editingColor.value.newSet,  // 发送新的合集名称
+      colors: editingColor.value.colors.map(color => ({
+        ...color,
+        set: editingColor.value.newSet  // 更新所有颜色的set信息
+      }))
     })
     
     // 关闭编辑模式
@@ -201,6 +207,24 @@ const deletePixelSet = async (setName, category) => {
     } catch (error) {
       console.error('删除合集失败:', error)
     }
+  }
+}
+
+// 向合集添加新颜色
+const addColorToSet = () => {
+  if (editingColor.value) {
+    editingColor.value.colors.push({
+      id: null,
+      code: '#000000',
+      set: editingColor.value.newSet  // 使用新的合集名称
+    })
+  }
+}
+
+// 从合集中删除颜色
+const removeColorFromSet = (index) => {
+  if (editingColor.value && editingColor.value.colors.length > 1) {
+    editingColor.value.colors.splice(index, 1)
   }
 }
 
@@ -383,13 +407,29 @@ onMounted(() => {
               <div class="edit-form">
                 <div class="form-group">
                   <label>合集名称：</label>
-                  <input type="text" v-model="editingColor.set" placeholder="输入合集名称">
+                  <input type="text" 
+                         v-model="editingColor.newSet" 
+                         placeholder="输入合集名称"
+                         @keydown.enter.prevent>  <!-- 阻止回车键触发表单提交 -->
                 </div>
                 <!-- 颜色网格编辑 -->
                 <div class="colors-edit-grid">
                   <div v-for="(color, index) in editingColor.colors" :key="index" class="color-edit-item">
-                    <input type="color" v-model="color.code" :title="color.code">
-                    <input type="text" v-model="color.code" class="color-code-input">
+                    <div class="color-edit-wrapper">
+                      <input type="color" v-model="color.code" :title="color.code">
+                      <input type="text" v-model="color.code" class="color-code-input">
+                      <button class="delete-color-btn" @click="removeColorFromSet(index)" 
+                              v-if="editingColor.colors.length > 1">
+                        <i class="iconfont icon-ashbin"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <!-- 添加新颜色按钮 -->
+                  <div class="color-edit-item add-color" @click="addColorToSet">
+                    <div class="add-button">
+                      <i class="iconfont icon-add"></i>
+                    </div>
+                    <span>+</span>
                   </div>
                 </div>
                 <div class="edit-actions">
@@ -842,7 +882,7 @@ button {
 
 .colors-edit-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 10px;
   padding: 15px;
   background: var(--color-background-mute);
@@ -892,5 +932,89 @@ button {
   height: 24px;
   border: 1px solid var(--color-border);
   border-radius: 2px;
+}
+
+.add-color {
+  cursor: pointer;
+  border: 2px dashed var(--color-border);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 80px;  /* 与其他颜色编辑项保持一致的高度 */
+  transition: all 0.3s ease;
+}
+
+.add-color:hover {
+  background: var(--color-background-soft);
+  border-color: var(--color-border-hover);
+}
+
+.add-button {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--color-background-mute);
+}
+
+.add-color span {
+  font-size: 0.8em;
+  color: var(--color-text-light);
+}
+
+.add-color .iconfont {
+  font-size: 24px;
+  color: var(--color-text-light);
+}
+
+.color-edit-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.delete-color-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--color-background-soft);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.color-edit-wrapper:hover .delete-color-btn {
+  opacity: 1;
+}
+
+.delete-color-btn:hover {
+  background: var(--color-background-mute);
+}
+
+.delete-color-btn .iconfont {
+  font-size: 12px;
+  color: var(--color-text);
+}
+
+/* 确保颜色编辑项有足够的内边距来显示删除按钮 */
+.color-edit-item {
+  padding: 8px;
 }
 </style> 
