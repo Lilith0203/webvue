@@ -150,39 +150,38 @@ onUnmounted(() => {
 
 <template>
   
-    <WorkEditor 
-      v-if="showEditor"
-      :visible="showEditor"
-      :mode="editorMode"
-      :work="currentWork"
-      @success="handleEditorSuccess"
-      @cancel="closeEditor"/><!-- 编辑弹窗 -->
+  <WorkEditor 
+    v-if="showEditor"
+    :visible="showEditor"
+    :mode="editorMode"
+    :work="currentWork"
+    @success="handleEditorSuccess"
+    @cancel="closeEditor"/><!-- 编辑弹窗 -->
     <template v-else>
       <div class="header">
         <h2>作品展示</h2>
         <button v-if="canEdit" class="add-btn" @click="openCreateEditor">新增 +</button>
       </div>
       <div class="filter-tags">
-          <a v-for="tag in allTags" 
-              :key="tag"
-              href="#"
-              :class="['tag', { active: selectedTags.includes(tag) }]"
-              @click.prevent="toggleTag(tag)"
-          >{{ tag }}</a>
-        </div>
+        <a v-for="tag in allTags" 
+          :key="tag"
+          href="#"
+          :class="['tag', { active: selectedTags.includes(tag) }]"
+          @click.prevent="toggleTag(tag)">{{ tag }}
+        </a>
+      </div>
 
       <!-- 作品网格展示 -->
       <div class="work-grid">
         <div 
           v-for="work in works" 
           :key="work.id" 
-          class="work-card"
-        >
+          class="work-card">
           <!-- 封面图 -->
           <div class="work-cover" @click="goToDetail(work.id)">
             <img
-            v-if="work.pictures && work.pictures.length > 0" 
-            v-image="work.pictures[0]" alt="封面">
+              v-if="work.pictures && work.pictures.length > 0" 
+              v-image="work.pictures[0]" alt="封面">
             <div v-else class="no-image">
               暂无图片
             </div>
@@ -204,8 +203,7 @@ onUnmounted(() => {
                 v-for="tag in work.tags" 
                 :key="tag" 
                 class="tag"
-                @click.prevent="toggleTag(tag)"
-              >
+                @click.prevent="toggleTag(tag)">
                 <a>{{ tag }}</a>
               </span>
             </div>

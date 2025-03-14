@@ -1,6 +1,6 @@
 <!-- components/WorkEditor.vue -->
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import axios from '../api'
 import { message } from '../utils/message'
 
@@ -24,7 +24,8 @@ const props = defineProps({
       name: '',
       description: '',
       pictures: [],
-      tags: []
+      tags: [],
+      materials: []
     })
   },
   mode: {
@@ -35,13 +36,35 @@ const props = defineProps({
 
 const emit = defineEmits(['cancel', 'success'])
 
+const form = ref({
+  name: '',
+  description: '',
+  tags: [],
+  pictures: [],
+  materials: []  // 添加材料字段
+})
+
+// 材料列表
+const materials = ref([])
+// 选中的材料
+const selectedMaterials = ref([])
+// 材料搜索关键词
+const materialSearchQuery = ref('')
+// 是否显示材料选择器
+const showMaterialSelector = ref(false)
+// 是否已加载材料数据
+const materialsLoaded = ref(false)
+// 搜索结果数量限制
+const maxSearchResults = 20
+
 const initFormData = () => {
   return {
     id: props.work?.id || null,
     name: props.work?.name || '',
     description: props.work?.description || '',
     pictures: [...(props.work?.pictures || [])],
-    tags: [...(props.work?.tags || [])]
+    tags: [...(props.work?.tags || [])],
+    materials: [...(props.work?.materials || [])]
   }
 }
 
@@ -103,6 +126,105 @@ const removeTag = (tag) => {
   formData.tags = formData.tags.filter(t => t !== tag)
 }
 
+// 获取材料列表
+const fetchMaterials = async () => {
+  if (materialsLoaded.value) return
+  
+  try {
+    const response = await axios.post('/material')
+    materials.value = response.data.materials
+    materialsLoaded.value = true
+  } catch (error) {
+    console.error('获取材料失败:', error)
+  }
+}
+
+// 过滤材料
+const filteredMaterials = computed(() => {
+  if (!materialSearchQuery.value) {
+    return []
+  }
+  
+  const query = materialSearchQuery.value.toLowerCase()
+  return materials.value
+    .filter(material => 
+      material.name.toLowerCase().includes(query) || 
+      (material.substance && material.substance.toLowerCase().includes(query)) ||
+      (material.color && material.color.toLowerCase().includes(query)) ||
+      (material.shape && material.shape.toLowerCase().includes(query))
+    )
+    .slice(0, maxSearchResults)
+})
+
+// 搜索提示信息
+const searchHint = computed(() => {  
+  if (!materialSearchQuery.value) {
+    return '请输入关键词搜索材料'
+  }
+  
+  if (filteredMaterials.value.length === 0) {
+    return '没有找到匹配的材料'
+  }
+  
+  if (filteredMaterials.value.length === maxSearchResults) {
+    return `显示前${maxSearchResults}个结果，请继续输入缩小范围`
+  }
+  
+  return `找到${filteredMaterials.value.length}个结果`
+})
+
+// 选择材料
+const selectMaterial = (material) => {
+  if (!selectedMaterials.value.some(m => m.id === material.id)) {
+    selectedMaterials.value.push(material)
+    formData.materials.push(material.id)
+  }
+}
+
+// 移除材料
+const removeMaterial = (material) => {
+  selectedMaterials.value = selectedMaterials.value.filter(m => m.id !== material.id)
+  formData.materials = formData.materials.filter(id => id !== material.id)
+}
+
+// 切换材料选择器
+const toggleMaterialSelector = () => {
+  showMaterialSelector.value = !showMaterialSelector.value
+  if (showMaterialSelector.value && !materialsLoaded.value) {
+    fetchMaterials()
+  }
+}
+
+// 初始化表单
+const initForm = () => {
+  if (props.work) {
+    form.value = {
+      name: props.work.name || '',
+      description: props.work.description || '',
+      tags: props.work.tags || [],
+      pictures: props.work.pictures || [],
+      materials: props.work.materials || []  // 初始化材料
+    }
+    
+    // 加载已选材料信息
+    if (props.work.materials && props.work.materials.length > 0) {
+      loadSelectedMaterials()
+    }
+  }
+}
+
+// 加载已选材料信息
+const loadSelectedMaterials = async () => {
+  try {
+    const response = await axios.post('/material', {
+      ids: form.value.materials
+    })
+    selectedMaterials.value = response.data.materials
+  } catch (error) {
+    console.error('获取已选材料失败:', error)
+  }
+}
+
 // 提交表单
 const handleSubmit = async () => {
   if (submitting.value) return
@@ -117,7 +239,8 @@ const handleSubmit = async () => {
       ...formData,
       id: props.mode === 'create' ? null : formData.id,
       pictures: formData.pictures || [],
-      tags: formData.tags || []
+      tags: formData.tags || [],
+      materials: formData.materials || []
     }
     
     const response = await axios[method](url, submitData)
@@ -170,7 +293,7 @@ const handleTouchMove = (e) => {
     if (Math.abs(touch.clientY - centerY) < moveThreshold) {
       // 交换位置
       if (index !== touchStartIndex.value) {
-        const images = [...formData.value.pictures]
+        const images = [...formData.pictures]
         const [removed] = images.splice(touchStartIndex.value, 1)
         images.splice(index, 0, removed)
         formData.pictures = images
@@ -253,7 +376,13 @@ const insertMarkdown = (prefix, suffix = '') => {
   }
 
 onMounted(() => {
+  initForm()
 })
+
+// 监听 work 变化
+watch(() => props.work, () => {
+  initForm()
+}, { deep: true })
 </script>
 
 <template>
@@ -337,9 +466,67 @@ onMounted(() => {
             </div>
           </div>
   
+          <div class="form-item">
+            <label>材料信息</label>
+            <div class="selected-materials">
+              <div v-for="material in selectedMaterials" :key="material.id" class="material-tag">
+                <span class="material-name">{{ material.name }}</span>
+                <div class="material-details">
+                  <span v-if="material.substance" class="detail-item substance">{{ material.substance }}</span>
+                  <span v-if="material.color" class="detail-item color">{{ material.color }}</span>
+                  <span v-if="material.size" class="detail-item size">{{ material.size }}</span>
+                  <span v-if="material.shape" class="detail-item shape">{{ material.shape }}</span>
+                </div>
+                <button type="button" @click="removeMaterial(material)" class="remove-btn">×</button>
+              </div>
+              <button type="button" @click="toggleMaterialSelector" class="add-material-btn">
+                 添加材料
+              </button>
+            </div>
+            
+            <!-- 材料选择器 -->
+            <div v-if="showMaterialSelector" class="material-selector">
+              <div class="search-box">
+                <input 
+                  type="text" 
+                  v-model="materialSearchQuery" 
+                  placeholder="搜索材料名称、材质、颜色或形状..."
+                  autofocus
+                >
+                <div class="search-hint">{{ searchHint }}</div>
+              </div>
+              <div class="materials-list" v-if="filteredMaterials.length > 0">
+                <div 
+                  v-for="material in filteredMaterials" 
+                  :key="material.id"
+                  class="material-item"
+                  @click="selectMaterial(material)"
+                >
+                  <div class="material-info">
+                    <span class="material-name">{{ material.name }}</span>
+                    <span v-if="material.substance" class="info-tag substance">
+                      {{ material.substance }}
+                    </span>
+                    <span v-if="material.color" class="info-tag color">
+                      {{ material.color }}
+                    </span>
+                    <span v-if="material.shape" class="info-tag shape">
+                      {{ material.shape }}
+                    </span>
+                    <span v-if="material.size" class="info-tag size">
+                      {{ material.size }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+  
           <div class="form-actions">
-            <button type="submit" :disabled="submitting">保存</button>
-            <button type="button" @click.prevent="cancel">取消</button>
+            <button type="submit" class="btn primary" :disabled="submitting">
+              {{ submitting ? '保存中...' : '保存' }}
+            </button>
+            <button type="button" class="btn secondary" @click.prevent="cancel">取消</button>
           </div>
         </form>
     </div>
@@ -455,9 +642,11 @@ onMounted(() => {
   
   .form-actions {
     display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    margin-top: 20px;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-border-soft);
   }
   
   @media (max-width: 768px) {
@@ -469,4 +658,214 @@ onMounted(() => {
       grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     }
   }
+
+.selected-materials {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.material-tag {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-background-soft);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  position: relative;
+  min-width: 120px;
+}
+
+.material-name {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.material-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.85em;
+}
+
+.detail-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.detail-item.substance {
+  color: #1976d2;
+}
+
+.detail-item.color {
+  color: #388e3c;
+}
+
+.detail-item.shape {
+  color: #f57c00;
+}
+
+.detail-item.size {
+  color: #8e24aa;
+}
+
+.remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1em;
+  color: var(--color-text-light);
+  padding: 0 4px;
+}
+
+.add-material-btn {
+  background: none;
+  border: 1px dashed var(--color-border);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9em;
+}
+
+.material-selector {
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  margin-top: 10px;
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-box {
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.search-box input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: 0.90em;
+}
+
+.search-hint {
+  font-size: 0.8em;
+  color: #ddd;
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+.materials-list {
+  overflow-y: auto;
+  max-height: 300px;
+  padding: 8px;
+}
+
+.material-item {
+  padding: 10px;
+  border-bottom: 1px solid var(--color-border-soft);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.material-item:hover {
+  background-color: var(--color-background-soft);
+}
+
+.material-item:last-child {
+  border-bottom: none;
+}
+
+.material-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.info-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  background-color: var(--color-background-mute);
+}
+
+.info-tag i {
+  margin-right: 4px;
+  font-size: 0.9em;
+}
+
+.info-tag.substance {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.info-tag.color {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.info-tag.shape {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.info-tag.size {
+  background-color: #f3e5f5;
+  color: #8e24aa;
+}
+
+.btn {
+  padding: 4px 15px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn.primary {
+  background-color: var(--color-blue);
+  color: white;
+}
+
+.btn.primary:hover {
+  background-color: var(--color-primary-dark, #2980b9);
+}
+
+.btn.primary:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn.secondary {
+  background-color: white;
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.btn.secondary:hover {
+  background-color: var(--color-background-soft);
+}
   </style>

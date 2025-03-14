@@ -113,7 +113,7 @@
   
   <style scoped>
   .comments-section {
-    margin-top: 20px;
+    margin-top: 30px;
   }
   .comment {
     border-bottom: 1px solid #ccc;

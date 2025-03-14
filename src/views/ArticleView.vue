@@ -45,7 +45,7 @@ const searchArticles = () => {
 // 处理删除
 const handleDelete = async (id) => {
   if (await confirm('确定要删除这个作品吗？')) {
-      try {
+    try {
       await axios.post(`/article/delete`, {id:id})
       router.push('/article')
       await fetchData()
@@ -95,21 +95,22 @@ watch(
         <p id="all-info" v-if="backendData">
           <span v-if="route.query.tag">
             当前标签：<span class="current-tag">
-              {{route.query.tag}}
-              <a href="/article" @click.prevent="router.push('/article')" class="clear-tag">×</a>
-            </span>，</span>
+            {{route.query.tag}}
+            <a href="/article" @click.prevent="router.push('/article')" class="clear-tag">×</a>
+            </span>，
+          </span>
           共 <span>{{backendData.count}}</span> 篇文章
         </p>
         <span v-if="authStore.isAuthenticated" class="publish-new">
-          <a href="/publish" @click.prevent="router.push('/publish')">发布+</a></span>
+          <a href="/publish" @click.prevent="router.push('/publish')">发布+</a>
+        </span>
       </div>
       <div class="search-wrapper">
         <input 
           type="text" 
           v-model="searchQuery" 
           placeholder="搜索文章..." 
-          class="search-input" 
-        />
+          class="search-input" />
         <button @click="clearSearch" class="clear-button">x</button>
         <button @click="searchArticles" class="search-button"><i class="iconfont icon-sousuo"></i></button>
       </div>
@@ -124,14 +125,14 @@ watch(
             <div class="operation">
               <div v-if="article.tags" class="a-label">Tag: 
                 <a v-for="tag in article.tags"
-                :key="tag"
-                href="`/article?tag=${tag}`"
-                @click.prevent="router.push(`/article?tag=${tag}`)">{{tag}}</a>
+                  :key="tag"
+                  href="`/article?tag=${tag}`"
+                  @click.prevent="router.push(`/article?tag=${tag}`)">{{tag}}</a>
               </div>
               <span v-if="authStore.isAuthenticated" class="edit-delete">
                 <a class="edit" 
-                href="#"
-                @click.prevent="router.push(`/article/${article.id}/edit`)"><i class="iconfont icon-bianji"></i></a>
+                  href="#"
+                  @click.prevent="router.push(`/article/${article.id}/edit`)"><i class="iconfont icon-bianji"></i></a>
                 <a class="delete" href="#" @click.prevent="handleDelete(article.id)"><i class="iconfont icon-shanchu"></i></a>
               </span>
             </div>
@@ -148,16 +149,16 @@ watch(
         <div class="pages">
           <span>当前页：<span class="cur">{{backendData.page_now}}</span>/{{backendData.page_all}}页</span>
           <a v-if="backendData.page_now !== 1"
-          @click.prevent="router.push(`/article?page=${backendData.page_now-1}${route.query.tag ? '&tag=' + route.query.tag : ''}`)"
-          href="#" 
-          class='able'>上一页</a>
+            @click.prevent="router.push(`/article?page=${backendData.page_now-1}${route.query.tag ? '&tag=' + route.query.tag : ''}`)"
+            href="#" 
+            class='able'>上一页</a>
           <a v-if="backendData.page_now !== backendData.page_all" 
-          href="#" 
-          @click.prevent="router.push(`/article?page=${backendData.page_now+1}${route.query.tag ? '&tag=' + route.query.tag : ''}`)"
-          class='able'>下一页</a>
+            href="#" 
+            @click.prevent="router.push(`/article?page=${backendData.page_now+1}${route.query.tag ? '&tag=' + route.query.tag : ''}`)"
+            class='able'>下一页</a>
           <a href="#" 
-          @click.prevent="router.push(`/article?page=${backendData.page_all}${route.query.tag ? '&tag=' + route.query.tag : ''}`)"
-          class='able'>尾页</a>
+            @click.prevent="router.push(`/article?page=${backendData.page_all}${route.query.tag ? '&tag=' + route.query.tag : ''}`)"
+            class='able'>尾页</a>
         </div>
       </div>
     </div>
@@ -173,7 +174,7 @@ watch(
 }
 
 .content-wrapper {
-    margin: 20px auto 20px;
+  margin: 20px auto 20px;
 }
 
 .a-brief {
@@ -218,16 +219,16 @@ watch(
 }
 
 .a-label a {
-    font-size: 0.8rem;
-    transition: all 0.3s ease;
-    padding: 0px 0px 1px 0;
-    margin: 0 3px;
-    border-bottom: 1px dashed #5e5e5e;
+  font-size: 0.8rem;
+  transition: all 0.3s ease;
+  padding: 0px 0px 1px 0;
+  margin: 0 3px;
+  border-bottom: 1px dashed #5e5e5e;
 }
 
 .a-label a:hover {
-    opacity: 0.6;
-    transform: translateY(-1px);
+  opacity: 0.6;
+  transform: translateY(-1px);
 }
 
 .a-title a {

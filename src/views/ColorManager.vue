@@ -55,16 +55,16 @@ const addColor = async () => {
 
 // 删除颜色
 const deleteColor = async (category, id) => {
-    if (await confirm('确定要删除这个颜色吗？')) {
-        try {
-            await axios.post(`/color/delete`, {
-                id: id
-            })
-            colors.value[category] = colors.value[category].filter(color => color.id !== id)
-        } catch (error) {
-            console.error('删除颜色失败:', error)
-        }
+  if (await confirm('确定要删除这个颜色吗？')) {
+    try {
+      await axios.post(`/color/delete`, {
+        id: id
+      })
+      colors.value[category] = colors.value[category].filter(color => color.id !== id)
+    } catch (error) {
+      console.error('删除颜色失败:', error)
     }
+  }
 }
 
 // 从服务器加载颜色
@@ -268,8 +268,7 @@ onMounted(() => {
           <input 
             type="text" 
             v-model="newColor.set" 
-            placeholder="输入颜色合集名称（可选）"
-          >
+            placeholder="输入颜色合集名称（可选）">
         </div>
       </div>
       
@@ -285,8 +284,8 @@ onMounted(() => {
           <h3 class="set-title">{{ setName }}</h3>
           <div class="material-color-grid">
             <div v-for="color in setColors" :key="color.id" 
-                 class="material-color-item"
-                 :class="{ 'editing': editingColor?.id === color.id }">
+              class="material-color-item"
+              :class="{ 'editing': editingColor?.id === color.id }">
               <template v-if="!editingColor || editingColor.id !== color.id">
                 <div class="color-preview large" :style="{ backgroundColor: color.code }"></div>
                 <div class="color-info">
@@ -313,8 +312,7 @@ onMounted(() => {
                     <input 
                       type="text" 
                       v-model="editingColor.set" 
-                      placeholder="颜色合集名称"
-                    >
+                      placeholder="颜色合集名称">
                   </div>
                   <div class="edit-actions">
                     <button class="save-btn" @click="saveEdit">保存</button>
@@ -334,8 +332,8 @@ onMounted(() => {
           <h3 class="set-title">{{ setName }}</h3>
           <div class="tag-color-grid">
             <div v-for="color in setColors" :key="color.id" 
-                 class="tag-color-item"
-                 :class="{ 'editing': editingColor?.id === color.id }">
+              class="tag-color-item"
+              :class="{ 'editing': editingColor?.id === color.id }">
               <template v-if="!editingColor || editingColor.id !== color.id">
                 <div class="tag-preview" :style="{ backgroundColor: color.code }">
                   {{ color.name }}
@@ -363,8 +361,7 @@ onMounted(() => {
                     <input 
                       type="text" 
                       v-model="editingColor.set" 
-                      placeholder="颜色合集名称"
-                    >
+                      placeholder="颜色合集名称">
                   </div>
                   <div class="edit-actions">
                     <button class="save-btn" @click="saveEdit">保存</button>
@@ -396,9 +393,9 @@ onMounted(() => {
               </div>
               <div class="pixels-container">
                 <div v-for="color in setColors" :key="color.id" 
-                     class="pixel"
-                     :style="{ backgroundColor: color.code }"
-                     :title="color.code">
+                  class="pixel"
+                  :style="{ backgroundColor: color.code }"
+                  :title="color.code">
                 </div>
               </div>
             </template>
@@ -408,9 +405,9 @@ onMounted(() => {
                 <div class="form-group">
                   <label>合集名称：</label>
                   <input type="text" 
-                         v-model="editingColor.newSet" 
-                         placeholder="输入合集名称"
-                         @keydown.enter.prevent>  <!-- 阻止回车键触发表单提交 -->
+                    v-model="editingColor.newSet" 
+                    placeholder="输入合集名称"
+                    @keydown.enter.prevent>  <!-- 阻止回车键触发表单提交 -->
                 </div>
                 <!-- 颜色网格编辑 -->
                 <div class="colors-edit-grid">
@@ -419,7 +416,7 @@ onMounted(() => {
                       <input type="color" v-model="color.code" :title="color.code">
                       <input type="text" v-model="color.code" class="color-code-input">
                       <button class="delete-color-btn" @click="removeColorFromSet(index)" 
-                              v-if="editingColor.colors.length > 1">
+                        v-if="editingColor.colors.length > 1">
                         <i class="iconfont icon-ashbin"></i>
                       </button>
                     </div>
@@ -449,8 +446,8 @@ onMounted(() => {
           <h3 class="set-title">{{ setName }}</h3>
           <div class="favorite-color-grid">
             <div v-for="color in setColors" :key="color.id" 
-                 class="favorite-color-item"
-                 :class="{ 'editing': editingColor?.id === color.id }">
+              class="favorite-color-item"
+              :class="{ 'editing': editingColor?.id === color.id }">
               <template v-if="!editingColor || editingColor.id !== color.id">
                 <div class="favorite-preview" :style="{ backgroundColor: color.code }"></div>
                 <div class="color-info">
@@ -477,8 +474,7 @@ onMounted(() => {
                     <input 
                       type="text" 
                       v-model="editingColor.set" 
-                      placeholder="颜色合集名称"
-                    >
+                      placeholder="颜色合集名称">
                   </div>
                   <div class="edit-actions">
                     <button class="save-btn" @click="saveEdit">保存</button>

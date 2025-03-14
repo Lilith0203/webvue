@@ -128,16 +128,16 @@ const submitComment = async (commentData) => {
 }
 
 const deleteComment = async(commentId) => {
-    if (await confirm('确定要删除吗？')) {
-      try {
+  if (await confirm('确定要删除吗？')) {
+    try {
       await axios.post(`/comment_delete`, {id:commentId})
     } catch (error) {
       console.error('删除失败:', error)
     } finally {
       await fetchComments(article.value.id)
     }
-    }
   }
+}
 
 onMounted(async () => {
   await fetchArticle()
@@ -156,46 +156,46 @@ onMounted(async () => {
         <a href="#" 
            v-if="authStore.isAuthenticated"
            @click.prevent="router.push(`/article/${article.id}/edit`)">
-          <i class="iconfont icon-bianji"></i></a>
+          <i class="iconfont icon-bianji"></i>
+        </a>
       </h1>
       <div class="meta">
         <span class="date">最后更新时间: {{ article.updatedAt }}</span>
         <p v-if="article.tags" class="tags">Tags：
-            <a v-for="tag in article.tags" href="#" @click.prevent="router.push(`/article?tag=${tag}`)">{{ tag }}</a>
+          <a v-for="tag in article.tags" href="#" @click.prevent="router.push(`/article?tag=${tag}`)">{{ tag }}</a>
         </p>
       </div>
       <div class="article-content" v-html="article.renderedContent"></div>
     
-    <!-- 使用评论组件 -->
-    <CommentSection 
+      <!-- 使用评论组件 -->
+      <CommentSection 
         :comments="comments" 
         :onCommentSubmit="submitComment"
-        :onCommentDelete="deleteComment"
-      />
+        :onCommentDelete="deleteComment"/>
     </article>
   </div>
 </template>
 
 <style scoped>
 .article-detail {
-    margin: 0px auto 0;
+  margin: 0px auto 0;
 }
 
 .a-title {
-    font-size: 24px;
-    line-height: 2.5;
-    font-weight: bold;
+  font-size: 24px;
+  line-height: 2.5;
+  font-weight: bold;
 }
 
 .meta {
-    color: #3E3E3E;
-    font-size: 14px;
-    line-height: 1.8;
+  color: #3E3E3E;
+  font-size: 14px;
+  line-height: 1.8;
 }
 
 .article-content {
-    margin-top: 20px;
-    font-size: 14px;
+  margin-top: 20px;
+  font-size: 14px;
 }
 
 .date {
@@ -308,16 +308,16 @@ onMounted(async () => {
 }
 
 @media (min-width: 1024px) {
-    .article-detail {
-        margin: 50px auto 120px;
-    }
+  .article-detail {
+    margin: 50px auto 120px;
+  }
 
-    .a-back {
-      display: initial;
-    }
+  .a-back {
+    display: initial;
+  }
 
-    .icon-back {
-      font-size: 1.5rem;
-    }
+  .icon-back {
+    font-size: 1.5rem;
+  }
 }
 </style>

@@ -22,9 +22,9 @@ try {
 
 // 保存设置到本地存储
 const saveSettings = async() => {
-    const response = await axios.post('/config/set', {
-        comment: commentsEnabled.value
-    })
+  const response = await axios.post('/config/set', {
+    comment: commentsEnabled.value
+  })
 }
 
 // 加载设置
@@ -32,16 +32,16 @@ loadSettings()
 </script>
 
 <template>
-    <div class="comment-management">
-        <h2 class="header">网站配置</h2>
-        <section class="comment">
-          <div class="toggle-button" @click="toggleComments">
-              <div class="toggle-indicator" :class="{ 'active': commentsEnabled }"></div>
-          </div>
-          <span>{{ commentsEnabled ? '评论功能已启用' : '评论功能已禁用' }}</span>
-        </section>
-        <button @click="saveSettings" class="save-button">保存设置</button>
-    </div>
+  <div class="comment-management">
+    <h2 class="header">网站配置</h2>
+    <section class="comment">
+      <div class="toggle-button" @click="toggleComments">
+        <div class="toggle-indicator" :class="{ 'active': commentsEnabled }"></div>
+      </div>
+      <span>{{ commentsEnabled ? '评论功能已启用' : '评论功能已禁用' }}</span>
+    </section>
+    <button @click="saveSettings" class="save-button">保存设置</button>
+  </div>
 </template>
 
 <style scoped>
@@ -51,11 +51,11 @@ loadSettings()
 }
 
 .comment-management {
-    margin-top: 20px;
-    display: flex;
-    align-items: flex-start;
-    flex-direction: column;
-    justify-content: center;
+  margin-top: 20px;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .comment {

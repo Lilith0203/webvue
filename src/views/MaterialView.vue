@@ -336,6 +336,7 @@ const selectedTypes = computed(() => {
 
 // 点击外部关闭下拉框
 const typeDropdownRef = ref(null)
+
 onMounted(() => {
   document.addEventListener('click', (e) => {
     if (typeDropdownRef.value && !typeDropdownRef.value.contains(e.target)) {
@@ -403,20 +404,20 @@ const toggleType = (option) => {
       // 如果选中所有同级类型，也选中父类型
       const parentId = getParentTypeId(option)
       const siblings = typeOptions.value.filter(item => {
-        const itemParentPath = item.path.split('/').slice(0, -1).join('/')
-        return itemParentPath === option.path.split('/').slice(0, -1).join('/')
-      })
+      const itemParentPath = item.path.split('/').slice(0, -1).join('/')
+      return itemParentPath === option.path.split('/').slice(0, -1).join('/')
+    })
       
-      const allSiblingsSelected = siblings.every(sibling => 
-        searchForm.value.type.includes(sibling.value) || sibling.value === typeId
-      )
+    const allSiblingsSelected = siblings.every(sibling => 
+      searchForm.value.type.includes(sibling.value) || sibling.value === typeId
+    )
       
-      if (allSiblingsSelected && parentId) {
-        typesToAdd.push(parentId)
-      }
+    if (allSiblingsSelected && parentId) {
+      typesToAdd.push(parentId)
     }
+  }
     
-    searchForm.value.type = [...new Set([...searchForm.value.type, ...typesToAdd])]
+  searchForm.value.type = [...new Set([...searchForm.value.type, ...typesToAdd])]
   } else {
     // 取消选中当前类型
     const typesToRemove = [typeId]
@@ -453,11 +454,11 @@ const selectType = (value, mode) => {
 
 //判断是否有编辑权限
 const canEdit = computed(() => {
-    return authStore.isAuthenticated
+  return authStore.isAuthenticated
 })
 
 const startEdit = (row) => {
-    if (!canEdit.value) return
+  if (!canEdit.value) return
   editingRow.value = row.id
   editForm.value = { ...row }
 }
@@ -482,18 +483,18 @@ const fetchMaterialData = async () => {
 }
 
 const updateMaterialItem = async (row) => {
-    if (!canEdit.value) return
-    try {
-        loading.value = true
-        await axios.post(`/updateMaterial`, editForm.value)
-        await fetchMaterialData() // 刷新数据
-        editingRow.value = null
-        editForm.value = {}
-    } catch (err) {
-        error.value = "更新失败：" + err.message
-    } finally {
-        loading.value = false
-    }
+  if (!canEdit.value) return
+  try {
+    loading.value = true
+    await axios.post(`/updateMaterial`, editForm.value)
+    await fetchMaterialData() // 刷新数据
+    editingRow.value = null
+    editForm.value = {}
+  } catch (err) {
+    error.value = "更新失败：" + err.message
+  } finally {
+    loading.value = false
+  }
 }
 
 // 添加新材料
@@ -545,16 +546,16 @@ const deleteMaterial = async (row) => {
 const formErrors = ref({})
 
 onMounted(async() => {
-    document.addEventListener('click', (e) => {
-      const target = e.target
-      if (!target.closest('.type-selector')) {
-        isTypeDropdownVisible.value = false
-        isEditTypeDropdownVisible.value = false
-      }
-    })
-    loadColumnSettings()
-    await fetchTypeTree()
-    await fetchMaterialData()
+  document.addEventListener('click', (e) => {
+    const target = e.target
+    if (!target.closest('.type-selector')) {
+      isTypeDropdownVisible.value = false
+      isEditTypeDropdownVisible.value = false
+    }
+  })
+  loadColumnSettings()
+  await fetchTypeTree()
+  await fetchMaterialData()
 })
 
 // 修改表格显示逻辑，显示类型名称而不是ID
@@ -570,39 +571,33 @@ const getTypeName = (typeId) => {
       <div class="column-settings">
         <button 
           class="settings-btn"
-          @click="isColumnSettingsVisible = !isColumnSettingsVisible"
-        >
+          @click="isColumnSettingsVisible = !isColumnSettingsVisible">
           列设置
         </button>
         <RouterLink 
           v-if="canEdit"
           to="/material/type"
-          class="settings-btn"
-        >
+          class="settings-btn">
           分类管理
         </RouterLink>
         <div 
           v-if="isColumnSettingsVisible" 
-          class="column-dropdown"
-        >
+          class="column-dropdown">
           <div class="column-options">
             <label 
               v-for="(config, key) in columns" 
               :key="key"
-              class="column-option"
-            >
+              class="column-option">
               <input
                 type="checkbox"
                 :checked="visibleColumns.includes(key)"
-                @change="toggleColumn(key)"
-              >
+                @change="toggleColumn(key)">
               {{ config.label }}
             </label>
           </div>
           <button 
             class="save-settings-btn"
-            @click="saveColumnSettings(); isColumnSettingsVisible = false"
-          >
+            @click="saveColumnSettings(); isColumnSettingsVisible = false">
             保存设置
           </button>
         </div>
@@ -612,8 +607,7 @@ const getTypeName = (typeId) => {
       <div v-if="canEdit" class="add-material">
         <button 
           class="add-btn"
-          @click="isAddingMaterial = true"
-        >
+          @click="isAddingMaterial = true">
           新增
         </button>
       </div>
@@ -626,8 +620,7 @@ const getTypeName = (typeId) => {
           <h3>新增材料</h3>
           <button 
             class="close-btn"
-            @click="isAddingMaterial = false"
-          >
+            @click="isAddingMaterial = false">
             ×
           </button>
         </div>
@@ -641,8 +634,7 @@ const getTypeName = (typeId) => {
                 <div class="type-selector">
                   <div 
                     class="type-input" 
-                    @click="isTypeDropdownVisible = !isTypeDropdownVisible"
-                  >
+                    @click="isTypeDropdownVisible = !isTypeDropdownVisible">
                     <span v-if="newMaterialForm[key]">{{ getTypeName(newMaterialForm[key]) }}</span>
                     <span v-else class="placeholder">请选择类型</span>
                     <span class="arrow">▼</span>
@@ -650,8 +642,7 @@ const getTypeName = (typeId) => {
 
                   <div 
                     v-show="isTypeDropdownVisible" 
-                    class="type-dropdown"
-                  >
+                    class="type-dropdown">
                     <div 
                       v-for="option in typeOptions" 
                       :key="option.value"
@@ -661,14 +652,12 @@ const getTypeName = (typeId) => {
                         'selected': newMaterialForm[key] === option.value,
                         [`level-${option.level}`]: true
                       }"
-                      :style="{ paddingLeft: `${option.level * 20 + 10}px` }"
-                    >
+                      :style="{ paddingLeft: `${option.level * 20 + 10}px` }">
                       <!-- 展开/收起箭头 -->
                       <span 
                         v-if="hasChildren(option)"
                         class="expand-arrow"
-                        @click.stop="toggleExpand(option.path)"
-                      >
+                        @click.stop="toggleExpand(option.path)">
                         {{ expandedTypes.has(option.path) ? '▼' : '▶' }}
                       </span>
                       <span v-else class="expand-placeholder"></span>
@@ -685,8 +674,7 @@ const getTypeName = (typeId) => {
                 <input
                   v-model.number="newMaterialForm[key]"
                   type="number"
-                  class="form-input"
-                >
+                  class="form-input">
               </template>
               <template v-else-if="key == 'color'">
                 <input
@@ -695,17 +683,15 @@ const getTypeName = (typeId) => {
                   class="form-input"
                   required 
                   :class="{ 'error': formErrors.color }"  
-                  placeholder="请输入颜色"
-                >
+                  placeholder="请输入颜色">
                 <!-- 显示错误信息 -->
-              <span v-if="formErrors.color" class="error-text">{{ formErrors.color }}</span>
+                <span v-if="formErrors.color" class="error-text">{{ formErrors.color }}</span>
               </template>
               <template v-else-if="key !== 'actions'">
                 <input
                   v-model="newMaterialForm[key]"
                   :type="config.type || 'text'"
-                  class="form-input"
-                >
+                  class="form-input">
               </template>
             </template>
           </div>
@@ -725,8 +711,7 @@ const getTypeName = (typeId) => {
         <input 
           v-model="searchForm.name"
           type="text"
-          placeholder="请输入名称"
-        >
+          placeholder="请输入名称">
       </div>
       
       <div class="search-item" ref="typeDropdownRef">
@@ -734,8 +719,7 @@ const getTypeName = (typeId) => {
         <div class="type-selector">
           <div 
             class="type-input" 
-            @click="showTypeDropdown = !showTypeDropdown"
-          >
+            @click="showTypeDropdown = !showTypeDropdown">
             <span v-if="searchForm.type.length">{{ selectedTypes }}</span>
             <span v-else class="placeholder">请选择类型</span>
             <span class="arrow">▼</span>
@@ -744,8 +728,7 @@ const getTypeName = (typeId) => {
           <!-- 类型下拉菜单 -->
           <div 
             v-show="showTypeDropdown" 
-            class="type-dropdown"
-          >
+            class="type-dropdown">
             <div 
               v-for="option in typeOptions" 
               :key="option.value"
@@ -755,20 +738,18 @@ const getTypeName = (typeId) => {
                   'selected': searchForm.type.includes(option.value),
                   [`level-${option.level}`]: true
                 }"
-                :style="{ paddingLeft: `${option.level * 20 + 10}px` }"
-                >
-                <!-- 展开/收起箭头 -->
-                <span 
-                  v-if="hasChildren(option)"
-                  class="expand-arrow"
-                  @click.stop="toggleExpand(option.path)"
-                >
+                :style="{ paddingLeft: `${option.level * 20 + 10}px` }">
+              <!-- 展开/收起箭头 -->
+              <span 
+                v-if="hasChildren(option)"
+                class="expand-arrow"
+                @click.stop="toggleExpand(option.path)">
                   {{ expandedTypes.has(option.path) ? '▼' : '▶' }}
-                </span>
-                <!-- 复选框和标签 -->
-                <div class="type-content" @click.stop="toggleType(option)">
-                  <span>{{ option.label }}</span>
-                </div>
+              </span>
+              <!-- 复选框和标签 -->
+              <div class="type-content" @click.stop="toggleType(option)">
+                <span>{{ option.label }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -779,8 +760,7 @@ const getTypeName = (typeId) => {
         <input 
           v-model="searchForm.substance"
           type="text"
-          placeholder="请输入材质"
-        >
+          placeholder="请输入材质">
       </div>
       
       <div class="search-item">
@@ -788,8 +768,7 @@ const getTypeName = (typeId) => {
         <input 
           v-model="searchForm.shape"
           type="text"
-          placeholder="请输入形状"
-        >
+          placeholder="请输入形状">
       </div>
       
       <div class="search-item">
@@ -797,8 +776,7 @@ const getTypeName = (typeId) => {
         <input 
           v-model="searchForm.color"
           type="text"
-          placeholder="请输入颜色"
-        >
+          placeholder="请输入颜色">
       </div>
       
       <div class="search-actions">
@@ -808,186 +786,176 @@ const getTypeName = (typeId) => {
 
     <div class="material-table">
 
-    <div class="material-table-header">
+      <div class="material-table-header">
         <div v-if="loading">加载中...</div>
         <div v-else-if="error" class="error">{{ error }}</div>
         <div v-else class="table-wrapper">
-            <table v-if="displayedMaterials.length">
-                <thead>
-                    <tr>
-                        <th v-for="(config, key) in visibleColumnsConfig" :key="key">
-                            {{ config.label }}
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="row in displayedMaterials" :key="row.id">
-                        <!-- 显示模式 -->
-                        <template v-if="editingRow !== row.id">
-                            <td v-for="(config, key) in visibleColumnsConfig" :key="key">
-                                <!-- 如果是操作列 -->
-                                <template v-if="key === 'type'">
-                                    {{ getTypeName(row[key]) }}
-                                </template>
-                                <template v-else-if="key === 'actions' && canEdit">
-                                <div class="action-buttons">
-                                    <button class="edit-btn" @click="startEdit(row)">编辑</button>
-                                    <button class="delete-btn" @click="deleteMaterial(row)">删除</button>
-                                </div>
-                                </template>
-                                <!-- 其他列的显示逻辑 -->
-                                <template v-else>
-                                <template v-if="key === 'link'">
-                                    <a v-if="row[key]" :href="row[key]" target="_blank">查看</a>
-                                </template>
-                                <template v-else-if="key === 'pic'">
-                                  <div class="pic-preview" @click="showImagePreview(row.pic, row.name)">
-                                    <a v-if="row.pic">查看</a>
-                                  </div>
-                                </template>
-                                <template v-else>
-                                    {{ row[key] }}
-                                </template>
-                            </template>
-                            </td>
-                        </template>
+          <table v-if="displayedMaterials.length">
+            <thead>
+              <tr>
+                <th v-for="(config, key) in visibleColumnsConfig" :key="key">
+                  {{ config.label }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in displayedMaterials" :key="row.id">
+                <!-- 显示模式 -->
+                <template v-if="editingRow !== row.id">
+                  <td v-for="(config, key) in visibleColumnsConfig" :key="key">
+                    <!-- 如果是操作列 -->
+                    <template v-if="key === 'type'">
+                      {{ getTypeName(row[key]) }}
+                    </template>
+                    <template v-else-if="key === 'actions' && canEdit">
+                      <div class="action-buttons">
+                        <button class="edit-btn" @click="startEdit(row)">编辑</button>
+                        <button class="delete-btn" @click="deleteMaterial(row)">删除</button>
+                      </div>
+                    </template>
+                    <!-- 其他列的显示逻辑 -->
+                    <template v-else>
+                      <template v-if="key === 'link'">
+                        <a v-if="row[key]" :href="row[key]" target="_blank">查看</a>
+                      </template>
+                      <template v-else-if="key === 'pic'">
+                        <div class="pic-preview" @click="showImagePreview(row.pic, row.name)">
+                          <a v-if="row.pic">查看</a>
+                        </div>
+                      </template>
+                      <template v-else>
+                        {{ row[key] }}
+                      </template>
+                    </template>
+                  </td>
+                </template>
 
-                        <!-- 编辑模式 -->
-                        <template v-else>
-                            <td v-for="(config, key) in visibleColumnsConfig" :key="key">
-                                <!-- 在表格显示中使用类型名称 -->
-                                <template v-if="key === 'type' && editingRow === row.id">
-                                  <div class="type-selector">
-                                    <div 
-                                      class="type-input" 
-                                      @click="isEditTypeDropdownVisible = !isEditTypeDropdownVisible"
-                                    >
-                                      <span v-if="editForm[key]">{{ getTypeName(editForm[key]) }}</span>
-                                      <span v-else class="placeholder">请选择类型</span>
-                                      <span class="arrow">▼</span>
-                                    </div>
+                <!-- 编辑模式 -->
+                <template v-else>
+                  <td v-for="(config, key) in visibleColumnsConfig" :key="key">
+                    <!-- 在表格显示中使用类型名称 -->
+                    <template v-if="key === 'type' && editingRow === row.id">
+                      <div class="type-selector">
+                        <div 
+                          class="type-input" 
+                          @click="isEditTypeDropdownVisible = !isEditTypeDropdownVisible">
+                          <span v-if="editForm[key]">{{ getTypeName(editForm[key]) }}</span>
+                          <span v-else class="placeholder">请选择类型</span>
+                          <span class="arrow">▼</span>
+                        </div>
 
-                                    <div 
-                                      v-show="isEditTypeDropdownVisible" 
-                                      class="type-dropdown"
-                                    >
-                                      <div 
-                                        v-for="option in typeOptions" 
-                                        :key="option.value"
-                                        v-show="isVisible(option)"
-                                        class="type-option"
-                                        :class="{ 
-                                          'selected': editForm[key] === option.value,
-                                          [`level-${option.level}`]: true
-                                        }"
-                                        :style="{ paddingLeft: `${option.level * 20 + 10}px` }"
-                                      >
-                                        <!-- 展开/收起箭头 -->
-                                        <span 
-                                          v-if="hasChildren(option)"
-                                          class="expand-arrow"
-                                          @click.stop="toggleExpand(option.path)"
-                                        >
-                                          {{ expandedTypes.has(option.path) ? '▼' : '▶' }}
-                                        </span>
-                                        <span v-else class="expand-placeholder"></span>
+                        <div 
+                          v-show="isEditTypeDropdownVisible" 
+                          class="type-dropdown">
+                          <div 
+                            v-for="option in typeOptions" 
+                            :key="option.value"
+                            v-show="isVisible(option)"
+                            class="type-option"
+                            :class="{ 
+                              'selected': editForm[key] === option.value,
+                              [`level-${option.level}`]: true
+                            }"
+                            :style="{ paddingLeft: `${option.level * 20 + 10}px` }">
+                            <!-- 展开/收起箭头 -->
+                            <span 
+                              v-if="hasChildren(option)"
+                              class="expand-arrow"
+                              @click.stop="toggleExpand(option.path)">
+                              {{ expandedTypes.has(option.path) ? '▼' : '▶' }}
+                            </span>
+                            <span v-else class="expand-placeholder"></span>
                                         
-                                        <!-- 选项内容 -->
-                                        <div class="type-content" @click.stop="selectType(option.value, 'edit')">
-                                          <span>{{ option.label }}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </template>
+                            <!-- 选项内容 -->
+                            <div class="type-content" @click.stop="selectType(option.value, 'edit')">
+                              <span>{{ option.label }}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
 
-                                <template v-else-if="key === 'pic' && config.editable">
-                                  <div class="image-upload">
-                                    <!-- 显示当前图片 -->
-                                    <img 
-                                      v-if="editForm[key]" 
-                                      v-image="editForm[key]" 
-                                      class="preview-image"
-                                      @click="openImageViewer(editForm[key])"
-                                    >
+                    <template v-else-if="key === 'pic' && config.editable">
+                      <div class="image-upload">
+                        <!-- 显示当前图片 -->
+                        <img 
+                          v-if="editForm[key]" 
+                          v-image="editForm[key]" 
+                          class="preview-image"
+                          @click="openImageViewer(editForm[key])">
                                     
-                                    <!-- 上传控件 -->
-                                    <div class="upload-controls">
-                                      <input
-                                        type="file"
-                                        accept="image/*"
-                                        ref="fileInput"
-                                        class="file-input"
-                                        @change="handleFileUpload"
-                                        style="display: none;"
-                                      >
-                                      <button 
-                                        class="upload-btn" 
-                                        @click="triggerFileInput(row.id)"
-                                      >
-                                        选择图片
-                                      </button>
+                        <!-- 上传控件 -->
+                        <div class="upload-controls">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            ref="fileInput"
+                            class="file-input"
+                            @change="handleFileUpload"
+                            style="display: none;">
+                          <button 
+                            class="upload-btn" 
+                            @click="triggerFileInput(row.id)">
+                            选择图片
+                          </button>
                                       
-                                      <!-- 显示上传进度或错误 -->
-                                      <div v-if="uploadProgress" class="upload-progress">
-                                        上传中... {{ uploadProgress }}%
-                                      </div>
-                                      <div v-if="uploadError" class="upload-error">
-                                        {{ uploadError }}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </template>
+                          <!-- 显示上传进度或错误 -->
+                          <div v-if="uploadProgress" class="upload-progress">
+                            上传中... {{ uploadProgress }}%
+                          </div>
+                          <div v-if="uploadError" class="upload-error">
+                            {{ uploadError }}
+                          </div>
+                        </div>
+                      </div>
+                    </template>
                                 
-                                <!-- 如果是操作列 -->
-                                <template v-else-if="key === 'actions'">
-                                <div class="action-buttons">
-                                    <button class="save-btn" @click="updateMaterialItem(row)">保存</button>
-                                    <button class="cancel-btn" @click="cancelEdit">取消</button>
-                                </div>
-                                </template>
+                    <!-- 如果是操作列 -->
+                    <template v-else-if="key === 'actions'">
+                      <div class="action-buttons">
+                        <button class="save-btn" @click="updateMaterialItem(row)">保存</button>
+                        <button class="cancel-btn" @click="cancelEdit">取消</button>
+                      </div>
+                    </template>
                                 
-                                <template v-else-if="config.editable">
-                                    <input
-                                        v-if="config.type === 'number'"
-                                        v-model.number="editForm[key]"
-                                        type="number"
-                                        class="form-input"
-                                    >
-                                    <input
-                                        v-else
-                                        v-model="editForm[key]"
-                                        :type="config.type || 'text'"
-                                        class="form-input"
-                                    >
-                                </template>
-                                <template v-else>
-                                    {{ editForm[key] }}
-                                </template>
-                            </td>
-                        </template>
-                    </tr>
-                </tbody>
-            </table>
+                    <template v-else-if="config.editable">
+                      <input
+                        v-if="config.type === 'number'"
+                        v-model.number="editForm[key]"
+                        type="number"
+                        class="form-input">
+                      <input
+                        v-else
+                        v-model="editForm[key]"
+                        :type="config.type || 'text'"
+                        class="form-input">
+                    </template>
+                    <template v-else>
+                      {{ editForm[key] }}
+                    </template>
+                  </td>
+                </template>
+              </tr>
+            </tbody>
+          </table>
 
-            <!-- 添加显示更多按钮 -->
+          <!-- 添加显示更多按钮 -->
           <div v-if="hasMore" class="load-more">
             <button @click="loadMore" class="load-more-btn">
               显示更多
             </button>
           </div>
         </div>
-    </div>
+      </div>
     </div>
   </div>
 
   <!-- 添加图片预览组件 -->
   <ImagePreview
-      :visible="previewVisible"
-      :image-url="previewImage"
-      :title="previewTitle"
-      @close="closePreview"
-    />
+    :visible="previewVisible"
+    :image-url="previewImage"
+    :title="previewTitle"
+    @close="closePreview"/>
 </template>
 
 <style scoped>
@@ -1032,7 +1000,7 @@ const getTypeName = (typeId) => {
 }
 
 .material-table {
-    font-size: 12px;
+  font-size: 12px;
   margin: 20px 0;
   overflow-x: auto;
 }
@@ -1103,7 +1071,7 @@ button {
 }
 
 .edit-btn {
-    font-size: 12px;
+  font-size: 12px;
   background-color: #4CAF50;
   color: white;
   padding: 2px 6px;
@@ -1113,7 +1081,7 @@ button {
 }
 
 .delete-btn {
-    font-size: 12px;
+  font-size: 12px;
   background-color: #f44336; /* 红色 */
   color: white;
   padding: 2px 6px;
@@ -1159,7 +1127,7 @@ a:hover {
 }
 
 .table-controls {
-    margin-top: 15px;
+  margin-top: 15px;
   display: flex;
   justify-content: flex-start;
 }
@@ -1342,7 +1310,7 @@ a:hover {
 }
 
 .save-btn {
-    font-size: 12px;
+  font-size: 12px;
   background-color: #4CAF50;
   color: white;
   padding: 2px 6px;
@@ -1351,7 +1319,7 @@ a:hover {
 }
 
 .cancel-btn {
-    font-size: 12px;
+  font-size: 12px;
   background-color: #f44336;
   color: white;
   padding: 2px 6px;
@@ -1370,7 +1338,7 @@ a:hover {
 
 /* 可选：美化下拉选项的缩进 */
 .form-select option {
-    padding: 4px 8px;
+  padding: 4px 8px;
   font-size: 12px;
 }
 
@@ -1381,7 +1349,7 @@ a:hover {
 
 th:last-child,
 td:last-child {
-    width: 80px;
+  width: 80px;
 }
 
 .search-form {
@@ -1657,17 +1625,17 @@ td .type-input {
 
 @media (min-width: 1024px) {
   
-    .material-table {
-        font-size: 14px;
-    }
+  .material-table {
+    font-size: 14px;
+  }
 
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 800px;
-    }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 800px;
+  }
 
-    .modal-content {
+  .modal-content {
     width: 20%;
     padding: 15px;
   }

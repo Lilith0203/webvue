@@ -169,8 +169,8 @@ watch(() => router.path, (newPath) => {
             <div 
               class="submenu-trigger green"
               @click="toggleSubmenu(menu.key)">
-            <i class="iconfont icon-huawen"></i>
-            {{ menu.label }}
+              <i class="iconfont icon-huawen"></i>
+              {{ menu.label }}
             </div>
           
             <!-- 子菜单 -->

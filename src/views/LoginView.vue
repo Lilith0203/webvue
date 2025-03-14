@@ -49,35 +49,35 @@ const handleLogin = async () => {
 </script>
 
 <template>
-    <div class="login-container">
-        <div class="login-box">
-            <h2>登录</h2>
-            <form @submit.prevent="handleLogin">
-                <div class="form-group">
-                    <label for="username">用户名</label>
-                    <input 
-                        id="username"
-                        v-model="username"
-                        type="text"
-                        placeholder="请输入用户名"
-                        required>
-                </div>
-                <div class="form-group">
-                    <label for="password">密码</label>
-                    <input 
-                        id="password"
-                        v-model="password"
-                        type="password"
-                        placeholder="请输入密码"
-                        required>
-                </div>
-                <div v-if="error" class="error-message">{{ error }}</div>
-                <button type="submit" :disabled="loading">
-                    {{ loading ? '登录中...' : '登录' }}
-                </button>
-            </form>
+  <div class="login-container">
+    <div class="login-box">
+      <h2>登录</h2>
+      <form @submit.prevent="handleLogin">
+        <div class="form-group">
+          <label for="username">用户名</label>
+          <input 
+            id="username"
+            v-model="username"
+            type="text"
+            placeholder="请输入用户名"
+            required>
         </div>
+        <div class="form-group">
+          <label for="password">密码</label>
+          <input 
+            id="password"
+            v-model="password"
+            type="password"
+            placeholder="请输入密码"
+            required>
+        </div>
+        <div v-if="error" class="error-message">{{ error }}</div>
+        <button type="submit" :disabled="loading">
+          {{ loading ? '登录中...' : '登录' }}
+        </button>
+      </form>
     </div>
+  </div>
 </template>
 
 <style scoped>

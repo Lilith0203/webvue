@@ -20,20 +20,20 @@ const apps = ref([
 </script>
 
 <template>
-    <div class="showcase">
-      <div class="app-list">
-        <div class="app-card" v-for="app in apps" :key="app.id">
-          <div class="info">
-            <h2 class="app-title">{{ app.title }}</h2>
-            <p class="app-description">{{ app.description }}</p>
-            <p><a :href="app.link" class="app-link" target="_blank">查看详情</a></p>
-          </div>
-          <div>
-            <img :src="app.image" alt="App Image" class="app-image" />
-          </div>
+  <div class="showcase">
+    <div class="app-list">
+      <div class="app-card" v-for="app in apps" :key="app.id">
+        <div class="info">
+          <h2 class="app-title">{{ app.title }}</h2>
+          <p class="app-description">{{ app.description }}</p>
+          <p><a :href="app.link" class="app-link" target="_blank">查看详情</a></p>
+        </div>
+        <div>
+          <img :src="app.image" alt="App Image" class="app-image" />
         </div>
       </div>
     </div>
+  </div>
 </template>
 
 <style scoped>

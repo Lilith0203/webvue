@@ -12,22 +12,22 @@
 
 <style>
 .about {
-    display: flex;
-    align-items: center;
-    flex-direction: column;
-    justify-content: center;
-    margin: 20px 0;
-    text-align: center;
-  }
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  justify-content: center;
+  margin: 20px 0;
+  text-align: center;
+}
 
-  h1 {
-    font-size: 1.4rem;
-    margin-bottom: 1rem;
-  }
+h1 {
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+}
 
-  .about p {
-    margin-bottom: 5px;
-  }
+.about p {
+  margin-bottom: 5px;
+}
 
 @media (min-width: 1024px) {
   .about {
