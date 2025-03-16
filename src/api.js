@@ -13,13 +13,26 @@ const api = axios.create({
 api.interceptors.request.use(
     config => {
         const authStore = useAuthStore()
+
+        // 检查 token 是否过期
         if (authStore.token) {
-            config.headers.Authorization = `Bearer ${authStore.token}`
-        }//可以添加token等认证信息
-        return config
+            const isValid = authStore.checkAuth();
+
+            if (!isValid) {
+                authStore.clearAuth();
+            }
+        }
+        
+        // 如果有 token，添加到请求头
+        if (authStore.token) {
+            config.headers.Authorization = `Bearer ${authStore.token}`;
+        }
+        
+        return config;
     },
     error => {
-        return Promise.reject(error)
+        console.error("Request interceptor error:", error);
+        return Promise.reject(error);
     }
 )
 
