@@ -1,7 +1,7 @@
 <script setup>
 import axios from '../api'
 import ImagePreview from '../components/ImagePreview.vue'
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
@@ -23,6 +23,9 @@ const uploadError = ref(null)
 const previewVisible = ref(false)
 const previewImage = ref('')
 const previewTitle = ref('')
+
+// 添加新的状态
+const showOutOfStock = ref(false)
 
 // 显示图片预览
 const showImagePreview = (url, name) => {
@@ -468,12 +471,15 @@ const cancelEdit = () => {
   editForm.value = {}
 }
 
+// 修改获取材料数据的方法
 const fetchMaterialData = async () => {
   loading.value = true
   error.value = null
 
   try {
-    const response = await axios.post(`/material`)
+    const response = await axios.post(`/material`, {
+      showAll: showOutOfStock.value // 添加参数控制是否显示所有材料
+    })
     materialData.value = response.data.materials
   } catch (err) {
     error.value = "获取数据失败：" + err.message
@@ -481,6 +487,11 @@ const fetchMaterialData = async () => {
     loading.value = false
   }
 }
+
+// 监听 showOutOfStock 变化，重新获取材料
+watch(showOutOfStock, () => {
+  fetchMaterialData()
+})
 
 const updateMaterialItem = async (row) => {
   if (!canEdit.value) return
@@ -780,6 +791,10 @@ const getTypeName = (typeId) => {
       </div>
       
       <div class="search-actions">
+        <label class="stock-toggle">
+          <input type="checkbox" v-model="showOutOfStock">
+          <span>显示无库存材料</span>
+        </label>
         <button class="reset-btn" @click="resetSearch">重置</button>
       </div>
     </div>
@@ -1621,6 +1636,18 @@ td .type-input {
 .upload-error {
   font-size: 12px;
   color: #dc3545;
+}
+
+.stock-toggle {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+}
+
+.stock-toggle input {
+  margin-right: 4px;
 }
 
 @media (min-width: 1024px) {

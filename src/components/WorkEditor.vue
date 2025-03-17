@@ -55,7 +55,7 @@ const showMaterialSelector = ref(false)
 // 是否已加载材料数据
 const materialsLoaded = ref(false)
 // 搜索结果数量限制
-const maxSearchResults = 20
+const maxSearchResults = 100
 
 const initFormData = () => {
   return {
@@ -131,7 +131,9 @@ const fetchMaterials = async () => {
   if (materialsLoaded.value) return
   
   try {
-    const response = await axios.post('/material')
+    const response = await axios.post('/material', {
+      showAll: true // 添加参数控制是否显示所有材料
+    })
     materials.value = response.data.materials
     materialsLoaded.value = true
   } catch (error) {
