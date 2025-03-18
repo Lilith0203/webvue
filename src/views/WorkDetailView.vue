@@ -28,7 +28,14 @@ const comments = ref([])  // 存储评论
 const loadingComments = ref(false)
 const errorComments = ref(null)
 const materials = ref([])  // 存储材料信息
-const showMaterialDetails = ref(null)  // 当前显示详情的材料ID
+
+// 交互数据
+const interactions = ref({
+  like: 0,
+  weight: 0
+})
+const hasLiked = ref(false)
+const hasRecommended = ref(false)
 
 const fetchComments = async (itemId) => {
   loadingComments.value = true
@@ -93,14 +100,6 @@ const handleEditorSuccess = (work) => {
 const closeEditor = () => {
   showEditor.value = false
 }
-
- // 编辑表单
-const editForm = ref({
-  name: '',
-  description: '',
-  tags: [],
-  pictures: []
-})
   
 // 当前显示的图片
 const currentImage = computed(() => {
@@ -135,15 +134,6 @@ const fetchMaterials = async (materialIds) => {
     console.error('获取材料信息失败:', error)
   }
 }
-
-// 显示材料详情
-const toggleMaterialDetails = (materialId) => {
-  if (showMaterialDetails.value === materialId) {
-    showMaterialDetails.value = null
-  } else {
-    showMaterialDetails.value = materialId
-  }
-}
   
 // 开始编辑
 const startEdit = (work) => {
@@ -174,6 +164,14 @@ const formatDate = (date) => {
   return new Date(date).toLocaleString()
 }
 
+// 格式化价格
+const formatPrice = (price) => {
+  return parseFloat(price).toLocaleString('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  })
+}
+
   // 自定义链接渲染
 renderer.link = (link) => {
   // 确保 href 是字符串
@@ -194,11 +192,67 @@ renderer.link = (link) => {
 // 使用自定义渲染器
 marked.use({ renderer })
   
-  onMounted(async() => {
-    await fetchWorkDetail()
-    const itemId = work.value.id/* 获取当前文章或作品的 ID */
-    await fetchComments(itemId)
-  })
+// 获取交互数据
+const fetchInteractions = async () => {
+  try {
+    const response = await axios.get(`/interaction/2/${work.value.id}`)
+    interactions.value = response.data.data
+    
+    // 检查用户是否已点赞/推荐
+    if (authStore.isAuthenticated) {
+      // 这里假设后端返回的数据中包含用户是否已点赞/推荐的信息
+      // 如果后端没有提供这些信息，可能需要单独的接口来获取
+      hasLiked.value = response.data.data.hasLiked || false
+      hasRecommended.value = response.data.data.hasRecommended || false
+    }
+  } catch (error) {
+    console.error('获取交互数据失败:', error)
+  }
+}
+
+// 点赞
+const toggleLike = async () => {
+  try {
+    await axios.post('/interaction/like', {
+      type: 2,
+      itemId: work.value.id
+    })
+    
+    // 更新状态
+    hasLiked.value = !hasLiked.value
+    interactions.value.like += hasLiked.value ? 1 : -1
+  } catch (error) {
+    console.error('点赞失败:', error)
+  }
+}
+
+// 推荐
+const toggleRecommend = async () => {
+  if (!authStore.isAuthenticated) {
+    return
+  }
+  
+  try {
+    await axios.post('/interaction/recommend', {
+      type: 2,
+      itemId: work.value.id,
+      weight: hasRecommended.value ? 0 : 10 // 如果已推荐，则取消推荐
+    })
+    
+    // 更新状态
+    hasRecommended.value = !hasRecommended.value
+    interactions.value.weight = hasRecommended.value ? 10 : 0
+  } catch (error) {
+    console.error('推荐失败:', error)
+  }
+}
+
+onMounted(async() => {
+  await fetchWorkDetail()
+  const itemId = work.value.id
+  await fetchComments(itemId)
+  await fetchInteractions()
+})
 </script>
 
 <template>
@@ -281,6 +335,26 @@ marked.use({ renderer })
                 <span v-if="material.shape" class="material-info">{{ material.shape }}</span>
               </div>
             </div>
+          </div>
+
+          <!-- 交互区域 -->
+          <div class="interaction-area">
+            <div class="interaction-btn" @click="toggleLike">
+              <i :class="['iconfont', hasLiked ? 'icon-dianzan' : 'icon-dianzan-0']"></i>
+              <span>{{ interactions.like }}</span>
+            </div>
+            
+            <div v-if="canEdit" class="interaction-btn" @click="toggleRecommend">
+              <i :class="['iconfont', interactions.weight > 0 ? 'icon-xingxingtuijian1' : 'icon--xingxingtuijian']"></i>
+              <span v-if="interactions.weight > 0">已推荐</span>
+              <span v-else>推荐</span>
+            </div>
+          </div>
+
+          <!-- 价格信息 -->
+          <div v-if="work.price" class="price-info">
+            <span class="price-label">价格:</span>
+            <span class="price-value">¥{{ formatPrice(work.price) }}</span>
           </div>
   
           <div class="update-time">
@@ -498,6 +572,47 @@ marked.use({ renderer })
   content: "📏";
 }
   
+.price-info {
+  margin: 10px 10px 20px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+}
+
+.price-label {
+  color: #666;
+  margin-right: 8px;
+}
+  
+.interaction-area {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 15px 10px;
+}
+
+.interaction-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 20px;
+  transition: all 0.3s ease;
+}
+
+.interaction-btn i {
+  font-size: 1.2rem;
+}
+
+.interaction-btn i.icon-dianzan {
+  color: #e53935;
+}
+
+.interaction-btn i.icon-xingxingtuijian1 {
+  color: #ffc107;
+}
+
 @media (max-width: 768px) {
   .work-detail {
     padding-top: 0;

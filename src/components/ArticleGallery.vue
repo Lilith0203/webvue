@@ -46,68 +46,68 @@ onMounted(async () => {
 </script>
 
 <template>
-    <div class="details">
-      <div class="article-title">
+  <div class="details">
+    <div class="article-title">
       <h3>
         <i class="iconfont icon-huawen2"></i>
         <a href="/article" @click.prevent="router.push('/article')">文章</a>
         <i class="iconfont icon-huawen1"></i>
       </h3>
     </div>
-      <div v-if="loading">加载中……</div>
-      <div v-else-if="error" class="error">{{ error }}</div>
-      <div v-if="backendData" class="article-list">
-        <span class="article-count">共 {{ backendData.count }} 篇</span>
-        <section v-for="article in backendData.articles" :key="article.id">
-          <div class="article-head">
+    <div v-if="loading">加载中……</div>
+    <div v-else-if="error" class="error">{{ error }}</div>
+    <div v-if="backendData" class="article-list">
+      <span class="article-count">共 {{ backendData.count }} 篇</span>
+      <section v-for="article in backendData.articles" :key="article.id">
+        <div class="article-head">
           <span class="tags">
-                <a v-for="tag in article.tags"
-                   href="`/article?tag=${tag}`"
-                   @click.prevent="router.push(`/article?tag=${tag}`)"
-                   :key="tag"
-                   class="tag"
-                   :style="getTagStyle(tag)">
-                   {{ tag }}
-                </a>
+            <a v-for="tag in article.tags"
+              href="`/article?tag=${tag}`"
+              @click.prevent="router.push(`/article?tag=${tag}`)"
+              :key="tag"
+              class="tag"
+              :style="getTagStyle(tag)">
+              {{ tag }}
+            </a>
           </span>
             
           <a href="#" @click.prevent="router.push(`/article/${article.id}`)">{{ article.title }}</a>
-          </div>
-          <div class="article-time">
-            {{ formatDate(article.createdAt) }}
-          </div>
-        </section>
-        <span class="more"><a href="/article" @click.prevent="router.push('/article')">More</a></span>
-      </div>
+        </div>
+        <div class="article-time">
+          {{ formatDate(article.createdAt) }}
+        </div>
+      </section>
+      <span class="more"><a href="/article" @click.prevent="router.push('/article')">More</a></span>
     </div>
+  </div>
 </template>
 
 <style scoped>
 .article-title {
-    color: var(--color-heading);
-    text-align: center;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    cursor: pointer;
-    margin-bottom: 10px;
-  }
+  color: var(--color-heading);
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
 
-  .article-title h3 {
-    padding: 0 36px;
-    border-bottom: 1px solid #949494;
-  }
+.article-title h3 {
+  padding: 0 36px;
+  border-bottom: 1px solid #949494;
+}
 
-  .article-title a:hover {
-    color: var(--color-blue);
-  }
+.article-title a:hover {
+  color: var(--color-blue);
+}
 
-  .article-title a {
-    font-size: 1.1rem;
-    color: var(--color-text);
-    padding: 0 10px;
-    font-weight: bold;
-  }
+.article-title a {
+  font-size: 1.1rem;
+  color: var(--color-text);
+  padding: 0 10px;
+  font-weight: bold;
+}
 
 .article-list {
   display: flex;
@@ -140,21 +140,21 @@ onMounted(async () => {
 }
 
 .icon-huawen1, .icon-huawen2 {
-    font-size: 1.5rem;
-    color: var(--color-text);
+  font-size: 1.5rem;
+  color: var(--color-text);
 }
 
 .tags a {
-    margin-right: 5px;
-    padding: 2px 5px;
-    border-radius: 4px;
-    color: #fff;
-    transition: all 0.3s ease;
+  margin-right: 5px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #fff;
+  transition: all 0.3s ease;
 }
 
 .tag:hover {
-    opacity: 0.6;
-    transform: translateY(-1px);
+  opacity: 0.6;
+  transform: translateY(-1px);
 }
 
 .article-list section {

@@ -120,107 +120,106 @@ const deleteSavedGrid = async (id) => {
   }
 }
 
-  // 选择颜色
-  const selectColor = (color) => {
-    currentColor.value = color
-    addToRecentColors(color)
-  }
+// 选择颜色
+const selectColor = (color) => {
+  currentColor.value = color
+  addToRecentColors(color)
+}
 
-  // 添加自定义颜色
-  const addCustomColor = () => {
-    selectColor(customColor.value)
-    if (!filteredColors.value.some(c => c.code === customColor.value)) {
-      dbColors.value.push({ code: customColor.value, name: '', set: null })
-    }
+// 添加自定义颜色
+const addCustomColor = () => {
+  selectColor(customColor.value)
+  if (!filteredColors.value.some(c => c.code === customColor.value)) {
+    dbColors.value.push({ code: customColor.value, name: '', set: null })
   }
+}
 
-  // 添加到最近使用的颜色
-  const addToRecentColors = (color) => {
-    if (color === '#FFFFFF') return // 不记录白色（橡皮擦）
+// 添加到最近使用的颜色
+const addToRecentColors = (color) => {
+  if (color === '#FFFFFF') return // 不记录白色（橡皮擦）
     const index = recentColors.value.indexOf(color)
-    if (index > -1) {
-      recentColors.value.splice(index, 1)
-    }
-    recentColors.value.unshift(color)
-    if (recentColors.value.length > maxRecentColors) {
-      recentColors.value.pop()
-    }
+  if (index > -1) {
+    recentColors.value.splice(index, 1)
   }
+  recentColors.value.unshift(color)
+  if (recentColors.value.length > maxRecentColors) {
+    recentColors.value.pop()
+  }
+}
 
-  // 创建网格
-  const createGrid = () => {
-    gridCells.value = Array(gridSize.value * gridSize.value)
-      .fill()
-      .map(() => ({ color: '#FFFFFF' }))
+// 创建网格
+const createGrid = () => {
+  gridCells.value = Array(gridSize.value * gridSize.value)
+    .fill()
+    .map(() => ({ color: '#FFFFFF' }))
+}
+  
+// 绘制单元格
+const paintCell = (index) => {
+  gridCells.value[index].color = currentColor.value
+  addToRecentColors(currentColor.value)
+}
+  
+// 处理鼠标悬停
+const handleMouseOver = (index) => {
+  if (isDrawing.value) {
+    paintCell(index)
   }
+}
   
-  // 绘制单元格
-  const paintCell = (index) => {
-    gridCells.value[index].color = currentColor.value
-    addToRecentColors(currentColor.value)
-  }
+// 清除网格
+const clearGrid = () => {
+  gridCells.value = gridCells.value.map(() => ({ color: '#FFFFFF' }))
+  gridId.value = 0
+}
   
-  // 处理鼠标悬停
-  const handleMouseOver = (index) => {
-    if (isDrawing.value) {
-      paintCell(index)
-    }
-  }
+// 保存网格
+const saveGrid = () => {
+  const canvas = document.createElement('canvas')
+  const cellSize = 20  // 每个格子的像素大小
+  canvas.width = gridSize.value * cellSize
+  canvas.height = gridSize.value * cellSize
+  const ctx = canvas.getContext('2d')
   
-  // 清除网格
-  const clearGrid = () => {
-    gridCells.value = gridCells.value.map(() => ({ color: '#FFFFFF' }))
-    gridId.value = 0
-  }
-  
-  // 保存网格
-  const saveGrid = () => {
-    const canvas = document.createElement('canvas')
-    const cellSize = 20  // 每个格子的像素大小
-    canvas.width = gridSize.value * cellSize
-    canvas.height = gridSize.value * cellSize
-    const ctx = canvas.getContext('2d')
-  
-    // 绘制到canvas
-    gridCells.value.forEach((cell, index) => {
-      const x = (index % gridSize.value) * cellSize
-      const y = Math.floor(index / gridSize.value) * cellSize
-      ctx.fillStyle = cell.color
-      ctx.fillRect(x, y, cellSize, cellSize)
-    })
-  
-    // 转换为图片并下载
-    const link = document.createElement('a')
-    link.download = 'grid-painting.png'
-    link.href = canvas.toDataURL()
-    link.click()
-  }
-  
-  // 防止在网格外继续绘制
-  const stopDrawing = () => {
-    isDrawing.value = false
-  }
-  
-  onMounted(() => {
-    fetchSavedGrids()
-    fetchColors()  // 获取颜色数据
-    createGrid()
-    window.addEventListener('mouseup', stopDrawing)
+  // 绘制到canvas
+  gridCells.value.forEach((cell, index) => {
+    const x = (index % gridSize.value) * cellSize
+    const y = Math.floor(index / gridSize.value) * cellSize
+    ctx.fillStyle = cell.color
+    ctx.fillRect(x, y, cellSize, cellSize)
   })
   
-  onUnmounted(() => {
-    window.removeEventListener('mouseup', stopDrawing)
-  })
-  </script>
+  // 转换为图片并下载
+  const link = document.createElement('a')
+  link.download = 'grid-painting.png'
+  link.href = canvas.toDataURL()
+  link.click()
+}
+  
+// 防止在网格外继续绘制
+const stopDrawing = () => {
+  isDrawing.value = false
+}
+  
+onMounted(() => {
+  fetchSavedGrids()
+  fetchColors()  // 获取颜色数据
+  createGrid()
+  window.addEventListener('mouseup', stopDrawing)
+})
+  
+onUnmounted(() => {
+  window.removeEventListener('mouseup', stopDrawing)
+})
+</script>
 
 <template>
-    <!-- 网格控制区域添加暂存按钮 -->
+  <!-- 网格控制区域添加暂存按钮 -->
   <!-- 浮动的格子图列表窗口 -->
   <div 
     v-if="showSavedGrids" 
     class="floating-window-overlay"
-    @click.self="closeSavedGrids"
-  >
+    @click.self="closeSavedGrids">
     <div class="floating-window">
       <div class="floating-header">
         <h3>已保存的格子图</h3>
@@ -231,8 +230,7 @@ const deleteSavedGrid = async (id) => {
         <div 
           v-for="grid in savedGrids" 
           :key="grid.id"
-          class="saved-grid-item"
-        >
+          class="saved-grid-item">
           <!-- 预览缩略图 -->
           <div class="grid-thumbnail">
             <div 
@@ -241,14 +239,13 @@ const deleteSavedGrid = async (id) => {
                 display: 'grid',
                 gridTemplateColumns: `repeat(${grid.size}, 1fr)`,
                 gap: '1px'
-              }"
-            >
+              }">
               <div 
                 v-for="(cell, index) in grid.cells" 
                 :key="index"
                 class="thumbnail-cell"
-                :style="{ backgroundColor: cell.color }"
-              ></div>
+                :style="{ backgroundColor: cell.color }">
+              </div>
             </div>
           </div>
           
@@ -265,215 +262,211 @@ const deleteSavedGrid = async (id) => {
     </div>
   </div>
 
-    <div class="grid-painter">
-      <!-- 添加样式选择器 -->
-      <div class="style-controls">
-        <button @click="toggleSavedGrids">加载</button>
-        <button 
-          :class="{ active: gridStyle === 'normal' }" 
-          @click="gridStyle = 'normal'"
-        >
-          普通网格
-        </button>
-        <button 
-          :class="{ active: gridStyle === 'brick' }" 
-          @click="gridStyle = 'brick'"
-        >
-          墙砖式
-        </button>
+  <div class="grid-painter">
+    <!-- 添加样式选择器 -->
+    <div class="style-controls">
+      <button @click="toggleSavedGrids">加载</button>
+      <button 
+        :class="{ active: gridStyle === 'normal' }" 
+        @click="gridStyle = 'normal'">
+        普通网格
+      </button>
+      <button 
+        :class="{ active: gridStyle === 'brick' }" 
+        @click="gridStyle = 'brick'">
+        墙砖式
+      </button>
+    </div>
+    <!-- 颜色选择器 -->
+    <div class="color-tools">
+      <!-- 颜色集选择 -->
+      <div class="color-set-selector">
+        <select v-model="selectedColorSet">
+          <option v-for="set in colorSets" :key="set">{{ set }}</option>
+        </select>
       </div>
-      <!-- 颜色选择器 -->
-      <div class="color-tools">
-        <!-- 颜色集选择 -->
-        <div class="color-set-selector">
-          <select v-model="selectedColorSet">
-            <option v-for="set in colorSets" :key="set">{{ set }}</option>
-          </select>
-        </div>
         
-        <div class="preset-colors">
-          <div 
-            v-for="color in filteredColors" 
-            :key="color.id"
-            class="color-item"
-            :style="{ backgroundColor: color.code }"
-            :class="{ active: currentColor === color.code }"
-            :title="color.name || color.code"
-            @click="selectColor(color.code)"></div>
-        </div>
-
-        <!-- 自定义颜色 -->
-        <div class="custom-color">
-          <input 
-            type="color" 
-            v-model="customColor"
-            @change="addCustomColor"
-          />
-          <span>自定义颜色</span>
-        </div>
-      </div>
-
-      <!-- 最近使用的颜色 -->
-      <div class="recent-colors">
+      <div class="preset-colors">
         <div 
-          v-for="(color, index) in recentColors" 
-          :key="index"
+          v-for="color in filteredColors" 
+          :key="color.id"
           class="color-item"
-          :style="{ backgroundColor: color }"
-          :class="{ active: currentColor === color }"
-          @click="selectColor(color)"
-        ></div>
-      </div>
-  
-      <!-- 网格画布 -->
-      <div 
-        class="grid-container"
-        :class="{ 'brick-style': gridStyle === 'brick' }"
-        :style="{
-          gridTemplateColumns: `repeat(${gridSize}, 1fr)`
-        }"
-      >
-        <div 
-          v-for="(cell, index) in gridCells" 
-          :key="index"
-          class="grid-cell"
-          :class="{
-            'brick-cell': gridStyle === 'brick',
-            'brick-offset': gridStyle === 'brick' && Math.floor(index / gridSize) % 2 === 1
-          }"
-          :style="{ 
-            backgroundColor: cell.color,
-            transform: gridStyle === 'brick' && Math.floor(index / gridSize) % 2 === 1 
-            ? 'translateX(50%)' 
-            : ''
-          }"
-          @click="paintCell(index)"
-          @mouseover="handleMouseOver(index)"
-          @mousedown="isDrawing = true"
-          @mouseup="isDrawing = false"
-        ></div>
+          :style="{ backgroundColor: color.code }"
+          :class="{ active: currentColor === color.code }"
+          :title="color.name || color.code"
+          @click="selectColor(color.code)">
+        </div>
       </div>
 
-      <!-- 网格控制 -->
-      <div class="grid-controls">
+      <!-- 自定义颜色 -->
+      <div class="custom-color">
         <input 
-          type="number" 
-          v-model.number="gridSize" 
-          min="1" 
-          max="64"
-          @change="createGrid"
-        >
-        <button @click="clearGrid">清除</button>
-        <button v-if="authStore.isAuthenticated" @click="saveCurrentGrid">存储</button>
-        <button @click="saveGrid">下载</button>
+          type="color" 
+          v-model="customColor"
+          @change="addCustomColor"/>
+        <span>自定义颜色</span>
       </div>
     </div>
-  </template>
-  
-  <style scoped>
-  .grid-painter {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    padding: 20px;
-  }
-  
-  .grid-controls {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-  
-  .grid-controls input {
-    width: 60px;
-    padding: 5px;
-  }
-  
-  .grid-controls button {
-    padding: 5px 15px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  
-  .grid-controls button:hover {
-    background-color: #45a049;
-  }
-  
-  .grid-container {
-    display: grid;
-    gap: 1px;
-    background-color: #ccc;
-    border: 1px solid #999;
-    width: 500px;
-    height: 500px;
-  }
-  
-  .grid-cell {
-    background-color: white;
-    cursor: pointer;
-    transition: background-color 0.1s;
-  }
-  
-  .grid-cell:hover {
-    opacity: 0.8;
-  }
 
-  .color-tools {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-
-  .preset-colors {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    gap: 5px;
-    padding: 10px;
-    background: #f5f5f5;
-    border-radius: 8px;
-  }
+    <!-- 最近使用的颜色 -->
+    <div class="recent-colors">
+      <div 
+        v-for="(color, index) in recentColors" 
+        :key="index"
+        class="color-item"
+        :style="{ backgroundColor: color }"
+        :class="{ active: currentColor === color }"
+        @click="selectColor(color)">
+      </div>
+    </div>
   
-  .color-history {
-    display: flex;
-    gap: 5px;
-  }
-  
-  .color-item {
-    width: 25px;
-    height: 25px;
-    border-radius: 4px;
-    cursor: pointer;
-    border: 1px solid transparent;
-    transition: all 0.2s;
-  }
-  
-  .color-item:hover {
-    transform: scale(1.1);
-  }
+    <!-- 网格画布 -->
+    <div 
+      class="grid-container"
+      :class="{ 'brick-style': gridStyle === 'brick' }"
+      :style="{
+        gridTemplateColumns: `repeat(${gridSize}, 1fr)`
+      }">
+      <div 
+        v-for="(cell, index) in gridCells" 
+        :key="index"
+        class="grid-cell"
+        :class="{
+          'brick-cell': gridStyle === 'brick',
+          'brick-offset': gridStyle === 'brick' && Math.floor(index / gridSize) % 2 === 1
+        }"
+        :style="{ 
+          backgroundColor: cell.color,
+          transform: gridStyle === 'brick' && Math.floor(index / gridSize) % 2 === 1 
+          ? 'translateX(50%)' 
+          : ''
+        }"
+        @click="paintCell(index)"
+        @mouseover="handleMouseOver(index)"
+        @mousedown="isDrawing = true"
+        @mouseup="isDrawing = false">
+      </div>
+    </div>
 
-  .color-item.active {
-    border-color: #333;
-  }
+    <!-- 网格控制 -->
+    <div class="grid-controls">
+      <input 
+        type="number" 
+        v-model.number="gridSize" 
+        min="1" 
+        max="64"
+        @change="createGrid">
+      <button @click="clearGrid">清除</button>
+      <button v-if="authStore.isAuthenticated" @click="saveCurrentGrid">存储</button>
+      <button @click="saveGrid">下载</button>
+    </div>
+  </div>
+</template>
+  
+<style scoped>
+.grid-painter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px;
+}
+  
+.grid-controls {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+  
+.grid-controls input {
+  width: 60px;
+  padding: 5px;
+}
+  
+.grid-controls button {
+  padding: 5px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+  
+.grid-controls button:hover {
+  background-color: #45a049;
+}
+  
+.grid-container {
+  display: grid;
+  gap: 1px;
+  background-color: #ccc;
+  border: 1px solid #999;
+  width: 500px;
+  height: 500px;
+}
+  
+.grid-cell {
+  background-color: white;
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+  
+.grid-cell:hover {
+  opacity: 0.8;
+}
 
-  .custom-color {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-  }
+.color-tools {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.preset-colors {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 5px;
+  padding: 10px;
+  background: #f5f5f5;
+  border-radius: 8px;
+}
+  
+.color-history {
+  display: flex;
+  gap: 5px;
+}
+  
+.color-item {
+  width: 25px;
+  height: 25px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+  
+.color-item:hover {
+  transform: scale(1.1);
+}
+
+.color-item.active {
+  border-color: #333;
+}
+
+.custom-color {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
 
 .custom-color input[type="color"] {
-    width: 25px;
-    height: 30px;
-    padding: 0;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-  }
+  width: 25px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
 
 .recent-colors {
   display: flex;

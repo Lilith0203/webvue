@@ -104,8 +104,7 @@ onMounted(() => {
 </script>
 
 <template>
-<div class="type-manager">
-
+  <div class="type-manager">
     <!-- 错误提示 -->
     <div v-if="error" class="error">{{ error }}</div>
     
@@ -121,15 +120,13 @@ onMounted(() => {
     <div v-if="isAddingType" class="add-form">
       <input 
         v-model="newTypeForm.typeName"
-        placeholder="输入类型名称"
-      >
+        placeholder="输入类型名称">
       <select v-model="newTypeForm.parentId">
         <option :value="null">一级类型</option>
         <option 
           v-for="type in typeTree" 
           :key="type.id"
-          :value="type.id"
-        >
+          :value="type.id">
           {{ type.typeName }}
         </option>
       </select>
@@ -145,8 +142,7 @@ onMounted(() => {
           <span 
             v-if="type.children?.length"
             class="expand-arrow"
-            @click="toggleExpand(type.id)"
-          >
+            @click="toggleExpand(type.id)">
             {{ expandedTypes.has(type.id) ? '▼' : '▶' }}
           </span>
           <span v-else class="expand-placeholder"></span>
@@ -156,8 +152,7 @@ onMounted(() => {
             <input 
               v-model="editForm.typeName"
               @keyup.enter="saveEdit"
-              @keyup.esc="cancelEdit"
-            >
+              @keyup.esc="cancelEdit">
             <button @click="saveEdit">保存</button>
             <button @click="cancelEdit">取消</button>
           </template>
@@ -174,19 +169,16 @@ onMounted(() => {
         <div 
           v-if="type.children?.length && expandedTypes.has(type.id)"
           class="children"
-          :style="{ paddingLeft: '20px' }"
-        >
+          :style="{ paddingLeft: '20px' }">
           <div 
             v-for="child in type.children"
             :key="child.id"
-            class="type-item"
-          >
+            class="type-item">
             <template v-if="editingType === child.id">
               <input 
                 v-model="editForm.typeName"
                 @keyup.enter="saveEdit"
-                @keyup.esc="cancelEdit"
-              >
+                @keyup.esc="cancelEdit">
               <button @click="saveEdit">保存</button>
               <button @click="cancelEdit">取消</button>
             </template>
@@ -213,9 +205,9 @@ onMounted(() => {
 }
 
 .a-back {
-    display: block;
-    font-size: 0.8em;
-    line-height: 2em;
+  display: block;
+  font-size: 0.8em;
+  line-height: 2em;
 }
 
 .add-button {
@@ -240,8 +232,8 @@ onMounted(() => {
 }
 
 .add-form input, .add-form select {
-    max-width: 100px;
-    font-size: 12px;
+  max-width: 100px;
+  font-size: 12px;
 }
 
 .type-item {
@@ -253,7 +245,7 @@ onMounted(() => {
 }
 
 .children .type-item {
-    padding-left: 30px;
+  padding-left: 30px;
 }
 
 .expand-arrow {

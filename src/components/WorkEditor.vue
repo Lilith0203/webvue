@@ -73,11 +73,11 @@ const formData = reactive(initFormData())
 
 // 图片上传相关操作
 const handleImageUpload = async (event) => {
-    const files = event.target.files
-    if (!files.length) return
+  const files = event.target.files
+  if (!files.length) return
 
-    await uploadFiles(files)
-  }
+  await uploadFiles(files)
+}
 
 const handleDrop = async (event) => {
   const files = Array.from(event.dataTransfer.files)
@@ -87,26 +87,26 @@ const handleDrop = async (event) => {
 
 const uploadFiles = async (files) => {
   try {
-      for (let file of files) {
-        let upload = new FormData()
-        upload.append('file', file)
-        upload.append('folder', 'works');
-        let response = await axios.post('/upload', upload, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-        })
-        // 解析 URL
-        const urlObj = new URL(response.data.url);
-        // 移除签名相关参数
-        const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token','x-oss-process'];
-        paramsToRemove.forEach(param => urlObj.searchParams.delete(param));
-        formData.pictures.push(urlObj.toString())
-      }
-
-    } catch (error) {
-      console.error('上传图片失败:', error)
+    for (let file of files) {
+      let upload = new FormData()
+      upload.append('file', file)
+      upload.append('folder', 'works');
+      let response = await axios.post('/upload', upload, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        },
+      })
+      // 解析 URL
+      const urlObj = new URL(response.data.url);
+      // 移除签名相关参数
+      const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token','x-oss-process'];
+      paramsToRemove.forEach(param => urlObj.searchParams.delete(param));
+      formData.pictures.push(urlObj.toString())
     }
+
+  } catch (error) {
+    console.error('上传图片失败:', error)
+  }
 }
 
 const removePicture = (index) => {
@@ -357,25 +357,25 @@ const cancel = () => {
 
 // 插入Markdown语法
 const insertMarkdown = (prefix, suffix = '') => {
-    const textarea = contentEditor.value
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const text = formData.description
+  const textarea = contentEditor.value
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const text = formData.description
     
-    const beforeText = text.substring(0, start)
-    const selectedText = text.substring(start, end)
-    const afterText = text.substring(end)
+  const beforeText = text.substring(0, start)
+  const selectedText = text.substring(start, end)
+  const afterText = text.substring(end)
   
-    formData.description = beforeText + prefix + selectedText + suffix + afterText
+  formData.description = beforeText + prefix + selectedText + suffix + afterText
     
-    setTimeout(() => {
-      textarea.focus()
-      textarea.setSelectionRange(
-        start + prefix.length,
-        end + prefix.length
-      )
-    })
-  }
+  setTimeout(() => {
+    textarea.focus()
+    textarea.setSelectionRange(
+      start + prefix.length,
+      end + prefix.length
+    )
+  })
+}
 
 onMounted(() => {
   initForm()
@@ -389,9 +389,9 @@ watch(() => props.work, () => {
 
 <template>
   <Transition name="fade">
-  <div class="work-editor-overlay" v-if="visible">
-    <div class="work-editor">
-      <form @submit.prevent="handleSubmit">
+    <div class="work-editor-overlay" v-if="visible">
+      <div class="work-editor">
+        <form @submit.prevent="handleSubmit">
           <div class="form-item">
             <label>名称</label>
             <input v-model="formData.name" required>
@@ -420,14 +420,12 @@ watch(() => props.work, () => {
                 v-model="newTag"
                 @keydown.enter.prevent="addTag"
                 @keydown.comma.prevent="addTag"
-                placeholder="输入标签后回车"
-              >
+                placeholder="输入标签后回车">
               <div class="tags">
                 <span 
                   v-for="tag in formData.tags" 
                   :key="tag" 
-                  class="tag"
-                >
+                  class="tag">
                   {{ tag }}
                   <span class="tag-remove" @click="removeTag(tag)">×</span>
                 </span>
@@ -442,8 +440,7 @@ watch(() => props.work, () => {
                 type="file" 
                 multiple 
                 accept="image/*"
-                @change="handleImageUpload"
-              >
+                @change="handleImageUpload">
               <div 
                 class="preview-images"
                 @dragover.prevent
@@ -458,8 +455,7 @@ watch(() => props.work, () => {
                   @dragend="handleDragEnd"
                   @touchstart="handleTouchStart($event, index)"
                   @touchmove.prevent="handleTouchMove($event)"
-                  @touchend="handleTouchEnd"
-                >
+                  @touchend="handleTouchEnd">
                   <img v-image="img" class="interactive-image">
                   <span class="remove" @click="removePicture(index)">×</span>
                   <div class="drag-handle">⋮⋮</div>
@@ -478,6 +474,7 @@ watch(() => props.work, () => {
                   <span v-if="material.color" class="detail-item color">{{ material.color }}</span>
                   <span v-if="material.size" class="detail-item size">{{ material.size }}</span>
                   <span v-if="material.shape" class="detail-item shape">{{ material.shape }}</span>
+                  <span v-if="material.price" class="detail-item price">{{ material.price }}</span>
                 </div>
                 <button type="button" @click="removeMaterial(material)" class="remove-btn">×</button>
               </div>
@@ -493,8 +490,7 @@ watch(() => props.work, () => {
                   type="text" 
                   v-model="materialSearchQuery" 
                   placeholder="搜索材料名称、材质、颜色或形状..."
-                  autofocus
-                >
+                  autofocus>
                 <div class="search-hint">{{ searchHint }}</div>
               </div>
               <div class="materials-list" v-if="filteredMaterials.length > 0">
@@ -502,8 +498,7 @@ watch(() => props.work, () => {
                   v-for="material in filteredMaterials" 
                   :key="material.id"
                   class="material-item"
-                  @click="selectMaterial(material)"
-                >
+                  @click="selectMaterial(material)">
                   <div class="material-info">
                     <span class="material-name">{{ material.name }}</span>
                     <span v-if="material.substance" class="info-tag substance">
@@ -531,37 +526,37 @@ watch(() => props.work, () => {
             <button type="button" class="btn secondary" @click.prevent="cancel">取消</button>
           </div>
         </form>
+      </div>
     </div>
-  </div>
-</Transition>
-  </template>
+  </Transition>
+</template>
   
-  <style scoped>
+<style scoped>
 /* 编辑表单样式 */
 .form-item {
-    margin-bottom: 20px;
-  }
+  margin-bottom: 20px;
+}
   
-  .form-item label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-  }
+.form-item label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
   
-  .form-item input,
-  .form-item textarea {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-  }
+.form-item input,
+.form-item textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
   
-  .tag-input {
-    margin-top: 10px;
-  }
+.tag-input {
+  margin-top: 10px;
+}
   
-  .preview-images {
-    display: grid;
+.preview-images {
+  display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 10px;
   margin-top: 10px;
@@ -569,23 +564,23 @@ watch(() => props.work, () => {
   background: #f9f9f9;
   border-radius: 4px;
   min-height: 120px; /* 确保空时也有拖放区域 */
-  }
+}
   
-  .preview-item {
-    position: relative;
-    aspect-ratio: 1;
-    cursor: move; /* 指示可拖动 */
-    transition: transform 0.2s;
-  }
+.preview-item {
+  position: relative;
+  aspect-ratio: 1;
+  cursor: move; /* 指示可拖动 */
+  transition: transform 0.2s;
+}
   
-  .preview-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 4px;
-  }
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+}
 
-  .preview-item.dragging {
+.preview-item.dragging {
   opacity: 0.5;
   transform: scale(0.95);
 }
@@ -623,43 +618,33 @@ watch(() => props.work, () => {
   font-size: 12px;
 }
   
-  .remove {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    width: 20px;
-    height: 20px;
-    background: #ff4444;
-    color: white;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-  }
+.remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  background: #ff4444;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
 
 .tag-remove {
   cursor: pointer;
 }
   
-  .form-actions {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px solid var(--color-border-soft);
-  }
-  
-  @media (max-width: 768px) {
-    .work-editor {
-      padding: 10px;
-    }
-    
-    .image-uploader {
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    }
-  }
+.form-actions {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border-soft);
+}
 
 .selected-materials {
   display: flex;
@@ -870,4 +855,14 @@ watch(() => props.work, () => {
 .btn.secondary:hover {
   background-color: var(--color-background-soft);
 }
-  </style>
+  
+@media (max-width: 768px) {
+  .work-editor {
+    padding: 10px;
+  }
+    
+  .image-uploader {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+}
+</style>
