@@ -192,16 +192,31 @@ renderer.link = (link) => {
 // 使用自定义渲染器
 marked.use({ renderer })
   
+// 生成唯一ID的函数
+const generateClientId = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+// 获取或创建客户端ID
+const getClientId = () => {
+  let clientId = localStorage.getItem('clientId');
+  if (!clientId) {
+    clientId = generateClientId();
+    localStorage.setItem('clientId', clientId);
+  }
+  return clientId;
+}
+
 // 获取交互数据
 const fetchInteractions = async () => {
   try {
-    const response = await axios.get(`/interaction/2/${work.value.id}`)
-    interactions.value = response.data.data
-    
-    // 检查用户是否已点赞/推荐
-    if (authStore.isAuthenticated) {
-      // 这里假设后端返回的数据中包含用户是否已点赞/推荐的信息
-      // 如果后端没有提供这些信息，可能需要单独的接口来获取
+    const response = await axios.get(`/interaction/2/${work.value.id}/${getClientId()}`)
+    if (response.data.success) {
+      interactions.value = response.data.data
       hasLiked.value = response.data.data.hasLiked || false
       hasRecommended.value = response.data.data.hasRecommended || false
     }
@@ -213,14 +228,17 @@ const fetchInteractions = async () => {
 // 点赞
 const toggleLike = async () => {
   try {
-    await axios.post('/interaction/like', {
+    const response = await axios.post('/interaction/like', {
       type: 2,
-      itemId: work.value.id
+      itemId: work.value.id,
+      clientId: getClientId()
     })
     
-    // 更新状态
-    hasLiked.value = !hasLiked.value
-    interactions.value.like += hasLiked.value ? 1 : -1
+    if (response.data.success) {
+      // 更新状态
+      hasLiked.value = response.data.data.hasLiked
+      interactions.value.like = response.data.data.like
+    }
   } catch (error) {
     console.error('点赞失败:', error)
   }
@@ -276,6 +294,20 @@ onMounted(async() => {
           <h2>{{ work.name }}</h2>
           <div v-if="canEdit" @click="startEdit(work)"><i class="iconfont icon-bianji"></i></div>
         </div>
+
+        <!-- 交互区域 -->
+        <div class="interaction-area">
+            <div class="interaction-btn" @click="toggleLike">
+              <i :class="['iconfont', hasLiked ? 'icon-dianzan' : 'icon-dianzan-0']"></i>
+              <span>{{ interactions.like }}</span>
+            </div>
+            
+            <div v-if="canEdit" class="interaction-btn" @click="toggleRecommend">
+              <i :class="['iconfont', interactions.weight > 0 ? 'icon-xingxingtuijian1' : 'icon--xingxingtuijian']"></i>
+              <span v-if="interactions.weight > 0">已推荐</span>
+              <span v-else>推荐</span>
+            </div>
+          </div>
         
         <!-- 图片画廊 -->
         <div class="gallery">
@@ -319,6 +351,13 @@ onMounted(async() => {
           </div>
           
           <div class="description" v-html="work.renderedContent"></div>  
+
+          <!-- 价格信息 -->
+          <div v-if="work.price" class="price-info">
+            <span class="price-label">价格:</span>
+            <span class="price-value">¥{{ formatPrice(work.price) }}</span>
+          </div>
+
           <!-- 材料信息 -->
           <div v-if="materials.length > 0" class="materials-section">
             <h3>材料信息</h3>
@@ -335,26 +374,6 @@ onMounted(async() => {
                 <span v-if="material.shape" class="material-info">{{ material.shape }}</span>
               </div>
             </div>
-          </div>
-
-          <!-- 交互区域 -->
-          <div class="interaction-area">
-            <div class="interaction-btn" @click="toggleLike">
-              <i :class="['iconfont', hasLiked ? 'icon-dianzan' : 'icon-dianzan-0']"></i>
-              <span>{{ interactions.like }}</span>
-            </div>
-            
-            <div v-if="canEdit" class="interaction-btn" @click="toggleRecommend">
-              <i :class="['iconfont', interactions.weight > 0 ? 'icon-xingxingtuijian1' : 'icon--xingxingtuijian']"></i>
-              <span v-if="interactions.weight > 0">已推荐</span>
-              <span v-else>推荐</span>
-            </div>
-          </div>
-
-          <!-- 价格信息 -->
-          <div v-if="work.price" class="price-info">
-            <span class="price-label">价格:</span>
-            <span class="price-value">¥{{ formatPrice(work.price) }}</span>
           </div>
   
           <div class="update-time">
@@ -396,7 +415,7 @@ onMounted(async() => {
 .header {
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 0px;
 }
 
 .header div {
@@ -588,7 +607,7 @@ onMounted(async() => {
   display: flex;
   align-items: center;
   gap: 20px;
-  margin: 15px 10px;
+  margin: 0px 10px;
 }
 
 .interaction-btn {

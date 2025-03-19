@@ -25,7 +25,8 @@ const props = defineProps({
       description: '',
       pictures: [],
       tags: [],
-      materials: []
+      materials: [],
+      price: ''
     })
   },
   mode: {
@@ -41,7 +42,8 @@ const form = ref({
   description: '',
   tags: [],
   pictures: [],
-  materials: []  // 添加材料字段
+  materials: [],
+  price: ''
 })
 
 // 材料列表
@@ -64,7 +66,8 @@ const initFormData = () => {
     description: props.work?.description || '',
     pictures: [...(props.work?.pictures || [])],
     tags: [...(props.work?.tags || [])],
-    materials: [...(props.work?.materials || [])]
+    materials: [...(props.work?.materials || [])],
+    price: props.work?.price || ''
   }
 }
 
@@ -205,7 +208,8 @@ const initForm = () => {
       description: props.work.description || '',
       tags: props.work.tags || [],
       pictures: props.work.pictures || [],
-      materials: props.work.materials || []  // 初始化材料
+      materials: props.work.materials || [],
+      price: props.work.price || ''
     }
     
     // 加载已选材料信息
@@ -227,6 +231,29 @@ const loadSelectedMaterials = async () => {
   }
 }
 
+// 验证价格输入
+const validatePrice = (value) => {
+  // 允许为空
+  if (!value) return true
+  
+  // 验证是否为有效数字
+  const priceRegex = /^\d+(\.\d{1,2})?$/
+  return priceRegex.test(value)
+}
+
+// 处理价格输入
+const handlePriceInput = (event) => {
+  const value = event.target.value
+  
+  // 只允许输入数字和小数点
+  if (/^$|^\d+\.?\d{0,2}$/.test(value)) {
+    formData.price = value
+  } else {
+    // 如果输入无效，恢复到上一个有效值
+    event.target.value = formData.price
+  }
+}
+
 // 提交表单
 const handleSubmit = async () => {
   if (submitting.value) return
@@ -236,13 +263,20 @@ const handleSubmit = async () => {
     const url = props.mode === 'create' ? '/works/add' : `/works/edit`
     const method = 'post'
 
+    // 验证价格
+    if (formData.price && !validatePrice(formData.price)) {
+      message.alert('请输入有效的价格，最多两位小数')
+      return
+    }
+    
     // 确保发送的数据格式正确
     const submitData = {
       ...formData,
       id: props.mode === 'create' ? null : formData.id,
       pictures: formData.pictures || [],
       tags: formData.tags || [],
-      materials: formData.materials || []
+      materials: formData.materials || [],
+      price: formData.price || 0
     }
     
     const response = await axios[method](url, submitData)
@@ -462,6 +496,20 @@ watch(() => props.work, () => {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div class="form-item">
+            <label>价格</label>
+            <div class="price-input">
+              <span class="currency-symbol">¥</span>
+              <input 
+                v-model="formData.price" 
+                type="text" 
+                placeholder="请输入价格（可选）"
+                @input="handlePriceInput"
+                class="price-field">
+            </div>
+            <div class="price-hint">留空表示价格待定</div>
           </div>
   
           <div class="form-item">
@@ -864,5 +912,28 @@ watch(() => props.work, () => {
   .image-uploader {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   }
+}
+
+.price-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.currency-symbol {
+  position: absolute;
+  left: 10px;
+  color: #666;
+  font-weight: 500;
+}
+
+.price-field {
+  padding-left: 25px !important;
+}
+
+.price-hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
 }
 </style>

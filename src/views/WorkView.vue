@@ -74,22 +74,44 @@ const closeEditor = () => {
   showEditor.value = false
 }
 
+// 生成唯一ID的函数
+const generateClientId = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+// 获取或创建客户端ID
+const getClientId = () => {
+  let clientId = localStorage.getItem('clientId');
+  if (!clientId) {
+    clientId = generateClientId();
+    localStorage.setItem('clientId', clientId);
+  }
+  return clientId;
+}
+
 // 点赞
 const toggleLike = async (event, workId) => {
   event.stopPropagation() // 阻止事件冒泡，避免触发卡片点击
   
   try {
-    await axios.post('/interaction/like', {
+    const response = await axios.post('/interaction/like', {
       type: 2,
-      itemId: workId
+      itemId: workId,
+      clientId: getClientId()
     })
     
-    // 更新作品列表中的点赞数据
-    const workIndex = works.value.findIndex(w => w.id === workId)
-    if (workIndex !== -1) {
-      const work = works.value[workIndex]
-      work.hasLiked = !work.hasLiked
-      work.likeCount = (work.likeCount || 0) + (work.hasLiked ? 1 : -1)
+    if (response.data.success) {
+      // 更新作品列表中的点赞数据
+      const workIndex = works.value.findIndex(w => w.id === workId)
+      if (workIndex !== -1) {
+        const work = works.value[workIndex]
+        work.hasLiked = response.data.data.hasLiked
+        work.likeCount = response.data.data.like
+      }
     }
   } catch (error) {
     console.error('点赞失败:', error)
@@ -144,7 +166,7 @@ const fetchWorks = async () => {
     const worksWithInteraction = await Promise.all(
       response.data.works.map(async (work) => {
         try {
-          const interactionResponse = await axios.get(`/interaction/2/${work.id}`)
+          const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
           return {
             ...work,
             likeCount: interactionResponse.data.data.like,
