@@ -17,8 +17,8 @@ const previewTitle = ref('')
 const currentWork = ref(null)
 const currentIndex = ref(0)
   
-// 获取作品数据
-const fetchWorks = async () => {
+// 获取推荐作品数据
+const fetchRecommendedWorks = async () => {
   loading.value = true
   error.value = null
     
@@ -28,10 +28,19 @@ const fetchWorks = async () => {
     const rows = 3 // 固定3行
     const size = itemsPerRow * rows
       
-    const response = await axios.get(`/works?size=${size}`)
-    works.value = response.data.works
+    const response = await axios.get('/recommended-items', {
+      params: {
+        type: 2,
+        page: 1,
+        size: size
+      }
+    })
+    
+    if (response.data.success) {
+      works.value = response.data.data.items
+    }
   } catch (err) {
-    error.value = "获取作品失败：" + err.message
+    error.value = "获取推荐作品失败：" + err.message
     console.error('Fetch error:', err)
   } finally {
     loading.value = false
@@ -51,7 +60,7 @@ const adjustGridColumns = () => {
 // 监听窗口大小变化
 const handleResize = () => {
   adjustGridColumns()
-  fetchWorks() // 重新获取适合当前列数的作品
+  fetchRecommendedWorks() // 重新获取适合当前列数的作品
 }
   
 // 组件挂载前调整列数
@@ -61,7 +70,7 @@ onBeforeMount(() => {
   
 // 组件挂载时获取数据并添加窗口大小监听
 onMounted(() => {
-  fetchWorks()
+  fetchRecommendedWorks()
   window.addEventListener('resize', handleResize)
 })
   

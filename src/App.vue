@@ -157,7 +157,6 @@ watch(() => router.path, (newPath) => {
             <div class="nav-link-text">
               <i class="iconfont icon-huawen"></i>
               {{ menu.label }}
-              <i v-if="menu.key===`program`" class="iconfont icon-huawen"></i>
             </div>
           </RouterLink>
 
@@ -171,6 +170,7 @@ watch(() => router.path, (newPath) => {
               @click="toggleSubmenu(menu.key)">
               <i class="iconfont icon-huawen"></i>
               {{ menu.label }}
+              <i v-if="menu.key === 'program'" class="iconfont icon-huawen"></i>
             </div>
           
             <!-- 子菜单 -->

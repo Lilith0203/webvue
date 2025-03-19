@@ -13,7 +13,7 @@ const canEdit = computed(() => {
     return authStore.isAuthenticated
 })
 
-const pageSize = 12
+const pageSize = 16
 const page = ref(1)
 const loading = ref(false)
 const hasMore = ref(true)
@@ -27,6 +27,12 @@ const editorMode = ref('create')
 const currentWork = ref(null)
 const searchKeyword = ref('')
 const isSearching = ref(false)
+
+const showRecommended = ref(false)
+const recommendedWorks = ref([])
+const loadingRecommended = ref(false)
+const recommendedPage = ref(1)
+const recommendedHasMore = ref(true)
 
 // 切换标签
 const toggleTag = (tag) => {
@@ -106,15 +112,27 @@ const toggleLike = async (event, workId) => {
     
     if (response.data.success) {
       // 更新作品列表中的点赞数据
-      const workIndex = works.value.findIndex(w => w.id === workId)
-      if (workIndex !== -1) {
-        const work = works.value[workIndex]
-        work.hasLiked = response.data.data.hasLiked
-        work.likeCount = response.data.data.like
-      }
+      updateWorkLikeStatus(workId, response.data.data.hasLiked, response.data.data.like)
     }
   } catch (error) {
     console.error('点赞失败:', error)
+  }
+}
+
+// 更新作品点赞状态（同时更新普通列表和推荐列表）
+const updateWorkLikeStatus = (workId, hasLiked, likeCount) => {
+  // 更新普通作品列表
+  const workIndex = works.value.findIndex(w => w.id === workId)
+  if (workIndex !== -1) {
+    works.value[workIndex].hasLiked = hasLiked
+    works.value[workIndex].likeCount = likeCount
+  }
+  
+  // 更新推荐作品列表
+  const recommendedIndex = recommendedWorks.value.findIndex(w => w.id === workId)
+  if (recommendedIndex !== -1) {
+    recommendedWorks.value[recommendedIndex].hasLiked = hasLiked
+    recommendedWorks.value[recommendedIndex].likeCount = likeCount
   }
 }
 
@@ -127,23 +145,64 @@ const toggleRecommend = async (event, workId) => {
   }
   
   try {
-    const workIndex = works.value.findIndex(w => w.id === workId)
-    if (workIndex !== -1) {
-      const work = works.value[workIndex]
-      const isRecommended = work.hasRecommended
+    // 查找作品，确定当前推荐状态
+    let work = works.value.find(w => w.id === workId)
+    if (!work) {
+      work = recommendedWorks.value.find(w => w.id === workId)
+    }
+    
+    if (!work) return
+    
+    // 根据当前推荐状态决定新的权重
+    // 如果已推荐(weight > 0)，则取消推荐(weight = 0)
+    // 如果未推荐(weight = 0)，则推荐(weight = 10)
+    const newWeight = work.recommendWeight > 0 ? 0 : 10
+    
+    const response = await axios.post('/interaction/recommend', {
+      type: 2,
+      itemId: workId,
+      weight: newWeight,
+      clientId: getClientId()
+    })
+    
+    if (response.data.success) {
+      // 更新作品推荐状态
+      const newRecommendStatus = response.data.data.hasRecommended
+      const updatedWeight = response.data.data.weight
       
-      await axios.post('/interaction/recommend', {
-        type: 2,
-        itemId: workId,
-        weight: isRecommended ? 0 : 10
-      })
+      // 更新普通作品列表和推荐作品列表
+      updateWorkRecommendStatus(workId, newRecommendStatus, updatedWeight)
       
-      // 更新作品列表中的推荐数据
-      work.hasRecommended = !isRecommended
-      work.recommendWeight = work.hasRecommended ? 10 : 0
+      // 如果取消了推荐，且当前在推荐视图中，则从列表中移除该作品
+      if (showRecommended.value && !newRecommendStatus) {
+        recommendedWorks.value = recommendedWorks.value.filter(w => w.id !== workId)
+      }
+      // 如果新增了推荐，且当前在推荐视图中，则需要刷新推荐列表
+      else if (showRecommended.value && newRecommendStatus && newWeight > 0) {
+        // 重置推荐列表并重新获取
+        resetRecommendedWorks()
+        fetchRecommendedWorks()
+      }
     }
   } catch (error) {
     console.error('推荐失败:', error)
+  }
+}
+
+// 更新作品推荐状态
+const updateWorkRecommendStatus = (workId, hasRecommended, weight) => {
+  // 更新普通作品列表
+  const workIndex = works.value.findIndex(w => w.id === workId)
+  if (workIndex !== -1) {
+    works.value[workIndex].hasRecommended = hasRecommended
+    works.value[workIndex].recommendWeight = weight
+  }
+  
+  // 更新推荐作品列表
+  const recommendedIndex = recommendedWorks.value.findIndex(w => w.id === workId)
+  if (recommendedIndex !== -1) {
+    recommendedWorks.value[recommendedIndex].hasRecommended = hasRecommended
+    recommendedWorks.value[recommendedIndex].recommendWeight = weight
   }
 }
 
@@ -265,6 +324,81 @@ const getTagStyle = (tag) => {
   }
 }
 
+// 切换推荐作品视图
+const toggleRecommendedView = async () => {
+  showRecommended.value = !showRecommended.value
+  
+  if (showRecommended.value) {
+    // 每次显示推荐视图时，都重新获取推荐作品
+    resetRecommendedWorks()
+    await fetchRecommendedWorks()
+  }
+}
+
+// 获取推荐作品
+const fetchRecommendedWorks = async () => {
+  if (loadingRecommended.value || !recommendedHasMore.value) return
+  
+  loadingRecommended.value = true
+  try {
+    const response = await axios.get('/recommended-items', {
+      params: {
+        type: 2,
+        page: recommendedPage.value,
+        size: pageSize
+      }
+    })
+    
+    if (response.data.success) {
+      const items = response.data.data.items
+      
+      // 获取每个作品的交互数据
+      const worksWithInteraction = await Promise.all(
+        items.map(async (work) => {
+          try {
+            const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
+            return {
+              ...work,
+              likeCount: interactionResponse.data.data.like,
+              recommendWeight: interactionResponse.data.data.weight,
+              hasLiked: interactionResponse.data.data.hasLiked || false,
+              hasRecommended: interactionResponse.data.data.hasRecommended || false
+            }
+          } catch (error) {
+            console.error(`获取作品 ${work.id} 的交互数据失败:`, error)
+            return work
+          }
+        })
+      )
+      
+      if (recommendedPage.value === 1) {
+        recommendedWorks.value = worksWithInteraction
+      } else {
+        recommendedWorks.value = [...recommendedWorks.value, ...worksWithInteraction]
+      }
+      
+      recommendedHasMore.value = items.length === pageSize
+      recommendedPage.value++
+    }
+  } catch (error) {
+    console.error('获取推荐作品失败:', error)
+  } finally {
+    loadingRecommended.value = false
+  }
+}
+
+// 加载更多推荐作品
+const loadMoreRecommended = () => {
+  fetchRecommendedWorks()
+}
+
+// 重置推荐作品列表
+const resetRecommendedWorks = () => {
+  recommendedWorks.value = []
+  recommendedPage.value = 1
+  recommendedHasMore.value = true
+}
+
 onMounted(async () => {
   await initTagColors() // 初始化标签颜色
   fetchWorks()
@@ -306,6 +440,16 @@ onUnmounted(() => {
         </div>
       </div>
       <div class="filter-tags">
+        <!-- 推荐标签 -->
+        <a href="#" 
+          class="tag recommended-tag" 
+          :class="{ active: showRecommended }"
+          @click.prevent="toggleRecommendedView">
+          <i class="iconfont icon-xingxingtuijian1"></i>
+          <span v-if="showRecommended" class="remove-icon">×</span>
+        </a>
+        
+        <!-- 其他标签 -->
         <a v-for="tag in allTags" 
           :key="tag"
           href="#"
@@ -320,7 +464,7 @@ onUnmounted(() => {
       <!-- 作品网格展示 -->
       <div class="work-grid">
         <div 
-          v-for="work in works" 
+          v-for="work in showRecommended ? recommendedWorks : works" 
           :key="work.id" 
           class="work-card">
           <!-- 封面图 -->
@@ -332,15 +476,20 @@ onUnmounted(() => {
               暂无图片
             </div>
             
+            <!-- 推荐标记 
+            <div v-if="work.recommendWeight > 0" class="recommended-badge">
+              <i class="iconfont icon-xingxingtuijian1"></i>
+            </div>-->
+            
             <!-- 交互按钮 -->
             <div class="interaction-overlay">
-              <div v-if="canEdit" class="interaction-btn" @click="toggleRecommend($event, work.id)">
-                <i :class="['iconfont', work.recommendWeight > 0 ? 'icon-xingxingtuijian1' : 'icon--xingxingtuijian']"></i>
-              </div>
-              
               <div class="interaction-btn" @click="toggleLike($event, work.id)">
                 <i :class="['iconfont', work.hasLiked ? 'icon-dianzan' : 'icon-dianzan-0']"></i>
                 <span>{{ work.likeCount || 0 }}</span>
+              </div>
+              
+              <div v-if="canEdit" class="interaction-btn" @click="toggleRecommend($event, work.id)">
+                <i :class="['iconfont', work.recommendWeight > 0 ? 'icon-xingxingtuijian1' : 'icon--xingxingtuijian']"></i>
               </div>
             </div>
           </div>
@@ -372,10 +521,16 @@ onUnmounted(() => {
         </div>
       </div>
       <!-- 加载更多 -->
-      <div class="load-more" v-if="hasMore">
-        <a href="#" @click.prevent="loadMore">
-          {{ loading ? '加载中...' : '查看更多' }}
+      <div class="load-more" v-if="showRecommended ? recommendedHasMore : hasMore">
+        <a href="#" @click.prevent="showRecommended ? loadMoreRecommended() : loadMore()">
+          {{ showRecommended ? (loadingRecommended ? '加载中...' : '查看更多推荐') : (loading ? '加载中...' : '查看更多') }}
         </a>
+      </div>
+      
+      <!-- 无推荐作品提示 -->
+      <div v-if="showRecommended && recommendedWorks.length === 0 && !loadingRecommended" class="no-recommended">
+        <i class="iconfont icon-xingxingtuijian1"></i>
+        <p>暂无推荐作品</p>
       </div>
     </template>
 </template>
@@ -486,6 +641,9 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   background-color: #f0f0f0;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
 }
 
 .tag:hover {
@@ -520,6 +678,9 @@ onUnmounted(() => {
   text-decoration: none;
   position: relative;
   padding-right: 8px;
+  display: flex;
+  align-items: center;
+  height: 24px;
 }
 
 .filter-tags .tag.active {
@@ -646,33 +807,6 @@ onUnmounted(() => {
   color: var(--color-blue);
 }
 
-@media (max-width: 768px) {
-  .work-view {
-    margin-top: 0;
-  }
-
-  .work-grid {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  }
-
-  .preview-item {
-    touch-action: none; /* 防止触摸设备的默认行为 */
-  }
-  
-  .drag-handle {
-    opacity: 1; /* 在移动端始终显示拖动手柄 */
-    padding: 4px 8px; /* 更大的点击区域 */
-  }
-  
-  .search-container {
-    width: 140px;
-  }
-  
-  .search-container.is-searching {
-    width: 180px;
-  }
-}
-
 .interaction-overlay {
   position: absolute;
   bottom: 0;
@@ -705,5 +839,82 @@ onUnmounted(() => {
 
 .interaction-btn i.icon-xingxingtuijian1 {
   color: #ffc107;
+}
+
+.recommended-tag {
+  background-color: #ffffff !important;
+  color: #333 !important;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.recommended-tag i {
+  font-size: 14px;
+}
+
+.recommended-tag.active {
+  background-color: var(--color-blue) !important;
+  color: white !important;
+}
+
+.recommended-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: rgba(255, 193, 7, 0.9);
+  color: #333;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recommended-badge i {
+  font-size: 16px;
+}
+
+.no-recommended {
+  text-align: center;
+  padding: 40px 0;
+  color: #999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.no-recommended i {
+  font-size: 48px;
+  color: #ddd;
+}
+
+@media (max-width: 768px) {
+  .work-view {
+    margin-top: 0;
+  }
+
+  .work-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
+
+  .preview-item {
+    touch-action: none; /* 防止触摸设备的默认行为 */
+  }
+  
+  .drag-handle {
+    opacity: 1; /* 在移动端始终显示拖动手柄 */
+    padding: 4px 8px; /* 更大的点击区域 */
+  }
+  
+  .search-container {
+    width: 140px;
+  }
+  
+  .search-container.is-searching {
+    width: 180px;
+  }
 }
 </style>
