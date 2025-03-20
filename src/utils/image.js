@@ -89,7 +89,7 @@ export const refreshImageUrls = async (urls) => {
   
   try {
     const response = await axios.post('/oss-refresh', { urls })
-    return response.data.urls
+    return response.data.urls || urls
   } catch (error) {
     console.error('批量刷新图片URL失败:', error)
     return urls // 刷新失败时返回原URLs

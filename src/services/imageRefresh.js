@@ -43,37 +43,51 @@ class ImageRefreshService {
     // 获取所有图片元素
     const images = document.querySelectorAll('img')
     const urlsToRefresh = []
+    const imageMap = new Map() // 用于存储图片元素和它们的原始URL
 
+    // 收集需要刷新的URL和对应的图片元素
     images.forEach(img => {
       const originalSrc = img.dataset.originalSrc || img.src
       if (originalSrc && originalSrc.includes('static.lilithu.com')) {
         urlsToRefresh.push(originalSrc)
-        // 保存原始URL
+        
+        // 保存原始URL到dataset
         if (!img.dataset.originalSrc) {
           img.dataset.originalSrc = originalSrc
         }
+        
+        // 将图片元素添加到映射中
+        if (!imageMap.has(originalSrc)) {
+          imageMap.set(originalSrc, [])
+        }
+        imageMap.get(originalSrc).push(img)
       }
     })
 
     if (urlsToRefresh.length > 0) {
       try {
+        // 批量刷新URL
         const refreshedUrls = await refreshImageUrls(urlsToRefresh)
         
         // 更新图片URL
         let updatedCount = 0
-        images.forEach(img => {
-          const originalSrc = img.dataset.originalSrc || img.src
-          if (originalSrc && originalSrc.includes('static.lilithu.com')) {
-            const index = urlsToRefresh.indexOf(originalSrc)
-            if (index !== -1) {
-              const oldSrc = img.src
-              img.src = refreshedUrls[index]
-              if (oldSrc !== img.src) {
-                updatedCount++
-              }
+        
+        // 遍历刷新后的URL
+        for (let i = 0; i < urlsToRefresh.length; i++) {
+          const originalUrl = urlsToRefresh[i]
+          const refreshedUrl = refreshedUrls[i]
+          
+          // 获取与此URL关联的所有图片元素
+          const imgElements = imageMap.get(originalUrl) || []
+          
+          // 更新每个图片元素的src
+          imgElements.forEach(img => {
+            if (img.src !== refreshedUrl) {
+              img.src = refreshedUrl
+              updatedCount++
             }
-          }
-        })
+          })
+        }
         
         // 更新最后刷新时间
         this.lastRefreshTime = Date.now()
