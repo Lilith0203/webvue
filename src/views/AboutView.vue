@@ -62,7 +62,6 @@ onMounted(fetchContent)
   flex-direction: column;
   justify-content: center;
   text-align: center;
-  padding: 0 20px;
   max-width: 800px;
   margin: 10px auto 30px;
 }
