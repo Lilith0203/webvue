@@ -13,12 +13,6 @@ class ImageRefreshService {
     
     // 如果是首次访问，设置标志，强制刷新
     this.forceRefreshOnStart = isFirstVisit
-    
-    console.log('图片刷新服务初始化', {
-      isFirstVisit,
-      lastRefreshTime: this.lastRefreshTime ? new Date(this.lastRefreshTime).toLocaleString() : '从未刷新',
-      forceRefreshOnStart: this.forceRefreshOnStart
-    })
   }
 
   // 检查是否需要刷新图片（基于上次刷新时间）
