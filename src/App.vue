@@ -419,7 +419,6 @@ nav a.router-link-exact-active {
 
 .qr-popup img {
   width: 240px;
-  height: 240px;
   display: block;
 }
 
@@ -500,7 +499,6 @@ nav a.router-link-exact-active {
 
   .qr-popup img {
     width: 280px;
-    height: 280px;
   }
 
   .social-links {

@@ -476,10 +476,10 @@ onUnmounted(() => {
               暂无图片
             </div>
             
-            <!-- 推荐标记 
-            <div v-if="work.recommendWeight > 0" class="recommended-badge">
-              <i class="iconfont icon-xingxingtuijian1"></i>
-            </div>-->
+            <!-- 在售标记 (仅图标) -->
+            <div v-if="work.price && work.price > 0" class="for-sale-badge">
+              <i class="iconfont icon-zaishou"></i>
+            </div>
             
             <!-- 交互按钮 -->
             <div class="interaction-overlay">
@@ -889,6 +889,21 @@ onUnmounted(() => {
 .no-recommended i {
   font-size: 48px;
   color: #ddd;
+}
+
+/* 在售标记样式 */
+.for-sale-badge {
+  position: absolute;
+  top: -10px;
+  left: 7px;
+  display: flex;
+  align-items: center;
+  z-index: 2;
+}
+
+.for-sale-badge i {
+  margin-right: 2px;
+  font-size: 50px;
 }
 
 @media (max-width: 768px) {
