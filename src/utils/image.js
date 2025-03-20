@@ -37,11 +37,6 @@ const getImageSignature = async (url) => {
   }
 }
 
-// 检查是否是需要刷新的图片URL
-const needsRefresh = (url) => {
-  return url && url.includes('static.lilithu.com')
-}
-
 export const vImage = {
   mounted: async (el, binding) => {
     const url = binding.value
@@ -99,4 +94,10 @@ export const refreshImageUrls = async (urls) => {
     console.error('批量刷新图片URL失败:', error)
     return urls // 刷新失败时返回原URLs
   }
+}
+
+// 清除图片签名缓存
+export const clearImageSignatureCache = () => {
+  signatureCache.clear()
+  localStorage.removeItem(SIGNATURE_CACHE_KEY)
 }
