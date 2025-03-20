@@ -65,8 +65,7 @@ const handleImageError = async (el, url, retryCount = 0) => {
     // 强制刷新签名
     const signature = await getImageSignature(url);
     if (signature) {
-      // 添加时间戳防止浏览器使用缓存
-      el.src = `${signature}${signature.includes('?') ? '&' : '?'}t=${Date.now()}`;
+      el.src = signature;
     }
   } catch (error) {
     console.error('重试加载图片失败:', error);
