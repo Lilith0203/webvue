@@ -11,6 +11,7 @@ import LoginView from '../views/LoginView.vue'
 import AdminView from '../views/Admin.vue'
 import ProgramView from '../views/ProgramView.vue'
 import ColorManager from '../views/ColorManager.vue'
+import Story from '../views/StoryView.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
@@ -73,6 +74,11 @@ const router = createRouter({
       path: '/color',
       name: 'color',
       component: ColorManager,
+    },
+    {
+      path: '/story',
+      name: 'story',
+      component: Story,
     },
     {
       path: '/about',

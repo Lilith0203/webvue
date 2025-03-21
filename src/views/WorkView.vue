@@ -680,7 +680,6 @@ onUnmounted(() => {
   padding-right: 8px;
   display: flex;
   align-items: center;
-  height: 24px;
 }
 
 .filter-tags .tag.active {

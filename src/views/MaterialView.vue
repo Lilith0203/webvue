@@ -106,9 +106,52 @@ const openImageViewer = (url) => {
   }
 }
 
+// 添加排序相关的状态
+const sortBy = ref(null)
+const sortDirection = ref('asc')
+
+// 提取字符串中的第一个数字
+const extractFirstNumber = (str) => {
+  if (!str) return NaN
+  const match = str.match(/\d+(\.\d+)?/)
+  return match ? parseFloat(match[0]) : NaN
+}
+
+// 切换按尺寸排序
+const toggleSortBySize = () => {
+  if (sortBy.value === 'size') {
+    if (sortDirection.value === 'asc') {
+      // 如果当前是升序，切换为降序
+      sortDirection.value = 'desc'
+    } else {
+      // 如果当前是降序，取消排序
+      sortBy.value = null
+    }
+  } else {
+    // 如果当前没有排序，设置为升序
+    sortBy.value = 'size'
+    sortDirection.value = 'asc'
+  }
+}
+
+// 修改重置搜索方法，也重置排序
+const resetSearch = () => {
+  searchForm.value = {
+    name: '',
+    type: [],
+    substance: '',
+    shape: '',
+    color: ''
+  }
+  displayLimit.value = 50  // 重置显示数量
+  sortBy.value = null      // 重置排序方式
+  sortDirection.value = 'asc' // 重置排序方向
+}
+
 // 计算当前显示的材料
 const displayedMaterials = computed(() => {
   if (!materialData.value) return []
+  
   // 先应用搜索过滤
   const filtered = materialData.value.filter(item => {
     return (
@@ -119,9 +162,26 @@ const displayedMaterials = computed(() => {
       (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase()))
     )
   })
+  
+  // 应用排序
+  let result = [...filtered]
+  if (sortBy.value === 'size') {
+    result.sort((a, b) => {
+      const sizeA = extractFirstNumber(a.size || '')
+      const sizeB = extractFirstNumber(b.size || '')
+      
+      // 如果无法提取数字，则放到最后
+      if (isNaN(sizeA) && isNaN(sizeB)) return 0
+      if (isNaN(sizeA)) return 1
+      if (isNaN(sizeB)) return -1
+      
+      // 按照排序方向排序
+      return sortDirection.value === 'asc' ? sizeA - sizeB : sizeB - sizeA
+    })
+  }
 
   // 然后限制显示数量
-  return filtered.slice(0, displayLimit.value)
+  return result.slice(0, displayLimit.value)
 })
 
 // 是否还有更多材料可以显示
@@ -303,18 +363,6 @@ const searchForm = ref({
   shape: '',
   color: ''
 })
-
-// 重置搜索条件
-const resetSearch = () => {
-  searchForm.value = {
-    name: '',
-    type: [],
-    substance: '',
-    shape: '',
-    color: ''
-  }
-  displayLimit.value = 50  // 重置显示数量
-}
 
 // 类型选择相关状态
 const showTypeDropdown = ref(false)
@@ -573,6 +621,8 @@ onMounted(async() => {
 const getTypeName = (typeId) => {
   return typeMap.value.get(typeId) || typeId
 }
+
+
 </script>
 
 <template>
@@ -588,8 +638,7 @@ const getTypeName = (typeId) => {
         <RouterLink 
           v-if="canEdit"
           to="/material/type"
-          class="settings-btn">
-          分类管理
+          class="category-link">分类管理
         </RouterLink>
         <div 
           v-if="isColumnSettingsVisible" 
@@ -795,6 +844,20 @@ const getTypeName = (typeId) => {
           <input type="checkbox" v-model="showOutOfStock">
           <span>显示无库存材料</span>
         </label>
+        
+        <!-- 添加排序选项 -->
+        <div class="sort-options">
+          <button 
+            class="sort-btn" 
+            :class="{ 'active': sortBy === 'size' }"
+            @click="toggleSortBySize">
+            按尺寸排序 
+            <span v-if="sortBy === 'size'">
+              {{ sortDirection === 'asc' ? '↑' : '↓' }}
+            </span>
+          </button>
+        </div>
+        
         <button class="reset-btn" @click="resetSearch">重置</button>
       </div>
     </div>
@@ -974,6 +1037,19 @@ const getTypeName = (typeId) => {
 </template>
 
 <style scoped>
+
+.category-link {
+  font-size: 12px;
+  background-color: var(--color-blue);
+  color: #fff;
+  padding: 5px 8px;
+  border-radius: 4px;;
+}
+
+.category-link:hover {
+  text-decoration: none;
+}
+
 /* 添加新样式 */
 .load-more {
   text-align: center;
@@ -1316,6 +1392,7 @@ a:hover {
 
 /* 按钮样式 */
 .add-btn {
+  font-size: 12px;
   background-color: #4CAF50;
   color: white;
   padding: 4px 12px;
@@ -1418,7 +1495,7 @@ td:last-child {
 
 .type-selector {
   position: relative;
-  width: 200px;
+  width: 140px;
 }
 
 td .type-selector {
@@ -1446,11 +1523,11 @@ td .type-dropdown {
   border-radius: 4px;
   cursor: pointer;
   background: white;
-  min-height: 28px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
+  line-height: normal;
 }
 
 td .type-input {
@@ -1465,7 +1542,7 @@ td .type-input {
 }
 
 .arrow {
-  font-size: 10px;
+  font-size: 9px;
   color: #666;
 }
 
@@ -1651,10 +1728,6 @@ td .type-input {
 }
 
 @media (min-width: 1024px) {
-  
-  .material-table {
-    font-size: 14px;
-  }
 
   table {
     width: 100%;
@@ -1670,5 +1743,41 @@ td .type-input {
   .form-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* 排序按钮样式 */
+.sort-options {
+  display: flex;
+  gap: 8px;
+  margin: 0 10px;
+}
+
+.sort-btn {
+  padding: 4px 8px;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #333;
+  transition: all 0.3s;
+}
+
+.sort-btn:hover {
+  background-color: #e0e0e0;
+}
+
+.sort-btn.active {
+  background-color: #42b883;
+  color: white;
+  border-color: #42b883;
+}
+
+/* 调整搜索操作区域的布局 */
+.search-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 </style>

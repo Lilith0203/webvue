@@ -39,6 +39,7 @@ const menuConfig = [
     label: '小工具',
     key: 'program',
     children: [
+      {label: '剧情整理', path: '/story'},
       {label: '颜色管理', path: '/color'},
       {label: '小游戏', path: '/program'},
     ]

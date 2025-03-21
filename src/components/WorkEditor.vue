@@ -51,7 +51,13 @@ const materials = ref([])
 // 选中的材料
 const selectedMaterials = ref([])
 // 材料搜索关键词
-const materialSearchQuery = ref('')
+const materialSearchQuery = ref({
+  name: '',
+  substance: '',
+  color: '',
+  shape: '',
+  size: ''
+})
 // 是否显示材料选择器
 const showMaterialSelector = ref(false)
 // 是否已加载材料数据
@@ -146,24 +152,40 @@ const fetchMaterials = async () => {
 
 // 过滤材料
 const filteredMaterials = computed(() => {
-  if (!materialSearchQuery.value) {
+  // 检查是否有任何搜索条件
+  const hasQuery = Object.values(materialSearchQuery.value).some(value => value.trim() !== '')
+  
+  if (!hasQuery) {
     return []
   }
   
-  const query = materialSearchQuery.value.toLowerCase()
   return materials.value
-    .filter(material => 
-      material.name.toLowerCase().includes(query) || 
-      (material.substance && material.substance.toLowerCase().includes(query)) ||
-      (material.color && material.color.toLowerCase().includes(query)) ||
-      (material.shape && material.shape.toLowerCase().includes(query))
-    )
+    .filter(material => {
+      // 检查每个搜索条件
+      const nameMatch = !materialSearchQuery.value.name || 
+        (material.name && material.name.toLowerCase().includes(materialSearchQuery.value.name.toLowerCase()))
+      
+      const substanceMatch = !materialSearchQuery.value.substance || 
+        (material.substance && material.substance.toLowerCase().includes(materialSearchQuery.value.substance.toLowerCase()))
+      
+      const colorMatch = !materialSearchQuery.value.color || 
+        (material.color && material.color.toLowerCase().includes(materialSearchQuery.value.color.toLowerCase()))
+      
+      const shapeMatch = !materialSearchQuery.value.shape || 
+        (material.shape && material.shape.toLowerCase().includes(materialSearchQuery.value.shape.toLowerCase()))
+      
+      const sizeMatch = !materialSearchQuery.value.size || 
+        (material.size && material.size.toLowerCase().includes(materialSearchQuery.value.size.toLowerCase()))
+      
+      // 所有条件都必须匹配（取交集）
+      return nameMatch && substanceMatch && colorMatch && shapeMatch && sizeMatch
+    })
     .slice(0, maxSearchResults)
 })
 
 // 搜索提示信息
 const searchHint = computed(() => {  
-  if (!materialSearchQuery.value) {
+  if (!materialSearchQuery.value.name && !materialSearchQuery.value.substance && !materialSearchQuery.value.color && !materialSearchQuery.value.shape && !materialSearchQuery.value.size) {
     return '请输入关键词搜索材料'
   }
   
@@ -533,35 +555,74 @@ watch(() => props.work, () => {
             
             <!-- 材料选择器 -->
             <div v-if="showMaterialSelector" class="material-selector">
-              <div class="search-box">
-                <input 
-                  type="text" 
-                  v-model="materialSearchQuery" 
-                  placeholder="搜索材料名称、材质、颜色或形状..."
-                  autofocus>
+              <div class="search-container">
+                <div class="search-fields">
+                  <!-- 名称搜索 -->
+                  <div class="search-field">
+                    <input 
+                      v-model="materialSearchQuery.name" 
+                      placeholder="搜索名称"
+                      class="search-input"
+                    >
+                  </div>
+                  
+                  <!-- 材质搜索 -->
+                  <div class="search-field">
+                    <input 
+                      v-model="materialSearchQuery.substance" 
+                      placeholder="搜索材质"
+                      class="search-input"
+                    >
+                  </div>
+                  
+                  <!-- 颜色搜索 -->
+                  <div class="search-field">
+                    <input 
+                      v-model="materialSearchQuery.color" 
+                      placeholder="搜索颜色"
+                      class="search-input"
+                    >
+                  </div>
+                  
+                  <!-- 形状搜索 -->
+                  <div class="search-field">
+                    <input 
+                      v-model="materialSearchQuery.shape" 
+                      placeholder="搜索形状"
+                      class="search-input"
+                    >
+                  </div>
+                  
+                  <!-- 尺寸搜索 -->
+                  <div class="search-field">
+                    <input 
+                      v-model="materialSearchQuery.size" 
+                      placeholder="搜索尺寸"
+                      class="search-input"
+                    >
+                  </div>
+                </div>
+                
                 <div class="search-hint">{{ searchHint }}</div>
               </div>
-              <div class="materials-list" v-if="filteredMaterials.length > 0">
+              
+              <div class="material-list">
                 <div 
                   v-for="material in filteredMaterials" 
-                  :key="material.id"
+                  :key="material.id" 
                   class="material-item"
-                  @click="selectMaterial(material)">
-                  <div class="material-info">
-                    <span class="material-name">{{ material.name }}</span>
-                    <span v-if="material.substance" class="info-tag substance">
-                      {{ material.substance }}
-                    </span>
-                    <span v-if="material.color" class="info-tag color">
-                      {{ material.color }}
-                    </span>
-                    <span v-if="material.shape" class="info-tag shape">
-                      {{ material.shape }}
-                    </span>
-                    <span v-if="material.size" class="info-tag size">
-                      {{ material.size }}
-                    </span>
+                  @click="selectMaterial(material)"
+                >
+                  <div class="material-name">{{ material.name }}</div>
+                  <div class="material-details">
+                    <span v-if="material.substance" class="detail-item substance">{{ material.substance }}</span>
+                    <span v-if="material.color" class="detail-item color">{{ material.color }}</span>
+                    <span v-if="material.size" class="detail-item size">{{ material.size }}</span>
+                    <span v-if="material.shape" class="detail-item shape">{{ material.shape }}</span>
                   </div>
+                </div>
+                <div v-if="filteredMaterials.length === 0 && materialSearchQuery.name" class="no-results">
+                  没有找到匹配的材料
                 </div>
               </div>
             </div>
@@ -717,6 +778,12 @@ watch(() => props.work, () => {
   margin-right: 10px;
 }
 
+.material-list .material-name {
+  float: left;
+  font-size: 0.9rem;
+  width: 120px;
+}
+
 .material-details {
   display: flex;
   flex-direction: column;
@@ -727,6 +794,14 @@ watch(() => props.work, () => {
 .detail-item {
   display: inline-flex;
   align-items: center;
+}
+
+.material-list .material-details {
+  flex-direction: row;
+}
+
+.material-list .detail-item {
+  margin-right: 10px;
 }
 
 .detail-item.substance {
@@ -778,17 +853,26 @@ watch(() => props.work, () => {
   flex-direction: column;
 }
 
-.search-box {
+.search-container {
   padding: 8px;
   border-bottom: 1px solid var(--color-border);
 }
 
-.search-box input {
+.search-fields {
+  display: flex;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+
+.search-field {
+  flex: 1;
+}
+
+.search-field input {
   width: 100%;
-  padding: 8px;
+  padding: 5px;
   border: 1px solid var(--color-border);
   border-radius: 4px;
-  font-size: 0.90em;
 }
 
 .search-hint {
@@ -798,15 +882,17 @@ watch(() => props.work, () => {
   padding: 0 4px;
 }
 
-.materials-list {
-  overflow-y: auto;
+.material-list {
   max-height: 300px;
-  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  background-color: white;
 }
 
 .material-item {
   padding: 10px;
-  border-bottom: 1px solid var(--color-border-soft);
+  border-bottom: 1px solid #eee;
   cursor: pointer;
   transition: background-color 0.2s ease;
 }
@@ -817,46 +903,6 @@ watch(() => props.work, () => {
 
 .material-item:last-child {
   border-bottom: none;
-}
-
-.material-info {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.info-tag {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.8em;
-  background-color: var(--color-background-mute);
-}
-
-.info-tag i {
-  margin-right: 4px;
-  font-size: 0.9em;
-}
-
-.info-tag.substance {
-  background-color: #e3f2fd;
-  color: #1976d2;
-}
-
-.info-tag.color {
-  background-color: #e8f5e9;
-  color: #388e3c;
-}
-
-.info-tag.shape {
-  background-color: #fff3e0;
-  color: #f57c00;
-}
-
-.info-tag.size {
-  background-color: #f3e5f5;
-  color: #8e24aa;
 }
 
 .btn {
