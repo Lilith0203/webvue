@@ -196,14 +196,16 @@ const selectSet = async (id) => {
 
 // 选择子合集
 const selectChildSet = async (id) => {
-  activeChildId.value = id
+  // 先设置activeSetId，这样activeSet计算属性会更新
   activeSetId.value = id
+  activeChildId.value = id
   
   // 选择子合集后关闭所有菜单
   Object.keys(expandedMenus.value).forEach(key => {
     expandedMenus.value[key] = false
   })
   
+  // 确保在状态更新后获取剧情
   await fetchStories()
 }
 
@@ -237,17 +239,19 @@ const fetchStorySets = async () => {
 
 // 获取剧情列表
 const fetchStories = async () => {
-  if (!activeSet.value) return
+  // 确保有activeSetId才发起请求
+  if (!activeSetId.value) return
   
   loading.value = true
   error.value = null
   
   try {
-    const response = await axios.get(`/story-sets/${activeSet.value.id}`, {
+    
+    const response = await axios.get(`/story-sets/${activeSetId.value}`, {
       params: {
         page: currentPage.value,
         size: pageSize.value,
-        sortDirection: sortDirection.value // 添加排序方向参数
+        sortDirection: sortDirection.value
       }
     })
     
@@ -346,12 +350,38 @@ const addStorySet = async () => {
 
 // 打开编辑合集模态框
 const openEditSetModal = (set) => {
-  if (!set) return
+  
+  if (!set) {
+    // 如果activeSetId存在，尝试直接通过ID查找合集
+    if (activeSetId.value) {
+      // 修改查找逻辑，递归查找所有合集包括子合集
+      const findSet = (sets, id) => {
+        for (const set of sets) {
+          if (set.id === id) return set;
+          if (set.children && set.children.length > 0) {
+            const found = findSet(set.children, id);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      
+      const currentSet = findSet(storySets.value, activeSetId.value);
+      if (currentSet) {
+        console.log('找到当前合集:', currentSet);
+        editingSet.value = JSON.parse(JSON.stringify(currentSet));
+        showEditSetModal.value = true;
+        error.value = null;
+        return;
+      }
+    }
+    return;
+  }
   
   // 创建一个深拷贝，避免直接修改原对象
-  editingSet.value = JSON.parse(JSON.stringify(set))
-  showEditSetModal.value = true
-  error.value = null
+  editingSet.value = JSON.parse(JSON.stringify(set));
+  showEditSetModal.value = true;
+  error.value = null;
 }
 
 // 关闭编辑合集模态框
@@ -405,9 +435,36 @@ const updateStorySet = async () => {
 
 // 打开删除确认模态框
 const openDeleteConfirmModal = (set) => {
-  if (!set) return
-  setToDelete.value = set
-  confirmDeleteModal.value = true
+  
+  if (!set) {
+    
+    // 如果activeSetId存在，尝试直接通过ID查找合集
+    if (activeSetId.value) {
+      // 修改查找逻辑，递归查找所有合集包括子合集
+      const findSet = (sets, id) => {
+        for (const set of sets) {
+          if (set.id === id) return set;
+          if (set.children && set.children.length > 0) {
+            const found = findSet(set.children, id);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      
+      const currentSet = findSet(storySets.value, activeSetId.value);
+      if (currentSet) {
+        console.log('找到当前合集:', currentSet);
+        setToDelete.value = currentSet;
+        confirmDeleteModal.value = true;
+        return;
+      }
+    }
+    return;
+  }
+  
+  setToDelete.value = set;
+  confirmDeleteModal.value = true;
 }
 
 // 关闭删除确认模态框
