@@ -3,7 +3,7 @@ import axios from '../api'
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import draggable from 'vuedraggable'
+
 import ImagePreview from '../components/ImagePreview.vue'
 
 const router = useRouter()
@@ -192,8 +192,8 @@ const selectSet = async (id) => {
   activeSetId.value = id
   activeChildId.value = null
   
-  // 默认不展开菜单
-  
+  // 手动获取故事
+  currentPage.value = 1
   await fetchStories()
 }
 
@@ -208,7 +208,8 @@ const selectChildSet = async (id) => {
     expandedMenus.value[key] = false
   })
   
-  // 确保在状态更新后获取剧情
+  // 手动获取故事
+  currentPage.value = 1
   await fetchStories()
 }
 
@@ -230,7 +231,10 @@ const fetchStorySets = async () => {
     
     // 如果没有选中合集且有合集数据，默认选中第一个
     if (!activeSetId.value && storySets.value.length > 0) {
-      selectSet(storySets.value[0].id)
+      // 直接设置ID，但不调用fetchStories
+      activeSetId.value = storySets.value[0].id
+      // 手动获取一次故事，避免重复请求
+      await fetchStories()
     }
   } catch (err) {
     console.error('获取剧情合集错误:', err)
@@ -827,12 +831,6 @@ const changePage = (page) => {
   currentPage.value = page
   fetchStories()
 }
-
-// 监听活动合集变化，重置分页并获取故事
-watch(activeSet, () => {
-  currentPage.value = 1
-  fetchStories()
-})
 
 // 处理搜索
 const handleSearch = () => {
