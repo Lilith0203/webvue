@@ -57,9 +57,12 @@ const sortDirection = ref('ASC')
 
 // 分页相关状态
 const currentPage = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(30)
 const totalPages = ref(1)
 const totalItems = ref(0)
+
+// 添加搜索关键词状态
+const searchKeyword = ref('');
 
 // 检查菜单是否展开
 const isMenuExpanded = (setId) => {
@@ -239,7 +242,6 @@ const fetchStorySets = async () => {
 
 // 获取剧情列表
 const fetchStories = async () => {
-  // 确保有activeSetId才发起请求
   if (!activeSetId.value) return
   
   loading.value = true
@@ -251,7 +253,8 @@ const fetchStories = async () => {
       params: {
         page: currentPage.value,
         size: pageSize.value,
-        sortDirection: sortDirection.value
+        sortDirection: sortDirection.value,
+        keyword: searchKeyword.value // 添加关键词参数
       }
     })
     
@@ -368,7 +371,6 @@ const openEditSetModal = (set) => {
       
       const currentSet = findSet(storySets.value, activeSetId.value);
       if (currentSet) {
-        console.log('找到当前合集:', currentSet);
         editingSet.value = JSON.parse(JSON.stringify(currentSet));
         showEditSetModal.value = true;
         error.value = null;
@@ -407,12 +409,8 @@ const updateStorySet = async () => {
     if (dataToSend.parentId === 0) {
       dataToSend.level = 1 // 根合集层级为1
     } else {
-      const parentSet = storySets.value.find(set => set.id === dataToSend.parentId)
-      if (parentSet) {
-        dataToSend.level = parentSet.level + 1 // 子合集层级为父合集层级+1
-      } else {
-        dataToSend.level = 1 // 如果找不到父合集，默认为1
-      }
+      const parentSet = storySets.value.find(set => set?.id === dataToSend.parentId) || null
+      dataToSend.level = parentSet ? parentSet.level + 1 : 1
     }
     
     await axios.put(`/story-sets/${dataToSend.id}`, dataToSend)
@@ -422,7 +420,7 @@ const updateStorySet = async () => {
     closeEditSetModal()
     
     // 如果当前选中的是被编辑的合集，重新获取其内容
-    if (activeSetId.value === editingSet.value.id) {
+    if (editingSet.value && activeSetId.value === editingSet.value.id) {
       await fetchStories()
     }
   } catch (err) {
@@ -454,7 +452,6 @@ const openDeleteConfirmModal = (set) => {
       
       const currentSet = findSet(storySets.value, activeSetId.value);
       if (currentSet) {
-        console.log('找到当前合集:', currentSet);
         setToDelete.value = currentSet;
         confirmDeleteModal.value = true;
         return;
@@ -523,7 +520,6 @@ const openAddStoryModal = () => {
 
 // 关闭添加剧情模态框
 const closeAddStoryModal = () => {
-  console.log('关闭添加剧情模态框')
   
   // 先重置表单数据
   newStory.value = {
@@ -747,7 +743,6 @@ const previewTitle = ref('')
 
 // 显示图片预览
 function showImagePreview(url, title) {
-  console.log('Opening image preview:', url, title) // 添加调试日志
   previewVisible.value = true
   previewImage.value = url
   previewTitle.value = title || '图片预览'
@@ -755,7 +750,6 @@ function showImagePreview(url, title) {
 
 // 关闭图片预览
 function closePreview() {
-  console.log('Closing image preview') // 添加调试日志
   previewVisible.value = false
   previewImage.value = ''
   previewTitle.value = ''
@@ -840,6 +834,12 @@ watch(activeSet, () => {
   fetchStories()
 })
 
+// 处理搜索
+const handleSearch = () => {
+  currentPage.value = 1; // 重置到第一页
+  fetchStories();
+}
+
 // 生命周期钩子
 onMounted(async () => {
   await fetchStorySets()
@@ -913,11 +913,23 @@ onMounted(async () => {
                 <button class="btn btn-sort" @click="toggleSortDirection">
                     <i class="iconfont" :class="sortDirection === 'ASC' ? 'icon-zhengxu' : 'icon-daoxu'"></i>
                 </button>
+                <div class="search-area">
+                    <input 
+                        type="text" 
+                        v-model="searchKeyword" 
+                        placeholder="搜索" 
+                        @keyup.enter="handleSearch"
+                    />
+                    <button class="btn btn-search" @click="handleSearch">
+                        <i class="iconfont icon-sousuo"></i>
+                    </button>
+                </div>
             </div>
+        
             <div v-if="isLoggedIn" class="set-actions">
-              <button class="btn btn-edit" @click="openEditSetModal(activeSet)">编辑合集</button>
-              <button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除合集</button>
-              <button class="btn btn-add" @click="openAddStoryModal">添加剧情</button>
+              <button class="btn btn-edit" @click="openEditSetModal(activeSet)">编辑</button>
+              <button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除</button>
+              <button class="btn btn-add" @click="openAddStoryModal">+剧情</button>
             </div>
           </div>
           
@@ -956,7 +968,7 @@ onMounted(async () => {
                       
                       <div v-if="story.link" class="story-link">
                         <a :href="story.link" target="_blank" rel="noopener noreferrer">
-                          <i class="iconfont icon-lianjie"></i>
+                          <i class="iconfont icon-bilibili1"></i>
                         </a>
                       </div>
                     </div>
@@ -1495,6 +1507,7 @@ onMounted(async () => {
 
 /* 下拉菜单样式 */
 .dropdown-menu {
+    min-width: 100px;
     font-size: 0.85rem;
   position: absolute;
   top: 100%;
@@ -1688,8 +1701,8 @@ onMounted(async () => {
 .story-item {
   background-color: white;
   border-radius: 8px;
-  padding: 15px;
-  margin-bottom: 15px;
+  padding: 12px;
+  margin-bottom: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
@@ -1720,6 +1733,7 @@ onMounted(async () => {
 .story-link {
   margin-left: 10px;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .story-link a {
@@ -1728,8 +1742,11 @@ onMounted(async () => {
   gap: 5px;
   color: #4a90e2;
   text-decoration: none;
-  font-size: 14px;
   padding: 0;
+}
+
+.story-link .iconfont {
+    font-size: 20px;
 }
 
 .story-image-area {
@@ -1990,7 +2007,7 @@ input[type="datetime-local"] {
 
 .story-title {
   font-weight: 500;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: #333;
 }
 
@@ -2052,12 +2069,12 @@ input[type="datetime-local"] {
 }
 
 .pagination-btn {
-  padding: 6px 12px;
+  padding: 3px 6px;
   background-color: #f0f0f0;
   border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   transition: background-color 0.3s;
 }
 
@@ -2096,5 +2113,26 @@ input[type="datetime-local"] {
 
 .btn-sort .iconfont {
   font-size: 24px;
+}
+
+.search-area {
+    margin-right: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.search-area input {
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-right: 5px;
+  width: 130px;
+}
+
+.btn-search {
+    background-color: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0px;
 }
 </style>
