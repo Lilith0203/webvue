@@ -1797,6 +1797,8 @@ const formatStoryTitle = (title) => {
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  overflow-y: auto; /* 允许垂直滚动 */
+  padding: 20px 0; /* 添加上下内边距 */
 }
 
 .modal-content {
@@ -1805,7 +1807,10 @@ const formatStoryTitle = (title) => {
   padding: 25px;
   width: 400px;
   max-width: 90%;
+  max-height: 90vh; /* 限制最大高度 */
+  overflow-y: auto; /* 添加内部滚动 */
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  margin: auto; /* 确保垂直居中 */
 }
 
 .modal-content h3 {
