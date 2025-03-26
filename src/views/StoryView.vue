@@ -53,7 +53,7 @@ const expandedMenus = ref({})
 // 添加简略模式状态
 const isSimpleMode = ref(false)
 // 添加排序方向状态
-const sortDirection = ref('ASC')
+const sortDirection = ref('DESC')
 
 // 分页相关状态
 const currentPage = ref(1)
@@ -844,6 +844,14 @@ const handleSearch = () => {
 onMounted(async () => {
   await fetchStorySets()
 })
+
+// 格式化故事标题，使方括号内的内容高亮显示
+const formatStoryTitle = (title) => {
+  if (!title) return '';
+  
+  // 使用正则表达式匹配方括号内的内容
+  return title.replace(/\[(.*?)\]/g, '<span class="highlight-text">[$1]</span>');
+}
 </script>
 
 <template>
@@ -945,7 +953,7 @@ onMounted(async () => {
                 <!-- 左侧内容区域 -->
                 <div class="story-content-area">
                   <div class="story-header">
-                    <div class="story-title">{{ story.title }}</div>
+                    <div class="story-title" v-html="formatStoryTitle(story.title)"></div>
                     <div class="story-actions" v-if="isLoggedIn">
                       <button class="action-btn" @click="openEditStoryModal(story)">
                         <i class="iconfont icon-edit"></i>
@@ -1533,7 +1541,7 @@ onMounted(async () => {
 }
 
 .dropdown-item {
-  padding: 8px 15px;
+  padding: 6px 15px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -2134,5 +2142,11 @@ input[type="datetime-local"] {
   border: none;
   cursor: pointer;
   padding: 0px;
+}
+
+/* 注意：由于使用了v-html，需要使用:deep()选择器来应用样式 */
+:deep(.highlight-text) {
+  color: #fd964c; /* 高亮颜色，可以根据需要调整 */
+  /*font-weight: bold;*/
 }
 </style>
