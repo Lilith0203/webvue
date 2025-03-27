@@ -482,7 +482,10 @@ const deleteStorySet = async () => {
   try {
     loading.value = true
     
-    await axios.delete(`/story-sets/${setToDelete.value.id}`)
+    // 使用POST请求代替DELETE
+    await axios.post('/story-sets/delete', {
+      id: setToDelete.value.id
+    })
     
     // 更新合集列表
     await fetchStorySets()
@@ -682,8 +685,10 @@ const deleteStory = async () => {
   
   try {
     loading.value = true
-    
-    await axios.delete(`/stories/${storyToDelete.value.id}`)
+    // 使用POST请求代替DELETE
+    const response = await axios.post('/stories/delete', {
+      id: storyToDelete.value.id
+    })
     
     // 更新剧情列表
     await fetchStories()
@@ -850,6 +855,21 @@ const formatStoryTitle = (title) => {
   // 使用正则表达式匹配方括号内的内容
   return title.replace(/\[(.*?)\]/g, '<span class="highlight-text">[$1]</span>');
 }
+
+// 格式化剧情内容，将换行符转换为<p>标签，将链接格式转换为HTML链接
+const formatStoryContent = (content) => {
+  if (!content) return '';
+  
+  // 将内容分割成段落
+  const paragraphs = content.split('\n').filter(line => line.trim() !== '');
+  
+  // 处理每个段落，转换链接格式
+  return paragraphs.map(paragraph => {
+    // 转换链接格式 [文本](链接)
+    const withLinks = paragraph.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="story-link">$1</a>');
+    return `<p>${withLinks}</p>`;
+  }).join('');
+}
 </script>
 
 <template>
@@ -910,6 +930,11 @@ const formatStoryTitle = (title) => {
       <template v-else>
         <!-- 有选中合集时显示 -->
         <template v-if="activeSetId">
+            <div v-if="isLoggedIn" class="set-actions">
+              <button class="btn btn-edit" @click="openEditSetModal(activeSet)">编辑</button>
+              <button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除</button>
+              <button class="btn btn-add" @click="openAddStoryModal">+剧情</button>
+        </div>
           <div class="stories-header">
             <div class="sort-area">
                 <button class="btn btn-mode" @click="toggleSimpleMode">
@@ -930,12 +955,6 @@ const formatStoryTitle = (title) => {
                         <i class="iconfont icon-sousuo"></i>
                     </button>
                 </div>
-            </div>
-        
-            <div v-if="isLoggedIn" class="set-actions">
-              <button class="btn btn-edit" @click="openEditSetModal(activeSet)">编辑</button>
-              <button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除</button>
-              <button class="btn btn-add" @click="openAddStoryModal">+剧情</button>
             </div>
           </div>
           
@@ -968,9 +987,7 @@ const formatStoryTitle = (title) => {
                     </div>
                     
                     <div class="story-content-row">
-                      <div v-if="story.content" class="story-content-text">
-                        {{ story.content }}
-                      </div>
+                      <div v-if="story.content" class="story-content-text" v-html="formatStoryContent(story.content)"></div>
                       
                       <div v-if="story.link" class="story-link">
                         <a :href="story.link" target="_blank" rel="noopener noreferrer">
@@ -1206,7 +1223,7 @@ const formatStoryTitle = (title) => {
         <h3>添加剧情</h3>
         
         <div class="form-group">
-          <label for="add-story-title">剧情标题</label>
+          <label for="add-story-title">标题</label>
           <input 
             type="text" 
             id="add-story-title" 
@@ -1216,11 +1233,11 @@ const formatStoryTitle = (title) => {
         </div>
         
         <div class="form-group">
-          <label for="add-story-content">剧情内容</label>
+          <label for="add-story-content">内容</label>
           <textarea 
             id="add-story-content" 
             v-model="newStory.content" 
-            placeholder="请输入剧情内容"
+            placeholder="链接格式：[链接文本](https://example.com)"
             rows="5"
           ></textarea>
         </div>
@@ -1319,7 +1336,7 @@ const formatStoryTitle = (title) => {
         <h3>编辑剧情</h3>
         
         <div class="form-group">
-          <label for="edit-story-title">剧情标题</label>
+          <label for="edit-story-title">标题</label>
           <input 
             type="text" 
             id="edit-story-title" 
@@ -1329,11 +1346,11 @@ const formatStoryTitle = (title) => {
         </div>
         
         <div class="form-group">
-          <label for="edit-story-content">剧情内容</label>
+          <label for="edit-story-content">内容</label>
           <textarea 
             id="edit-story-content" 
             v-model="editingStory.content" 
-            placeholder="请输入剧情内容"
+            placeholder="链接格式：[链接文本](https://example.com)"
             rows="5"
           ></textarea>
         </div>
@@ -1611,6 +1628,7 @@ const formatStoryTitle = (title) => {
   display: flex;
   justify-content:flex-end;
   gap: 5px;
+  margin-bottom: 5px;
 }
 
 .btn {
@@ -1980,7 +1998,7 @@ input[type="datetime-local"] {
   padding: 10px;
   background: #f9f9f9;
   border-radius: 4px;
-  min-height: 150px; /* 确保空时也有拖放区域 */
+  min-height: 100px; /* 确保空时也有拖放区域 */
 }
 
 .preview-item {
@@ -2151,5 +2169,17 @@ input[type="datetime-local"] {
 :deep(.highlight-text) {
   color: #fd964c; /* 高亮颜色，可以根据需要调整 */
   /*font-weight: bold;*/
+}
+
+/* 剧情内容中的链接样式 */
+:deep(.story-link) {
+  color: #499e8d;
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+:deep(.story-link:hover) {
+  color: hsla(160, 100%, 37%, 1);
+  text-decoration: underline;
 }
 </style>
