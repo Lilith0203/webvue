@@ -1503,7 +1503,7 @@ const formatStoryContent = (content) => {
 
 .set-header {
     font-size: 0.85rem;
-  padding: 4px 8px;
+  padding: 3px 8px;
   background-color: #f0f0f0;
   border-radius: 4px;
   cursor: pointer;
@@ -1943,18 +1943,6 @@ input[type="datetime-local"] {
   padding: 10px;
 }
 
-@media (min-width: 1024px) {
-    .root-sets {
-        gap: 8px;
-    }
-
-    .set-header {
-    font-size: 0.9rem;
-    padding: 6px 10px;
-    gap: 8px;
-    }
-}
-
 /* 图片预览模态框样式 */
 .image-preview-container {
   position: relative;
@@ -2181,5 +2169,17 @@ input[type="datetime-local"] {
 :deep(.story-link:hover) {
   color: hsla(160, 100%, 37%, 1);
   text-decoration: underline;
+}
+
+@media (min-width: 1024px) {
+    .root-sets {
+        gap: 8px;
+    }
+
+    .set-header {
+    font-size: 0.9rem;
+    padding: 5px 10px;
+    gap: 8px;
+    }
 }
 </style>
