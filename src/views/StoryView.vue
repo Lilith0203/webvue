@@ -107,21 +107,35 @@ const activeSet = computed(() => {
   return storySets.value.find(set => set.id === activeSetId.value)
 })
 
-const activeSetName = computed(() => {
-  if (!activeSet.value) return ''
-  return activeSet.value.name
-})
-
 const getActiveRootSet = () => {
   if (!activeSetId.value) return null
   
-  // 如果当前选中的是子合集，找到其父合集
-  const currentSet = storySets.value.find(set => set.id === activeSetId.value)
-  if (currentSet && currentSet.parentId !== 0) {
-    return storySets.value.find(set => set.id === currentSet.parentId)
+  // 首先尝试直接查找当前活动的合集
+  let currentSet = storySets.value.find(set => set.id === activeSetId.value)
+  
+  // 如果找不到，可能是子合集，尝试在所有合集的children中查找
+  if (!currentSet) {
+    for (const rootSet of storySets.value) {
+      if (rootSet.children && rootSet.children.length > 0) {
+        const childSet = rootSet.children.find(child => child.id === activeSetId.value)
+        if (childSet) {
+          // 找到了子合集，返回其父合集
+          return rootSet
+        }
+      }
+    }
+    return null
   }
   
-  // 如果当前选中的是根合集，直接返回
+  // 如果当前合集是子合集(parentId不为0)，找到其父合集
+  if (currentSet.parentId !== 0) {
+    const parentSet = storySets.value.find(set => set.id === currentSet.parentId)
+    if (parentSet) {
+      return parentSet
+    }
+  }
+  
+  // 如果是根合集，直接返回
   return currentSet
 }
 
@@ -157,28 +171,6 @@ const getDisplayName = (setId) => {
   
   // 默认显示根合集名称
   return rootSet.name
-}
-
-// 根据ID获取合集
-const getSetById = (id) => {
-  // 递归查找合集
-  const findSet = (sets, id) => {
-    for (const set of sets) {
-      if (set.id === id) return set
-      if (set.children && set.children.length > 0) {
-        const found = findSet(set.children, id)
-        if (found) return found
-      }
-    }
-    return null
-  }
-  
-  return findSet(storySets.value, id)
-}
-
-// 切换合集展开状态
-const toggleSetExpand = (setId) => {
-  expandedSets.value[setId] = !expandedSets.value[setId]
 }
 
 // 修改选择合集的方法
@@ -278,11 +270,6 @@ const fetchStories = async () => {
   }
 }
 
-// 查看剧情详情
-const viewStoryDetail = (storyId) => {
-  router.push(`/story/${storyId}`)
-}
-
 // 打开添加合集模态框
 const openAddSetModal = () => {
   showAddSetModal.value = true
@@ -304,18 +291,6 @@ const openAddSetModal = () => {
 const closeAddSetModal = () => {
   showAddSetModal.value = false
   error.value = null
-}
-
-// 重置新合集表单
-const resetNewSetForm = () => {
-  newSet.value = {
-    name: '',
-    description: '',
-    sort: 0,
-    parentId: 0,
-    cover: '',
-    onlineAt: '' // 重置上线时间
-  }
 }
 
 // 添加剧情合集
@@ -701,30 +676,6 @@ const deleteStory = async () => {
   }
 }
 
-// 处理剧情排序变化
-const handleStoriesChange = async () => {
-  if (!isDragging.value) return
-  
-  try {
-    // 更新每个剧情的排序值
-    const updatedStories = stories.value.map((story, index) => ({
-      id: story.id,
-      sort: index + 1
-    }))
-    
-    // 发送请求更新排序
-    await axios.post('/stories/sort', { stories: updatedStories })
-    
-    // 重新获取剧情列表
-    await fetchStories()
-  } catch (err) {
-    error.value = '更新剧情排序失败'
-    console.error('更新剧情排序错误:', err)
-  } finally {
-    isDragging.value = false
-  }
-}
-
 // 选择合集中的"全部"选项
 const selectAllInSet = async (rootSetId) => {
   activeSetId.value = rootSetId
@@ -735,6 +686,8 @@ const selectAllInSet = async (rootSetId) => {
     expandedMenus.value[key] = false
   })
   
+  // 确保重置页码
+  currentPage.value = 1
   await fetchStories()
 }
 
