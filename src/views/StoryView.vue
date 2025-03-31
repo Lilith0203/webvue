@@ -823,6 +823,18 @@ const formatStoryContent = (content) => {
     return `<p>${withLinks}</p>`;
   }).join('');
 }
+
+// 添加回到第一页的方法
+const goToFirstPage = () => {
+  currentPage.value = 1;
+  fetchStories();
+}
+
+// 添加清除搜索的方法
+const clearSearch = () => {
+  searchKeyword.value = '';
+  fetchStories();
+}
 </script>
 
 <template>
@@ -898,16 +910,29 @@ const formatStoryContent = (content) => {
                     <i class="iconfont" :class="sortDirection === 'ASC' ? 'icon-zhengxu' : 'icon-daoxu'"></i>
                 </button>
                 <div class="search-area">
+                  <div class="search-input-wrapper">
                     <input 
-                        type="text" 
-                        v-model="searchKeyword" 
-                        placeholder="搜索" 
-                        @keyup.enter="handleSearch"
+                      type="text" 
+                      v-model="searchKeyword" 
+                      placeholder="搜索" 
+                      @keyup.enter="handleSearch"
                     />
-                    <button class="btn btn-search" @click="handleSearch">
-                        <i class="iconfont icon-sousuo"></i>
+                    <button 
+                      v-if="searchKeyword" 
+                      class="btn-clear-search" 
+                      @click="clearSearch" 
+                      title="清除搜索"
+                    >
+                      X
                     </button>
+                  </div>
+                  <button class="btn btn-search" @click="handleSearch">
+                    <i class="iconfont icon-sousuo"></i>
+                  </button>
                 </div>
+                <button class="btn btn-first-page" @click="goToFirstPage" title="回到第一页">
+                    <i class="iconfont icon-shouye"></i>
+                  </button>
             </div>
           </div>
           
@@ -1598,17 +1623,13 @@ const formatStoryContent = (content) => {
   color: white;
 }
 
-.btn-edit:hover {
-  background-color: #3a7bc8;
-}
-
 .btn-delete {
-  background-color: #e74c3c;
+  background-color: var(--color-red);
   color: white;
 }
 
 .btn-delete:hover {
-  background-color: #c0392b;
+  background-color: var(--color-red-hover);
 }
 
 .btn-add {
@@ -2091,7 +2112,11 @@ input[type="datetime-local"] {
   align-items: center;
 }
 
-.search-area input {
+.search-input-wrapper {
+  position: relative;
+}
+
+.search-input-wrapper input {
   padding: 4px 6px;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -2099,11 +2124,27 @@ input[type="datetime-local"] {
   width: 130px;
 }
 
-.btn-search {
-    background-color: transparent;
+.btn-clear-search {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  color: #999;
+}
+
+.btn-search, .btn-first-page {
+  background-color: transparent;
   border: none;
   cursor: pointer;
   padding: 0px;
+  font-size: 16px;
+  color: #666;
+  transition: color 0.3s;
 }
 
 /* 注意：由于使用了v-html，需要使用:deep()选择器来应用样式 */
