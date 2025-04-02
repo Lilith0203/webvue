@@ -1,7 +1,6 @@
 <script setup>
 import axios from '../api'
-import { ref, onMounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 
 import ImagePreview from '../components/ImagePreview.vue'
@@ -36,11 +35,11 @@ const showEditStoryModal = ref(false)
 const newStory = ref({
   title: '',
   content: '',
-  pictures: '',
+  pictures: [],
   link: '',
   onlineAt: '',
-  setIds: [], // 关联的合集ID数组
-  isRecommended: false // 添加推荐字段
+  setIds: [],
+  isRecommended: false
 })
 const editingStory = ref(null)
 const confirmDeleteStoryModal = ref(false)
@@ -490,7 +489,7 @@ const openAddStoryModal = () => {
   newStory.value = {
     title: '',
     content: '',
-    pictures: '',
+    pictures: [],
     link: '',
     onlineAt: '',
     setIds: activeSetId.value ? [activeSetId.value] : [], // 默认选中当前合集
@@ -507,7 +506,7 @@ const closeAddStoryModal = () => {
   newStory.value = {
     title: '',
     content: '',
-    pictures: '',
+    pictures: [],
     link: '',
     onlineAt: '',
     setIds: [],
@@ -538,12 +537,12 @@ const addStory = async () => {
     // 创建剧情基本信息
     const storyData = {
       title: newStory.value.title,
-      content: newStory.value.content,
-      pictures: newStory.value.pictures,
-      link: newStory.value.link,
-      onlineAt: newStory.value.onlineAt,
+      content: newStory.value.content || '',
+      pictures: newStory.value.pictures || [], // 确保pictures是数组
+      link: newStory.value.link || '',
+      onlineAt: newStory.value.onlineAt || '',
       setIds: newStory.value.setIds, // 传递所有关联的合集ID
-      isRecommended: newStory.value.isRecommended
+      isRecommended: newStory.value.isRecommended ? 1 : 0
     }
     
     // 发送请求添加剧情
@@ -578,7 +577,7 @@ const openEditStoryModal = async (story) => {
       id: storyDetail.id,
       title: storyDetail.title,
       content: storyDetail.content || '',
-      pictures: storyDetail.pictures || '',
+      pictures: storyDetail.pictures || [], // 确保pictures是数组
       link: storyDetail.link || '',
       onlineAt: storyDetail.onlineAt || '',
       setIds: storyDetail.setIds || [],
@@ -623,14 +622,17 @@ const updateStory = async () => {
       ? editingStory.value.onlineAt 
       : null;
     
+    // 处理pictures字段，确保它是正确的格式
+    let pictures = editingStory.value.pictures;
+    
     await axios.put(`/stories/${editingStory.value.id}`, {
       title: editingStory.value.title,
       content: editingStory.value.content,
-      pictures: editingStory.value.pictures,
+      pictures: pictures, // 直接传递pictures，后端会处理
       link: editingStory.value.link,
       onlineAt: onlineAt,
       setIds: editingStory.value.setIds,
-      isRecommended: editingStory.value.isRecommended ? 1 : 0  // 添加这一行
+      isRecommended: editingStory.value.isRecommended ? 1 : 0
     })
     
     // 更新剧情列表
@@ -697,35 +699,104 @@ const selectAllInSet = async (rootSetId) => {
 
 // 获取缩略图URL
 const getThumbnailUrl = (url, width = 240) => {
-  if (!url) return ''
-  // 添加OSS图片处理参数，限制宽度
-  return `${url}?x-oss-process=image/resize,w_${width}`
+  // 处理url为数组的情况
+  if (Array.isArray(url)) {
+    // 如果是空数组，直接返回空字符串
+    if (url.length === 0) return '';
+    
+    // 使用数组中的第一个URL
+    return `${url[0]}?x-oss-process=image/resize,w_${width}`;
+  }
+  
+  if (!url) return '';
+  
+  // 保持原有的OSS图片处理逻辑
+  return `${url}?x-oss-process=image/resize,w_${width}`;
 }
 
 // 图片预览状态
 const previewVisible = ref(false)
 const previewImage = ref('')
+const previewImages = ref([])
+const currentImageIndex = ref(0)
 const previewTitle = ref('')
 
 // 显示图片预览
-function showImagePreview(url, title) {
-  previewVisible.value = true
-  previewImage.value = url
-  previewTitle.value = title || '图片预览'
+function showImagePreview(pictures, title) {
+  // 如果pictures是空数组或undefined，不显示预览
+  if (!pictures || (Array.isArray(pictures) && pictures.length === 0)) return;
+  
+  // 处理pictures为数组的情况
+  if (Array.isArray(pictures)) {
+    previewImages.value = pictures;
+    previewImage.value = pictures[0]; // 设置第一张图片为当前图片
+  } else {
+    // 如果不是数组，转换为单元素数组
+    previewImages.value = [pictures];
+    previewImage.value = pictures;
+  }
+  
+  currentImageIndex.value = 0;
+  previewVisible.value = true;
+  previewTitle.value = title || '图片预览';
 }
 
 // 关闭图片预览
 function closePreview() {
-  previewVisible.value = false
-  previewImage.value = ''
-  previewTitle.value = ''
+  previewVisible.value = false;
 }
 
-// 图片上传相关方法
+// 查看上一张图片
+function prevImage() {
+  if (previewImages.value.length <= 1) return;
+  currentImageIndex.value = (currentImageIndex.value - 1 + previewImages.value.length) % previewImages.value.length;
+  previewImage.value = previewImages.value[currentImageIndex.value];
+}
+
+// 查看下一张图片
+function nextImage() {
+  if (previewImages.value.length <= 1) return;
+  currentImageIndex.value = (currentImageIndex.value + 1) % previewImages.value.length;
+  previewImage.value = previewImages.value[currentImageIndex.value];
+}
+
+// 处理键盘事件
+function handleKeyDown(e) {
+  if (!previewVisible.value) return;
+  
+  switch(e.key) {
+    case 'Escape':
+      closePreview();
+      break;
+    case 'ArrowLeft':
+      prevImage();
+      break;
+    case 'ArrowRight':
+      nextImage();
+      break;
+  }
+}
+
+// 监听键盘事件
+onMounted(() => {
+  window.addEventListener('keydown', handleKeyDown);
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
+})
+
+// 修改图片上传相关方法
 const handleImageUpload = async (event) => {
   const files = event.target.files
   if (!files.length) return
   
+  await uploadFiles(files, 'new')
+}
+
+const handleDrop = async (event) => {
+  const files = Array.from(event.dataTransfer.files)
+    .filter(file => file.type.startsWith('image/'))
   await uploadFiles(files, 'new')
 }
 
@@ -734,12 +805,6 @@ const handleEditImageUpload = async (event) => {
   if (!files.length) return
   
   await uploadFiles(files, 'edit')
-}
-
-const handleDrop = async (event) => {
-  const files = Array.from(event.dataTransfer.files)
-    .filter(file => file.type.startsWith('image/'))
-  await uploadFiles(files, 'new')
 }
 
 const handleEditDrop = async (event) => {
@@ -767,11 +832,21 @@ const uploadFiles = async (files, mode) => {
       const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token', 'x-oss-process']
       paramsToRemove.forEach(param => urlObj.searchParams.delete(param))
       
+      const cleanUrl = urlObj.toString();
+      
       // 根据模式更新不同的对象
       if (mode === 'new') {
-        newStory.pictures = urlObj.toString()
+        // 确保newStory.pictures是数组
+        if (!Array.isArray(newStory.value.pictures)) {
+          newStory.value.pictures = [];
+        }
+        newStory.value.pictures.push(cleanUrl);
       } else {
-        editingStory.value.pictures = urlObj.toString()
+        // 确保editingStory.pictures是数组
+        if (!Array.isArray(editingStory.value.pictures)) {
+          editingStory.value.pictures = [];
+        }
+        editingStory.value.pictures.push(cleanUrl);
       }
     }
   } catch (error) {
@@ -780,12 +855,30 @@ const uploadFiles = async (files, mode) => {
   }
 }
 
-const removePicture = () => {
-  newStory.pictures = ''
+// 移除单张图片
+const removePicture = (index) => {
+  if (Array.isArray(newStory.value.pictures)) {
+    if (index !== undefined) {
+      newStory.value.pictures.splice(index, 1)
+    } else {
+      newStory.value.pictures = []
+    }
+  } else {
+    newStory.value.pictures = []
+  }
 }
 
-const removeEditPicture = () => {
-  editingStory.value.pictures = ''
+// 移除单张编辑中的图片
+const removeEditPicture = (index) => {
+  if (Array.isArray(editingStory.value.pictures)) {
+    if (index !== undefined) {
+      editingStory.value.pictures.splice(index, 1)
+    } else {
+      editingStory.value.pictures = []
+    }
+  } else {
+    editingStory.value.pictures = []
+  }
 }
 
 // 切换页码
@@ -984,7 +1077,11 @@ const clearSearch = () => {
                 </div>
                 
                 <!-- 右侧图片区域 -->
-                <div v-if="story.pictures && !isSimpleMode" class="story-image-area" @click="showImagePreview(story.pictures, story.title)">
+                <div 
+                  v-if="story.pictures && (!Array.isArray(story.pictures) || story.pictures.length > 0) && !isSimpleMode" 
+                  class="story-image-area" 
+                  @click="showImagePreview(story.pictures, story.title)"
+                >
                   <img 
                     v-image="getThumbnailUrl(story.pictures, 80)"
                     :alt="story.title" 
@@ -1216,6 +1313,12 @@ const clearSearch = () => {
             placeholder="请输入剧情标题"
           >
         </div>
+        <div class="form-group">
+          <div class="checkbox-item">
+            <input type="checkbox" id="add-story-recommended" v-model="newStory.isRecommended">
+            <label for="add-story-recommended">推荐剧情</label>
+          </div>
+        </div>
         
         <div class="form-group">
           <label for="add-story-content">内容</label>
@@ -1232,6 +1335,7 @@ const clearSearch = () => {
           <div class="image-uploader">
             <input 
               type="file" 
+              multiple
               accept="image/*"
               @change="handleImageUpload"
             >
@@ -1239,9 +1343,12 @@ const clearSearch = () => {
               class="preview-images"
               @dragover.prevent
               @drop.prevent="handleDrop">
-              <div v-if="newStory.pictures" class="preview-item">
-                <img :src="getThumbnailUrl(newStory.pictures)" class="story-thumbnail">
-                <span class="remove" @click="removePicture">×</span>
+              <div 
+                v-for="(img, index) in newStory.pictures" 
+                :key="index"
+                class="preview-item">
+                <img v-image="getThumbnailUrl(img)" class="story-thumbnail">
+                <span class="remove" @click="removePicture(index)">×</span>
               </div>
             </div>
           </div>
@@ -1306,13 +1413,6 @@ const clearSearch = () => {
           </div>
         </div>
         
-        <div class="form-group">
-          <div class="checkbox-item">
-            <input type="checkbox" id="add-story-recommended" v-model="newStory.isRecommended">
-            <label for="add-story-recommended">推荐剧情</label>
-          </div>
-        </div>
-        
         <div v-if="error" class="error-message">{{ error }}</div>
         
         <div class="modal-actions">
@@ -1336,6 +1436,12 @@ const clearSearch = () => {
             placeholder="请输入剧情标题"
           >
         </div>
+        <div class="form-group">
+          <div class="checkbox-item">
+            <input type="checkbox" id="edit-story-recommended" v-model="editingStory.isRecommended">
+            <label for="edit-story-recommended">推荐剧情</label>
+          </div>
+        </div>
         
         <div class="form-group">
           <label for="edit-story-content">内容</label>
@@ -1352,6 +1458,7 @@ const clearSearch = () => {
           <div class="image-uploader">
             <input 
               type="file" 
+              multiple
               accept="image/*"
               @change="handleEditImageUpload"
             >
@@ -1359,9 +1466,12 @@ const clearSearch = () => {
               class="preview-images"
               @dragover.prevent
               @drop.prevent="handleEditDrop">
-              <div v-if="editingStory.pictures" class="preview-item">
-                <img :src="getThumbnailUrl(editingStory.pictures)" class="story-thumbnail">
-                <span class="remove" @click="removeEditPicture">×</span>
+              <div 
+                v-for="(img, index) in editingStory.pictures" 
+                :key="index"
+                class="preview-item">
+                <img v-image="getThumbnailUrl(img)" class="story-thumbnail">
+                <span class="remove" @click="removeEditPicture(index)">×</span>
               </div>
             </div>
           </div>
@@ -1426,13 +1536,6 @@ const clearSearch = () => {
           </div>
         </div>
         
-        <div class="form-group">
-          <div class="checkbox-item">
-            <input type="checkbox" id="edit-story-recommended" v-model="editingStory.isRecommended">
-            <label for="edit-story-recommended">推荐剧情</label>
-          </div>
-        </div>
-        
         <div v-if="error" class="error-message">{{ error }}</div>
         
         <div class="modal-actions">
@@ -1459,11 +1562,14 @@ const clearSearch = () => {
 
     <!-- 使用 ImagePreview 组件 -->
     <ImagePreview
-      v-if="previewVisible"
       :visible="previewVisible"
       :image-url="previewImage"
       :title="previewTitle"
+      :total="previewImages.length"
+      :current="currentImageIndex + 1"
       @close="closePreview"
+      @prev="prevImage"
+      @next="nextImage"
     />
   </div>
 </template>
@@ -1769,8 +1875,7 @@ const clearSearch = () => {
 }
 
 .story-image-area {
-  width: 80px;
-  height: 80px;
+  max-width: 80px;
   flex-shrink: 0; /* 防止图片区域被压缩 */
   cursor: pointer;
   overflow: hidden;
@@ -1850,7 +1955,7 @@ const clearSearch = () => {
 }
 
 .form-group textarea {
-  min-height: 100px;
+  min-height: 50px;
   resize: vertical;
 }
 
