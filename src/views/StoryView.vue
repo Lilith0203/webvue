@@ -1002,10 +1002,10 @@ const clearSearch = () => {
             <div class="sort-area">
                 <button class="btn btn-mode" @click="toggleSimpleMode">
                     <i class="iconfont icon-a-jianlvemoshi-fill"></i>
-                    {{ isSimpleMode ? '详细' : '简略' }}
                 </button>
                 <button class="btn btn-sort" @click="toggleSortDirection">
                     <i class="iconfont" :class="sortDirection === 'ASC' ? 'icon-zhengxu' : 'icon-daoxu'"></i>
+                    {{ sortDirection === 'ASC' ? '正序' : '倒序' }}
                 </button>
                 <div class="search-area">
                   <div class="search-input-wrapper">
@@ -2226,8 +2226,7 @@ input[type="datetime-local"] {
   color: #333;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 0;
+  padding: 0 6px 0 0;
 }
 
 .btn-sort:hover {
