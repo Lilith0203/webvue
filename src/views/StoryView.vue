@@ -80,6 +80,7 @@ const toggleSimpleMode = () => {
 // 切换排序方向
 const toggleSortDirection = () => {
   sortDirection.value = sortDirection.value === 'ASC' ? 'DESC' : 'ASC'
+  currentPage.value = 1
   fetchStories() // 切换排序后重新获取数据
 }
 
@@ -1713,7 +1714,7 @@ const clearSearch = () => {
 .story-content {
   background-color: #f9f9f9;
   border-radius: 8px;
-  padding: 10px;
+  padding: 10px 10px 20px;
   min-height: 400px;
 }
 
@@ -1818,12 +1819,12 @@ const clearSearch = () => {
 /* 剧情列表样式 */
 .story-list {
   width: 100%;
-  border: 1px solid #eaeaea;
   border-radius: 4px;
   overflow: hidden;
 }
 
 .story-item {
+  border: 1px solid #eaeaea;
   background-color: white;
   border-radius: 8px;
   padding: 12px;
@@ -1876,6 +1877,7 @@ const clearSearch = () => {
 
 .story-image-area {
   max-width: 80px;
+  max-height: 80px;
   flex-shrink: 0; /* 防止图片区域被压缩 */
   cursor: pointer;
   overflow: hidden;
@@ -1886,6 +1888,7 @@ const clearSearch = () => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: top; /* 从顶部开始裁剪 */
   transition: transform 0.3s;
   pointer-events: none; /* 防止图片捕获点击事件，让父元素处理 */
 }
@@ -2291,7 +2294,6 @@ input[type="datetime-local"] {
 
 :deep(.story-link:hover) {
   color: hsla(160, 100%, 37%, 1);
-  text-decoration: underline;
 }
 
 @media (min-width: 1024px) {

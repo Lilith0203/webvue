@@ -179,6 +179,7 @@ const isWideImage = (url) => {
       :total="thumbnailWorks.length"
       @close="closePreview"
       :current="currentIndex + 1"
+      :show-detail-button="true"
       @prev="changeImage('prev')"
       @next="changeImage('next')"
       @detail="goToDetail"

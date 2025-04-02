@@ -1,23 +1,34 @@
 <script setup>
-import { ref, onMounted, onUnmounted,computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 
 const imageLoaded = ref(false)
 
-const props =defineProps({
+const props = defineProps({
   visible: Boolean,
   imageUrl: String,
   title: String,
   total: {
-   type: Number,
-   default: 1
+    type: Number,
+    default: 1
   },
   current: {
     type: Number,
     default: 1
+  },
+  showDetailButton: {
+    type: Boolean,
+    default: false
   }
 })
 
 const emit = defineEmits(['close', 'prev', 'next', 'detail'])
+
+// 检查是否有detail事件监听器
+const hasDetailListener = computed(() => {
+  // 在Vue 3中，我们可以通过检查emit函数是否包含'detail'来判断
+  return emit.includes('detail')
+})
+
 // 键盘事件处理
 const handleKeyDown = (e) => {
   if (!props.visible) return
@@ -84,10 +95,10 @@ onUnmounted(() => {
         </div>
         <!-- 底部操作栏 -->
         <div class="preview-footer" @click="$emit('detail')">
-          <!-- 只在 WorkGallery 中显示详情按钮 -->
+          <!-- 只在showDetailButton为true时显示详情按钮 -->
           <span 
-            v-if="total > 1"
-            class="detail-btn" >
+            v-if="showDetailButton"
+            class="detail-btn">
             查看详情
           </span>
         </div>
