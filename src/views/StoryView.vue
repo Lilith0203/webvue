@@ -6,7 +6,6 @@ import { useAuthStore } from '../stores/auth'
 
 import ImagePreview from '../components/ImagePreview.vue'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
 // 响应式状态
@@ -29,7 +28,7 @@ const newSet = ref({
 const editingSet = ref(null)
 const confirmDeleteModal = ref(false)
 const setToDelete = ref(null)
-const expandedSets = ref({}) // 跟踪哪些合集已展开
+
 
 // 剧情相关状态
 const showAddStoryModal = ref(false)
@@ -40,12 +39,12 @@ const newStory = ref({
   pictures: '',
   link: '',
   onlineAt: '',
-  setIds: [] // 关联的合集ID数组
+  setIds: [], // 关联的合集ID数组
+  isRecommended: false // 添加推荐字段
 })
 const editingStory = ref(null)
 const confirmDeleteStoryModal = ref(false)
 const storyToDelete = ref(null)
-const isDragging = ref(false)
 
 // 添加一个新的响应式状态来跟踪展开的菜单
 const expandedMenus = ref({})
@@ -494,7 +493,8 @@ const openAddStoryModal = () => {
     pictures: '',
     link: '',
     onlineAt: '',
-    setIds: activeSetId.value ? [activeSetId.value] : [] // 默认选中当前合集
+    setIds: activeSetId.value ? [activeSetId.value] : [], // 默认选中当前合集
+    isRecommended: false
   }
   
   error.value = null
@@ -510,7 +510,8 @@ const closeAddStoryModal = () => {
     pictures: '',
     link: '',
     onlineAt: '',
-    setIds: []
+    setIds: [],
+    isRecommended: false
   }
   error.value = null
   
@@ -541,7 +542,8 @@ const addStory = async () => {
       pictures: newStory.value.pictures,
       link: newStory.value.link,
       onlineAt: newStory.value.onlineAt,
-      setIds: newStory.value.setIds // 传递所有关联的合集ID
+      setIds: newStory.value.setIds, // 传递所有关联的合集ID
+      isRecommended: newStory.value.isRecommended
     }
     
     // 发送请求添加剧情
@@ -579,7 +581,8 @@ const openEditStoryModal = async (story) => {
       pictures: storyDetail.pictures || '',
       link: storyDetail.link || '',
       onlineAt: storyDetail.onlineAt || '',
-      setIds: storyDetail.setIds || []
+      setIds: storyDetail.setIds || [],
+      isRecommended: storyDetail.isRecommended === 1 || storyDetail.isRecommended === true
     };
     
     showEditStoryModal.value = true;
@@ -626,7 +629,8 @@ const updateStory = async () => {
       pictures: editingStory.value.pictures,
       link: editingStory.value.link,
       onlineAt: onlineAt,
-      setIds: editingStory.value.setIds
+      setIds: editingStory.value.setIds,
+      isRecommended: editingStory.value.isRecommended ? 1 : 0  // 添加这一行
     })
     
     // 更新剧情列表
@@ -948,7 +952,10 @@ const clearSearch = () => {
                 <!-- 左侧内容区域 -->
                 <div class="story-content-area">
                   <div class="story-header">
-                    <div class="story-title" v-html="formatStoryTitle(story.title)"></div>
+                    <div class="story-title">
+                      <div v-html="formatStoryTitle(story.title)"></div>
+                      <i v-if="story.isRecommended" class="iconfont icon-tuijian recommended-icon"></i>
+                    </div>
                     <div class="story-actions" v-if="isLoggedIn">
                       <button class="action-btn" @click="openEditStoryModal(story)">
                         <i class="iconfont icon-edit"></i>
@@ -1299,6 +1306,13 @@ const clearSearch = () => {
           </div>
         </div>
         
+        <div class="form-group">
+          <div class="checkbox-item">
+            <input type="checkbox" id="add-story-recommended" v-model="newStory.isRecommended">
+            <label for="add-story-recommended">推荐剧情</label>
+          </div>
+        </div>
+        
         <div v-if="error" class="error-message">{{ error }}</div>
         
         <div class="modal-actions">
@@ -1409,6 +1423,13 @@ const clearSearch = () => {
               </div>
             </template>
             <p v-else class="no-sets-message">请先选择一个合集</p>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <div class="checkbox-item">
+            <input type="checkbox" id="edit-story-recommended" v-model="editingStory.isRecommended">
+            <label for="edit-story-recommended">推荐剧情</label>
           </div>
         </div>
         
@@ -1997,9 +2018,12 @@ input[type="datetime-local"] {
 }
 
 .story-title {
+  display: flex;
+  gap: 8px;
   font-weight: 500;
   font-size: 0.9rem;
   color: #333;
+  align-items: center;
 }
 
 .online-time {
