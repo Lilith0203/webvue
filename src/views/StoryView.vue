@@ -1084,7 +1084,7 @@ const clearSearch = () => {
                   @click="showImagePreview(story.pictures, story.title)"
                 >
                   <img 
-                    v-image="getThumbnailUrl(story.pictures, 80)"
+                    v-image="getThumbnailUrl(story.pictures, 240)"
                     :alt="story.title" 
                     class="story-thumbnail"
                   />
@@ -1712,9 +1712,7 @@ const clearSearch = () => {
 
 /* 剧情内容区域样式 */
 .story-content {
-  background-color: #f9f9f9;
   border-radius: 8px;
-  padding: 10px 10px 20px;
   min-height: 400px;
 }
 
@@ -1835,11 +1833,12 @@ const clearSearch = () => {
 .story-layout {
   display: flex;
   gap: 10px;
+  align-items: flex-start;
 }
 
 .story-content-area {
   flex: 1;
-  min-width: 0; /* 防止内容溢出 */
+  min-width: 0;
 }
 
 .story-content-row {
@@ -1876,21 +1875,25 @@ const clearSearch = () => {
 }
 
 .story-image-area {
-  max-width: 80px;
-  max-height: 80px;
-  flex-shrink: 0; /* 防止图片区域被压缩 */
+  width: 80px;
+  flex-shrink: 0;
   cursor: pointer;
   overflow: hidden;
   border-radius: 4px;
+  position: relative;
+  align-self: stretch;
 }
 
 .story-thumbnail {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top; /* 从顶部开始裁剪 */
+  object-position: top;
   transition: transform 0.3s;
-  pointer-events: none; /* 防止图片捕获点击事件，让父元素处理 */
+  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 .story-image-area:hover .story-thumbnail {
