@@ -2097,7 +2097,7 @@ input[type="datetime-local"] {
 
 .preview-item {
   position: relative;
-  height: 150px;
+  width: 80px; /* 添加固定宽度 */
 }
 
 .preview-item img {
