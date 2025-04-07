@@ -933,6 +933,29 @@ const clearSearch = () => {
   searchKeyword.value = '';
   fetchStories();
 }
+
+// 添加拖拽相关的方法
+const dragStart = (e, index, mode) => {
+  e.dataTransfer.setData('text/plain', index);
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+const dragOver = (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+const drop = (e, targetIndex, mode) => {
+  e.preventDefault();
+  const sourceIndex = e.dataTransfer.getData('text/plain');
+  
+  // 根据模式选择要操作的数组
+  const pictures = mode === 'new' ? newStory.value.pictures : editingStory.value.pictures;
+  
+  // 移动元素
+  const [movedItem] = pictures.splice(sourceIndex, 1);
+  pictures.splice(targetIndex, 0, movedItem);
+}
 </script>
 
 <template>
@@ -1347,7 +1370,12 @@ const clearSearch = () => {
               <div 
                 v-for="(img, index) in newStory.pictures" 
                 :key="index"
-                class="preview-item">
+                class="preview-item"
+                draggable="true"
+                @dragstart="(e) => dragStart(e, index, 'new')"
+                @dragover="dragOver"
+                @drop="(e) => drop(e, index, 'new')"
+              >
                 <img v-image="getThumbnailUrl(img)" class="story-thumbnail">
                 <span class="remove" @click="removePicture(index)">×</span>
               </div>
@@ -1470,7 +1498,12 @@ const clearSearch = () => {
               <div 
                 v-for="(img, index) in editingStory.pictures" 
                 :key="index"
-                class="preview-item">
+                class="preview-item"
+                draggable="true"
+                @dragstart="(e) => dragStart(e, index, 'edit')"
+                @dragover="dragOver"
+                @drop="(e) => drop(e, index, 'edit')"
+              >
                 <img v-image="getThumbnailUrl(img)" class="story-thumbnail">
                 <span class="remove" @click="removeEditPicture(index)">×</span>
               </div>
@@ -2092,12 +2125,16 @@ input[type="datetime-local"] {
   padding: 10px;
   background: #f9f9f9;
   border-radius: 4px;
-  min-height: 100px; /* 确保空时也有拖放区域 */
+  min-height: 100px;
+  flex-wrap: wrap;
 }
 
 .preview-item {
   position: relative;
-  width: 80px; /* 添加固定宽度 */
+  width: 80px;
+  height: 80px;
+  cursor: move;/* 添加这行，表明可拖动 */
+  user-select: none; /* 防止拖动时选中文本 */
 }
 
 .preview-item img {

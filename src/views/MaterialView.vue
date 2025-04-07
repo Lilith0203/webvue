@@ -3,6 +3,7 @@ import axios from '../api'
 import ImagePreview from '../components/ImagePreview.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { confirm } from '../utils/confirm'
 
 const authStore = useAuthStore()
 
@@ -141,7 +142,8 @@ const resetSearch = () => {
     type: [],
     substance: '',
     shape: '',
-    color: ''
+    color: '',
+    shop: ''
   }
   displayLimit.value = 50  // 重置显示数量
   sortBy.value = null      // 重置排序方式
@@ -159,7 +161,8 @@ const displayedMaterials = computed(() => {
       (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
       (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
       (!searchForm.value.shape || item.shape.toLowerCase().includes(searchForm.value.shape.toLowerCase())) &&
-      (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase()))
+      (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase())) &&
+      (!searchForm.value.shop || item.shop.toLowerCase().includes(searchForm.value.shop.toLowerCase()))
     )
   })
   
@@ -194,7 +197,8 @@ const hasMore = computed(() => {
       (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
       (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
       (!searchForm.value.shape || item.shape.toLowerCase().includes(searchForm.value.shape.toLowerCase())) &&
-      (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase()))
+      (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase())) &&
+      (!searchForm.value.shop || item.shop.toLowerCase().includes(searchForm.value.shop.toLowerCase()))
     )
   }).length
   
@@ -361,7 +365,8 @@ const searchForm = ref({
   type: [], // 类型多选
   substance: '',
   shape: '',
-  color: ''
+  color: '',
+  shop: ''
 })
 
 // 类型选择相关状态
@@ -586,7 +591,7 @@ const deleteMaterial = async (row) => {
   if (!canEdit.value) return
   
   // 添加确认提示
-  if (!confirm('确定要删除这条记录吗？')) {
+  if (!await confirm('确定要删除这条记录吗？')) {
     return
   }
 
@@ -622,6 +627,12 @@ const getTypeName = (typeId) => {
   return typeMap.value.get(typeId) || typeId
 }
 
+// 删除图片
+const removeImage = (rowId) => {
+  if (editingRow.value === rowId) {
+    editForm.value.pic = '';
+  }
+}
 
 </script>
 
@@ -658,7 +669,7 @@ const getTypeName = (typeId) => {
           <button 
             class="save-settings-btn"
             @click="saveColumnSettings(); isColumnSettingsVisible = false">
-            保存设置
+            <i class="iconfont icon-zhankai"></i>
           </button>
         </div>
       </div>
@@ -838,6 +849,13 @@ const getTypeName = (typeId) => {
           type="text"
           placeholder="请输入颜色">
       </div>
+      <div class="search-item">
+        <label>店铺：</label>
+        <input 
+          v-model="searchForm.shop"
+          type="text"
+          placeholder="请输入店铺">
+      </div>
       
       <div class="search-actions">
         <label class="stock-toggle">
@@ -887,8 +905,8 @@ const getTypeName = (typeId) => {
                     </template>
                     <template v-else-if="key === 'actions' && canEdit">
                       <div class="action-buttons">
-                        <button class="edit-btn" @click="startEdit(row)">编辑</button>
-                        <button class="delete-btn" @click="deleteMaterial(row)">删除</button>
+                        <button class="edit-btn" @click="startEdit(row)"><i class="iconfont icon-edit"></i></button>
+                        <button class="delete-btn" @click="deleteMaterial(row)"><i class="iconfont icon-ashbin"></i></button>
                       </div>
                     </template>
                     <!-- 其他列的显示逻辑 -->
@@ -956,12 +974,21 @@ const getTypeName = (typeId) => {
                     <template v-else-if="key === 'pic' && config.editable">
                       <div class="image-upload">
                         <!-- 显示当前图片 -->
-                        <img 
-                          v-if="editForm[key]" 
-                          v-image="editForm[key]" 
-                          class="preview-image"
-                          @click="openImageViewer(editForm[key])">
-                                    
+                        <div v-if="editForm[key]" class="image-preview-container">
+                          <img 
+                            v-image="editForm[key]" 
+                            class="preview-image"
+                            @click="openImageViewer(editForm[key])">
+                          
+                          <!-- 添加删除按钮 -->
+                          <button 
+                            type="button" 
+                            class="delete-image-btn" 
+                            @click="removeImage(row.id)">
+                            x
+                          </button>
+                        </div>
+                      
                         <!-- 上传控件 -->
                         <div class="upload-controls">
                           <input
@@ -974,9 +1001,9 @@ const getTypeName = (typeId) => {
                           <button 
                             class="upload-btn" 
                             @click="triggerFileInput(row.id)">
-                            选择图片
+                            {{ editForm[key] ? '更换图片' : '选择图片' }}
                           </button>
-                                      
+                      
                           <!-- 显示上传进度或错误 -->
                           <div v-if="uploadProgress" class="upload-progress">
                             上传中... {{ uploadProgress }}%
@@ -1020,7 +1047,7 @@ const getTypeName = (typeId) => {
           <!-- 添加显示更多按钮 -->
           <div v-if="hasMore" class="load-more">
             <button @click="loadMore" class="load-more-btn">
-              显示更多
+              更多…
             </button>
           </div>
         </div>
@@ -1053,23 +1080,19 @@ const getTypeName = (typeId) => {
 /* 添加新样式 */
 .load-more {
   text-align: center;
-  margin: 20px 0;
+  margin: 10px 0;
   padding: 10px;
 }
 
 .load-more-btn {
-  padding: 6px 10px;
-  background-color: #42b883;
+  padding: 4px 6px;
+  background-color: var(--color-blue);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   transition: background-color 0.3s;
-}
-
-.load-more-btn:hover {
-  background-color: #3aa876;
 }
 
 .load-more-btn:disabled {
@@ -1115,6 +1138,7 @@ th, td {
 td {
   position: relative;
   max-width: 150px;  /* 调整单元格最大宽度 */
+  min-width: 50px;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1161,33 +1185,16 @@ button {
   cursor: pointer;
 }
 
-.edit-btn {
-  font-size: 12px;
-  background-color: #4CAF50;
-  color: white;
-  padding: 2px 6px;
+.edit-btn, .delete-btn {
+  background-color: transparent;
+  padding: 2px 5px;
   border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.delete-btn {
-  font-size: 12px;
-  background-color: #f44336; /* 红色 */
-  color: white;
-  padding: 2px 6px;
-  border: none;
-  border-radius: 4px;
   cursor: pointer;
 }
 
 .edit-btn:hover,
 .delete-btn:hover {
   opacity: 0.8;
-}
-
-.delete-btn:hover {
-  background-color: #d32f2f; /* 更深的红色 */
 }
 
 button:hover {
@@ -1243,10 +1250,10 @@ a:hover {
   background: white;
   border: 1px solid #ddd;
   border-radius: 4px;
-  padding: 1rem;
+  padding: 10px 0px 5px 15px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   z-index: 1000;
-  min-width: 200px;
+  min-width: 110px;
 }
 
 .column-options {
@@ -1255,6 +1262,7 @@ a:hover {
 }
 
 .column-option {
+  font-size: 0.8rem;
   display: block;
   padding: 4px 0;
   cursor: pointer;
@@ -1269,10 +1277,8 @@ a:hover {
 }
 
 .save-settings-btn {
-  margin-top: 1rem;
-  width: 100%;
-  background-color: #4CAF50;
-  color: white;
+  padding: 10px 20px 0 20px;
+  background-color: transparent;
 }
 
 /* 确保下拉菜单在滚动时保持可见 */
@@ -1330,12 +1336,11 @@ a:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .close-btn {
@@ -1354,8 +1359,8 @@ a:hover {
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 5px;
+  margin-bottom: 10px;
 }
 
 .form-item {
@@ -1371,9 +1376,9 @@ a:hover {
 
 .form-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin: 10px 0 30px;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 0 20px;
 }
 
 .form-input,
@@ -1393,7 +1398,7 @@ a:hover {
 /* 按钮样式 */
 .add-btn {
   font-size: 12px;
-  background-color: #4CAF50;
+  background-color: var(--color-green);
   color: white;
   padding: 4px 12px;
   border: none;
@@ -1403,7 +1408,7 @@ a:hover {
 
 .save-btn {
   font-size: 12px;
-  background-color: #4CAF50;
+  background-color: var(--color-green);
   color: white;
   padding: 2px 6px;
   border: none;
@@ -1412,7 +1417,7 @@ a:hover {
 
 .cancel-btn {
   font-size: 12px;
-  background-color: #f44336;
+  background-color: var(--color-red);
   color: white;
   padding: 2px 6px;
   border: none;
@@ -1662,8 +1667,37 @@ td .type-input {
 .image-upload {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   align-items: center;
+}
+
+.image-preview-container {
+  position: relative;
+  display: inline-block;
+  margin-top: 5px;
+}
+
+.delete-image-btn {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--color-red);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.delete-image-btn:hover {
+  opacity: 1;
 }
 
 .preview-image {
@@ -1692,17 +1726,13 @@ td .type-input {
 }
 
 .upload-btn {
-  padding: 5px 10px;
-  background-color: #42b883;
+  padding: 3px 5px;
+  background-color: var(--color-blue);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
-}
-
-.upload-btn:hover {
-  background-color: #3aa876;
+  font-size: 12px;
 }
 
 .upload-progress {
