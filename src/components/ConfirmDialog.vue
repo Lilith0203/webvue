@@ -85,7 +85,7 @@ const handleCancel = () => emit('cancel')
 }
   
 .confirm-btn {
-  padding: 4px 8px;
+  padding: 3px 10px;
   border-radius: 4px;
   font-size: 14px;
   text-decoration: none;
@@ -93,7 +93,7 @@ const handleCancel = () => emit('cancel')
 }
   
 .confirm-btn.confirm {
-  background: var(--color-primary, #42b883);
+  background: var(--color-green);
   color: white;
 }
   
@@ -134,20 +134,4 @@ const handleCancel = () => emit('cancel')
   }
 }
   
-/* 响应式调整 */
-@media (max-width: 768px) {
-  .confirm-dialog {
-    margin: 20px;
-    padding: 16px;
-  }
-  
-  .confirm-actions {
-    flex-direction: column;
-  }
-  
-  .confirm-btn {
-    width: 100%;
-    text-align: center;
-  }
-}
 </style>

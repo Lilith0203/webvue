@@ -62,6 +62,9 @@ const totalItems = ref(0)
 // 添加搜索关键词状态
 const searchKeyword = ref('');
 
+// 添加跳转页码相关状态和方法
+const targetPage = ref('');
+
 // 检查菜单是否展开
 const isMenuExpanded = (setId) => {
   return expandedMenus.value[setId] === true
@@ -956,6 +959,23 @@ const drop = (e, targetIndex, mode) => {
   const [movedItem] = pictures.splice(sourceIndex, 1);
   pictures.splice(targetIndex, 0, movedItem);
 }
+
+// 处理跳转页码
+const goToPage = () => {
+  if (!targetPage.value) return;
+  
+  const pageNum = parseInt(targetPage.value);
+  if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages.value) {
+    // 页码无效
+    return;
+  }
+  
+  // 跳转到指定页码
+  currentPage.value = pageNum;
+  fetchStories();
+  // 清空输入框
+  targetPage.value = '';
+}
 </script>
 
 <template>
@@ -1126,7 +1146,7 @@ const drop = (e, targetIndex, mode) => {
               </button>
               
               <div class="pagination-info">
-                {{ currentPage }} / {{ totalPages }} 页 (共 {{ totalItems }} 条)
+                <span class="cur">{{ currentPage }}</span> / {{ totalPages }} 页 <!--(共 {{ totalItems }} 条) -->
               </div>
               
               <button 
@@ -1136,6 +1156,25 @@ const drop = (e, targetIndex, mode) => {
               >
                 下一页
               </button>
+              
+              <!-- 添加跳转输入框和按钮 -->
+              <div class="page-jump">
+                <input 
+                  type="number" 
+                  v-model="targetPage" 
+                  min="1" 
+                  :max="totalPages"
+                  class="page-input"
+                  placeholder="页码"
+                  @keyup.enter="goToPage"
+                />
+                <button 
+                  class="jump-btn"
+                  @click="goToPage"
+                >
+                  跳转
+                </button>
+              </div>
             </div>
           </div>
           
@@ -2228,21 +2267,22 @@ input[type="datetime-local"] {
   justify-content: center;
   align-items: center;
   margin-top: 20px;
-  gap: 15px;
+  gap: 8px;
 }
 
-.pagination-btn {
-  padding: 3px 6px;
-  background-color: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+.pagination-btn, .jump-btn{
+  padding: 2px 3px;
+  background-color: transparent;
+  border: none;
+  border-radius: 3px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   transition: background-color 0.3s;
+  color: #9da09e;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  background-color: #e0e0e0;
+  background-color: #3E3E3E;
 }
 
 .pagination-btn:disabled {
@@ -2252,7 +2292,33 @@ input[type="datetime-local"] {
 
 .pagination-info {
   font-size: 14px;
-  color: #666;
+  color: #9da09e;
+}
+
+.pagination-info .cur {
+  font-size: 16px;
+  color: #5e5e5e;
+}
+
+/* 添加跳转输入框和按钮样式 */
+.page-jump {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.page-input {
+  width: 45px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.jump-btn {
+  margin-left: 5px;
 }
 
 .sort-area {
