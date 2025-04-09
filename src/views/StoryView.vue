@@ -2329,7 +2329,7 @@ input[type="datetime-local"] {
 
 .btn-sort {
   background-color: #f0f0f0;
-  color: #333;
+  color: #868686;
   display: flex;
   align-items: center;
   padding: 0 6px 0 0;
