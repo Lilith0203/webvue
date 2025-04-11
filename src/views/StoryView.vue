@@ -1681,7 +1681,7 @@ const goToPage = () => {
 
 .set-header {
     font-size: 0.85rem;
-  padding: 3px 8px;
+  padding: 4px 8px;
   background-color: #f0f0f0;
   border-radius: 4px;
   cursor: pointer;
@@ -1948,6 +1948,7 @@ const goToPage = () => {
 
 .story-image-area {
   width: 80px;
+  max-height: 120px;
   flex-shrink: 0;
   cursor: pointer;
   overflow: hidden;
