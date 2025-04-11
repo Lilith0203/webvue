@@ -1928,7 +1928,6 @@ const goToPage = () => {
 }
 
 .story-link {
-  margin-left: 10px;
   flex-shrink: 0;
   line-height: 1;
 }
