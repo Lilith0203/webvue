@@ -124,8 +124,6 @@ onUnmounted(() => {
 .image-preview-content {
   position: relative;
   background: white;
-  padding: 3px;
-  border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   max-width: 90vw;
   max-height: 90vh;
@@ -179,11 +177,11 @@ onUnmounted(() => {
   
 .close-btn {
   position: absolute;
-  top: -30px;
-  right: 0px;
+  top: -32px;
+  right: -10px;
   border: none;
   color: white;
-  font-size: 24px;
+  font-size: 30px;
   cursor: pointer;
   padding: 0px 10px;
   z-index: 1000;
@@ -200,18 +198,18 @@ onUnmounted(() => {
 }
 
 .prev-btn {
-  left: -22px;
+  left: -18px;
 }
 
 .next-btn {
-  right: -22px;
+  right: -18px;
 }
 
 .preview-footer {
-  width: calc(100% - 10px);
+  width: calc(100%);
   position: absolute;
-  bottom: 5px;
-  left: 5px;
+  bottom: 0px;
+  left: 0px;
   display: flex;
   justify-content: center;
   background: rgba(0, 0, 0, 0.5);
@@ -245,9 +243,6 @@ onUnmounted(() => {
 }
 
 @media (min-width: 1024px) {
-  .image-preview-content img {
-    max-width: 600px;
-  }
 
   .prev-btn {
     left: -40px;
