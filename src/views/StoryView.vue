@@ -701,21 +701,20 @@ const selectAllInSet = async (rootSetId) => {
   await fetchStories()
 }
 
-// 获取缩略图URL
+// 修改 getThumbnailUrl 方法
 const getThumbnailUrl = (url, width = 240) => {
   // 处理url为数组的情况
   if (Array.isArray(url)) {
-    // 如果是空数组，直接返回空字符串
     if (url.length === 0) return '';
-    
-    // 使用数组中的第一个URL
-    return `${url[0]}?x-oss-process=image/resize,w_${width}`;
+    url = url[0];
   }
   
   if (!url) return '';
   
-  // 保持原有的OSS图片处理逻辑
-  return `${url}?x-oss-process=image/resize,w_${width}`;
+  // 使用更高的锐化参数
+  return `${url}?x-oss-process=image/auto-orient,1`
+    + `/resize,w_${width},m_lfit` // 限制宽度，保持原始比例
+    + `/sharpen,100` // 增加锐化程度到100
 }
 
 // 图片预览状态
