@@ -1686,7 +1686,7 @@ const goToPage = () => {
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   transition: background-color 0.3s;
 }
 
@@ -1772,7 +1772,7 @@ const goToPage = () => {
   justify-content: center;
   background-color: #f5f5f5;
   border-radius: 10px;
-  margin-left: 10px;
+  margin-left: 5px;
   font-size: 16px;
   cursor: pointer;
 }
@@ -1896,7 +1896,7 @@ const goToPage = () => {
   border: 1px solid #eaeaea;
   background-color: white;
   border-radius: 8px;
-  padding: 12px;
+  padding: 10px;
   margin-bottom: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
@@ -2409,6 +2409,10 @@ input[type="datetime-local"] {
     font-size: 0.9rem;
     padding: 5px 10px;
     gap: 8px;
+    }
+
+    .story-item {
+      padding: 10px 12px;
     }
 }
 </style>
