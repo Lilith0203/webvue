@@ -2184,11 +2184,12 @@ input[type="datetime-local"] {
 
 .remove {
   position: absolute;
-  top: -8px;
+  top: -9px;
   right: -8px;
-  width: 20px;
-  height: 20px;
-  background: #ff4444;
+  width: 18px;
+  height: 18px;
+  background: #000;
+  opacity: 0.4;
   color: white;
   border-radius: 50%;
   display: flex;
