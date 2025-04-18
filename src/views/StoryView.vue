@@ -702,7 +702,7 @@ const selectAllInSet = async (rootSetId) => {
 }
 
 // 修改 getThumbnailUrl 方法
-const getThumbnailUrl = (url, width = 240) => {
+const getThumbnailUrl = (url, width = 360) => {
   // 处理url为数组的情况
   if (Array.isArray(url)) {
     if (url.length === 0) return '';
@@ -1126,7 +1126,7 @@ const goToPage = () => {
                   @click="showImagePreview(story.pictures, story.title)"
                 >
                   <img 
-                    v-image="getThumbnailUrl(story.pictures, 240)"
+                    v-image="getThumbnailUrl(story.pictures, 360)"
                     :alt="story.title" 
                     class="story-thumbnail"
                   />

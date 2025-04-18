@@ -2,6 +2,9 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 
 const imageLoaded = ref(false)
+const touchStartX = ref(0)
+const touchEndX = ref(0)
+const minSwipeDistance = 50 // 最小滑动距离，防止误触
 
 const props = defineProps({
   visible: Boolean,
@@ -50,6 +53,30 @@ const handleImageLoad = () => {
   imageLoaded.value = true
 }
 
+// 触摸开始时记录起始位置
+const handleTouchStart = (e) => {
+  touchStartX.value = e.touches[0].clientX
+}
+
+// 触摸结束时计算滑动距离并触发相应事件
+const handleTouchEnd = (e) => {
+  touchEndX.value = e.changedTouches[0].clientX
+  const swipeDistance = touchEndX.value - touchStartX.value
+  
+  // 只在有多张图片时处理滑动
+  if (props.total > 1) {
+    if (Math.abs(swipeDistance) >= minSwipeDistance) {
+      if (swipeDistance > 0) {
+        // 向右滑动，显示上一张
+        emit('prev')
+      } else {
+        // 向左滑动，显示下一张
+        emit('next')
+      }
+    }
+  }
+}
+
 // 监听键盘事件
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
@@ -72,7 +99,11 @@ onUnmounted(() => {
           <span v-if="total > 1" class="image-counter">{{ current }}/{{ total }}</span>
         </div>
         <!-- 图片容器 -->
-        <div class="image-container">
+        <div 
+          class="image-container"
+          @touchstart="handleTouchStart"
+          @touchend="handleTouchEnd"
+        >
           <!-- 只在有多张图片时显示上一张按钮 -->
           <div 
             v-if="total > 1" 
@@ -162,6 +193,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   width: 100%;
+  touch-action: pan-y pinch-zoom; /* 优化触摸体验 */
+  user-select: none; /* 防止图片被选中 */
 }
 
 .image-wrapper {
