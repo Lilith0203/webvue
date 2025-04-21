@@ -1946,7 +1946,7 @@ const goToPage = () => {
 
 .story-image-area {
   width: 80px;
-  max-height: 120px;
+  max-height: 143px;
   flex-shrink: 0;
   cursor: pointer;
   overflow: hidden;
