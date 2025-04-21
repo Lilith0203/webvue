@@ -1037,7 +1037,7 @@ const goToPage = () => {
         <template v-if="activeSetId">
             <div v-if="isLoggedIn" class="set-actions">
               <button class="btn btn-edit" @click="openEditSetModal(activeSet)">编辑</button>
-              <button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除</button>
+              <!--<button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除</button>-->
               <button class="btn btn-add" @click="openAddStoryModal">+剧情</button>
         </div>
           <div class="stories-header">
@@ -1414,7 +1414,7 @@ const goToPage = () => {
                 @dragover="dragOver"
                 @drop="(e) => drop(e, index, 'new')"
               >
-                <img v-image="getThumbnailUrl(img)" class="story-thumbnail">
+                <img v-image="getThumbnailUrl(img, 80)" class="story-thumbnail">
                 <span class="remove" @click="removePicture(index)">×</span>
               </div>
             </div>
@@ -1542,7 +1542,7 @@ const goToPage = () => {
                 @dragover="dragOver"
                 @drop="(e) => drop(e, index, 'edit')"
               >
-                <img v-image="getThumbnailUrl(img)" class="story-thumbnail">
+                <img v-image="getThumbnailUrl(img, 80)" class="story-thumbnail">
                 <span class="remove" @click="removeEditPicture(index)">×</span>
               </div>
             </div>
@@ -2163,7 +2163,7 @@ input[type="datetime-local"] {
   padding: 10px;
   background: #f9f9f9;
   border-radius: 4px;
-  min-height: 100px;
+  min-height: 80px;
   flex-wrap: wrap;
 }
 
