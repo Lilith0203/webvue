@@ -1414,7 +1414,7 @@ const goToPage = () => {
                 @dragover="dragOver"
                 @drop="(e) => drop(e, index, 'new')"
               >
-                <img v-image="getThumbnailUrl(img, 80)" class="story-thumbnail">
+                <img v-image="getThumbnailUrl(img, 160)" class="story-thumbnail">
                 <span class="remove" @click="removePicture(index)">×</span>
               </div>
             </div>
@@ -1542,7 +1542,7 @@ const goToPage = () => {
                 @dragover="dragOver"
                 @drop="(e) => drop(e, index, 'edit')"
               >
-                <img v-image="getThumbnailUrl(img, 80)" class="story-thumbnail">
+                <img v-image="getThumbnailUrl(img, 160)" class="story-thumbnail">
                 <span class="remove" @click="removeEditPicture(index)">×</span>
               </div>
             </div>
