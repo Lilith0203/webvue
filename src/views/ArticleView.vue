@@ -110,7 +110,8 @@ watch(
           type="text" 
           v-model="searchQuery" 
           placeholder="搜索文章..." 
-          class="search-input" />
+          class="search-input"
+          @keyup.enter="searchArticles" />
         <button @click="clearSearch" class="clear-button">x</button>
         <button @click="searchArticles" class="search-button"><i class="iconfont icon-sousuo"></i></button>
       </div>

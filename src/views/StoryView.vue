@@ -570,7 +570,7 @@ const openEditStoryModal = async (story) => {
   if (!story) return;
   
   try {
-    loading.value = true;
+    // 移除: loading.value = true; 
     
     // 获取剧情详情
     const response = await axios.get(`/stories/${story.id}`);
@@ -581,7 +581,7 @@ const openEditStoryModal = async (story) => {
       id: storyDetail.id,
       title: storyDetail.title,
       content: storyDetail.content || '',
-      pictures: storyDetail.pictures || [], // 确保pictures是数组
+      pictures: storyDetail.pictures || [],
       link: storyDetail.link || '',
       onlineAt: storyDetail.onlineAt || '',
       setIds: storyDetail.setIds || [],
@@ -593,8 +593,10 @@ const openEditStoryModal = async (story) => {
   } catch (err) {
     error.value = '获取剧情详情失败';
     console.error('获取剧情详情错误:', err);
+    // 如果获取失败，确保模态框不显示或显示错误信息
+    showEditStoryModal.value = false; // 考虑获取失败时关闭模态框
   } finally {
-    loading.value = false;
+    // 移除: loading.value = false;
   }
 }
 
@@ -612,6 +614,9 @@ const closeEditStoryModal = () => {
 const updateStory = async () => {
   if (!editingStory.value) return
   
+  // 记录当前滚动位置
+  const scrollPosition = window.scrollY
+
   // 验证表单
   if (!editingStory.value.title) {
     error.value = '剧情标题不能为空'
@@ -632,7 +637,7 @@ const updateStory = async () => {
     await axios.put(`/stories/${editingStory.value.id}`, {
       title: editingStory.value.title,
       content: editingStory.value.content,
-      pictures: pictures, // 直接传递pictures，后端会处理
+      pictures: pictures,
       link: editingStory.value.link,
       onlineAt: onlineAt,
       setIds: editingStory.value.setIds,
@@ -642,6 +647,12 @@ const updateStory = async () => {
     // 更新剧情列表
     await fetchStories()
     closeEditStoryModal()
+
+    // 恢复滚动位置
+    window.scrollTo({
+      top: scrollPosition,
+      behavior: 'instant' // 使用 'instant' 而不是 'smooth' 以避免看到滚动动画
+    })
   } catch (err) {
     error.value = '更新剧情失败: ' + (err.response?.data?.message || err.message)
     console.error('更新剧情错误:', err)
@@ -1978,7 +1989,7 @@ const goToPage = () => {
   color: #999;
 }
 
-/* 模态框样式 */
+/* 修改模态框样式 */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1988,10 +1999,10 @@ const goToPage = () => {
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start; /* 改为 flex-start */
   z-index: 1000;
-  overflow-y: auto; /* 允许垂直滚动 */
-  padding: 20px 0; /* 添加上下内边距 */
+  padding: 20px 0;
+  /* 删除 overflow-y: auto */
 }
 
 .modal-content {
@@ -2000,10 +2011,10 @@ const goToPage = () => {
   padding: 25px;
   width: 400px;
   max-width: 90%;
-  max-height: 90vh; /* 限制最大高度 */
-  overflow-y: auto; /* 添加内部滚动 */
+  max-height: calc(100vh - 40px); /* 调整最大高度 */
+  overflow-y: auto;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  margin: auto; /* 确保垂直居中 */
+  margin-top: 50px; /* 添加固定的顶部边距 */
 }
 
 .modal-content h3 {
