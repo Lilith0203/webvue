@@ -65,6 +65,9 @@ const searchKeyword = ref('');
 // 添加跳转页码相关状态和方法
 const targetPage = ref('');
 
+// 添加一个新的响应式状态来控制body滚动
+const isModalOpen = ref(false)
+
 // 检查菜单是否展开
 const isMenuExpanded = (setId) => {
   return expandedMenus.value[setId] === true
@@ -489,6 +492,8 @@ const deleteStorySet = async () => {
 // 打开添加剧情模态框
 const openAddStoryModal = () => {
   showAddStoryModal.value = true
+  isModalOpen.value = true
+  document.body.style.overflow = 'hidden' // 禁用背景滚动
   
   newStory.value = {
     title: '',
@@ -520,6 +525,8 @@ const closeAddStoryModal = () => {
   
   // 立即关闭模态框
   showAddStoryModal.value = false
+  isModalOpen.value = false
+  document.body.style.overflow = '' // 恢复背景滚动
 }
 
 // 添加剧情
@@ -589,6 +596,8 @@ const openEditStoryModal = async (story) => {
     };
     
     showEditStoryModal.value = true;
+    isModalOpen.value = true;
+    document.body.style.overflow = 'hidden'; // 禁用背景滚动
     error.value = null;
   } catch (err) {
     error.value = '获取剧情详情失败';
@@ -607,6 +616,8 @@ const closeEditStoryModal = () => {
   
   // 立即关闭模态框
   showEditStoryModal.value = false
+  isModalOpen.value = false
+  document.body.style.overflow = '' // 恢复背景滚动
   editingStory.value = null
 }
 
@@ -797,6 +808,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  document.body.style.overflow = '';
   window.removeEventListener('keydown', handleKeyDown);
 })
 
@@ -2008,13 +2020,13 @@ const goToPage = () => {
 .modal-content {
   background-color: white;
   border-radius: 8px;
-  padding: 25px;
+  padding: 10px 25px 25px;
   width: 400px;
   max-width: 90%;
-  max-height: calc(100vh - 40px); /* 调整最大高度 */
+  max-height: calc(100vh - 70px); /* 调整最大高度 */
   overflow-y: auto;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  margin-top: 50px; /* 添加固定的顶部边距 */
+  margin-top: 10px; /* 添加固定的顶部边距 */
 }
 
 .modal-content h3 {
