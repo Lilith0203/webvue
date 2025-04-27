@@ -2023,7 +2023,7 @@ const goToPage = () => {
   padding: 10px 25px 25px;
   width: 400px;
   max-width: 90%;
-  max-height: calc(100vh - 200px); /* 调整最大高度 */
+  max-height: calc(100vh - 140px); /* 调整最大高度 */
   overflow-y: auto;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
   margin-top: 10px; /* 添加固定的顶部边距 */
