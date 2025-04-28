@@ -155,7 +155,7 @@ const commentDelete = async(commentId) => {
   cursor: pointer;
   margin: 10px auto 0;
   border-radius: 4px;
-  padding: 5px 6px;
+  padding: 4px 6px;
   font-size: 0.9rem;
 }
 

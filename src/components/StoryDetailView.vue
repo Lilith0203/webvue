@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
 import ImagePreview from './ImagePreview.vue'
+import CommentSection from '../components/CommentSection.vue'
+import { confirm } from '../utils/confirm'
 
 const route = useRoute()
 const router = useRouter()
@@ -34,6 +36,9 @@ const searchResults = ref([])
 const searching = ref(false)
 const searchError = ref(null)
 let searchTimeout = null
+const comments = ref([])
+const loadingComments = ref(false)
+const errorComments = ref(null)
 
 const relationTypeOptions = [
   { value: 'prequel', label: '前传' },
@@ -50,6 +55,7 @@ const fetchStory = async () => {
     story.value = res.data.data
     detailDraft.value = story.value.detail || ''
     await fetchRelations()
+    await fetchComments()
   } catch (e) {
     error.value = '获取剧情详情失败'
   } finally {
@@ -250,6 +256,63 @@ function onCancelAddRelation() {
   addError.value = null
 }
 
+function openAddRelationForm() {
+  if (!showAddRelation.value) {
+    addRelationType.value = 'related'
+    addRelatedId.value = ''
+    searchQuery.value = ''
+    searchResults.value = []
+    addNote.value = ''
+    addError.value = null
+  }
+  showAddRelation.value = !showAddRelation.value
+}
+
+const fetchComments = async () => {
+  loadingComments.value = true
+  errorComments.value = null
+  try {
+    const res = await axios.get(`/comments/${story.value.id}`, {
+      params: { type: 3 }
+    })
+    comments.value = res.data.comments || []
+  } catch (e) {
+    errorComments.value = '获取评论失败'
+  } finally {
+    loadingComments.value = false
+  }
+}
+
+const submitComment = async (commentData) => {
+  try {
+    const res = await axios.post('/comment', {
+      name: commentData.name,
+      content: commentData.content,
+      type: 3,
+      itemId: story.value.id,
+      reply: commentData.reply
+    })
+    if (res.data.success) {
+      comments.value.push(res.data.data.comment)
+    } else {
+      alert(res.data.message)
+    }
+  } catch (e) {
+    alert('提交评论失败')
+  }
+}
+
+const deleteComment = async (commentId) => {
+  if (await confirm('确定要删除吗？')) {
+    try {
+      await axios.post('/comment_delete', { id: commentId })
+      await fetchComments()
+    } catch (e) {
+      alert('删除失败')
+    }
+  }
+}
+
 onMounted(() => {
   fetchStory()
   // 监听路由 id 变化，自动刷新详情
@@ -331,7 +394,7 @@ onMounted(() => {
         <div class="relation-section">
           <div class="relation-header">
             <h3>关联剧情</h3>
-            <button v-if="authStore.isAuthenticated" class="btn btn-edit" @click="showAddRelation = !showAddRelation">
+            <button v-if="authStore.isAuthenticated" class="btn btn-edit" @click="openAddRelationForm">
               <i class="iconfont icon-tianjia"></i>
             </button>
           </div>
@@ -400,6 +463,11 @@ onMounted(() => {
       @prev="prevImage"
       @next="nextImage"
     />
+    <CommentSection
+      :comments="comments"
+      :onCommentSubmit="submitComment"
+      :onCommentDelete="deleteComment"
+    />
   </main>
 </template>
 
@@ -434,6 +502,7 @@ onMounted(() => {
 }
 .story-title {
   font-size: 1.1rem;
+  font-weight: 600;
   color: #333;
   margin: 0 0 10px 0;
 }
@@ -474,7 +543,7 @@ onMounted(() => {
   text-decoration: underline;
 }
 .icon-bilibili1 {
-  font-size: 1.1em;
+  font-size: 24px;
   vertical-align: middle;
   display: inline-block;
   margin-right: 0;
@@ -610,7 +679,7 @@ onMounted(() => {
   color: #666;
 }
 
-.icon-ok, .icon-cancel-test {
+.icon-ok, .icon-cancel-test, .icon-tianjia {
   font-size: 20px;
 }
 
@@ -627,10 +696,6 @@ onMounted(() => {
 
 .story-link {
     padding: 0;
-}
-
-.icon-bilibili1 {
-    font-size: 20px;
 }
 
 .relation-section {
@@ -755,9 +820,9 @@ onMounted(() => {
   overflow-y: auto;
 }
 .add-relation-suggest-item {
-  padding: 6px 10px;
+  padding: 5px 10px;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: #444;
 }
 .add-relation-suggest-item:hover {
