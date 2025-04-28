@@ -2,10 +2,12 @@
 import axios from '../api'
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
+import { useRouter } from 'vue-router'
 
 import ImagePreview from '../components/ImagePreview.vue'
 
 const authStore = useAuthStore()
+const router = useRouter()
 
 // 响应式状态
 const storySets = ref([])
@@ -1112,7 +1114,11 @@ const goToPage = () => {
                 <div class="story-content-area">
                   <div class="story-header">
                     <div class="story-title">
-                      <div v-html="formatStoryTitle(story.title)"></div>
+                      <div 
+                        v-html="formatStoryTitle(story.title)" 
+                        @click="router.push(`/story/${story.id}`)" 
+                        style="cursor:pointer"
+                      ></div>
                       <i v-if="story.isRecommended" class="iconfont icon-tuijian recommended-icon"></i>
                     </div>
                     <div class="story-actions" v-if="isLoggedIn">
