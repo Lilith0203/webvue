@@ -150,11 +150,9 @@ function nextImage() {
 function relationTypeText(type) {
   // 可根据你的 relationType 设计调整
   const map = {
-    prequel: '前传',
-    sequel: '后续',
+    prequel: '前',
+    sequel: '后',
     parallel: '平行',
-    reference: '参考',
-    spin_off: '衍生',
     related: '关联'
   }
   return map[type] || type
