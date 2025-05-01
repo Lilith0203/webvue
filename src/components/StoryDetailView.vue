@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
@@ -39,6 +39,9 @@ let searchTimeout = null
 const comments = ref([])
 const loadingComments = ref(false)
 const errorComments = ref(null)
+
+// 添加保存导航状态的变量
+const savedScrollPosition = ref(0)
 
 const relationTypeOptions = [
   { value: 'prequel', label: '前传' },
@@ -311,8 +314,18 @@ const deleteComment = async (commentId) => {
   }
 }
 
+// 返回前保存当前滚动位置
+const handleBack = () => {
+  // 在导航返回前将当前滚动位置存储到 sessionStorage
+  sessionStorage.setItem('storyListScrollPosition', window.scrollY.toString())
+  router.back()
+}
+
 onMounted(() => {
   fetchStory()
+  // 进入详情页面时保存滚动位置
+  savedScrollPosition.value = window.scrollY
+  
   // 监听路由 id 变化，自动刷新详情
   watch(
     () => route.params.id,
@@ -337,7 +350,7 @@ onMounted(() => {
       <div v-else-if="error" class="error">{{ error }}</div>
       <div v-else-if="story" class="story-detail-card">
         <div class="articles-header">
-          <span class="back-link" @click="router.back()">← 返回</span>
+          <span class="back-link" @click="handleBack()">← 返回</span>
           <span v-if="story.isRecommended" class="recommended">推荐</span>
         </div>
         <h1 class="story-title">{{ story.title }}</h1>

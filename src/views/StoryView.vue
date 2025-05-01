@@ -1000,6 +1000,85 @@ const goToPage = () => {
   // 清空输入框
   targetPage.value = '';
 }
+
+// 添加导航到剧情详情的函数
+const navigateToStoryDetail = (storyId) => {
+  // 导航前保存当前状态
+  sessionStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+  sessionStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
+  sessionStorage.setItem('storyCurrentPage', currentPage.value.toString())
+  sessionStorage.setItem('storySearchKeyword', searchKeyword.value || '')
+  sessionStorage.setItem('storySortDirection', sortDirection.value)
+  sessionStorage.setItem('storyIsSimpleMode', isSimpleMode.value.toString())
+  
+  // 导航到剧情详情
+  router.push(`/story/${storyId}`)
+}
+
+// 修改 onMounted 钩子以恢复状态
+onMounted(() => {
+  // 添加键盘事件监听器
+  window.addEventListener('keydown', handleKeyDown)
+  
+  // 从 sessionStorage 恢复状态（如果有）
+  const savedSetId = sessionStorage.getItem('storyActiveSetId')
+  const savedChildId = sessionStorage.getItem('storyActiveChildId')
+  const savedPage = sessionStorage.getItem('storyCurrentPage')
+  const savedKeyword = sessionStorage.getItem('storySearchKeyword')
+  const savedSortDirection = sessionStorage.getItem('storySortDirection')
+  const savedSimpleMode = sessionStorage.getItem('storyIsSimpleMode')
+  
+  // 恢复简略模式（如果有保存）
+  if (savedSimpleMode) {
+    isSimpleMode.value = savedSimpleMode === 'true'
+  }
+  
+  // 恢复排序方向（如果有保存）
+  if (savedSortDirection) {
+    sortDirection.value = savedSortDirection
+  }
+  
+  // 恢复搜索关键词（如果有保存）
+  if (savedKeyword) {
+    searchKeyword.value = savedKeyword
+  }
+  
+  // 首先获取所有剧情合集
+  fetchStorySets().then(() => {
+    // 合集加载后，恢复活动合集（如果有保存）
+    if (savedSetId && storySets.value.length > 0) {
+      activeSetId.value = parseInt(savedSetId)
+      if (savedChildId) {
+        activeChildId.value = parseInt(savedChildId)
+      }
+      
+      // 恢复页码（如果有保存）
+      if (savedPage) {
+        currentPage.value = parseInt(savedPage)
+      }
+      
+      // 使用恢复的状态获取剧情
+      fetchStories().then(() => {
+        // 剧情加载后恢复滚动位置
+        const savedScrollPosition = sessionStorage.getItem('storyListScrollPosition')
+        if (savedScrollPosition) {
+          setTimeout(() => {
+            window.scrollTo({
+              top: parseInt(savedScrollPosition),
+              behavior: 'instant'
+            })
+            // 恢复后清除保存的滚动位置
+            sessionStorage.removeItem('storyListScrollPosition')
+          }, 100) // 小延迟确保 DOM 已更新
+        }
+      })
+    } else if (storySets.value.length > 0) {
+      // 如果没有保存状态，则使用默认行为
+      activeSetId.value = storySets.value[0].id
+      fetchStories()
+    }
+  })
+})
 </script>
 
 <template>
@@ -1116,7 +1195,7 @@ const goToPage = () => {
                     <div class="story-title">
                       <div 
                         v-html="formatStoryTitle(story.title)" 
-                        @click="router.push(`/story/${story.id}`)" 
+                        @click="navigateToStoryDetail(story.id)" 
                         style="cursor:pointer"
                       ></div>
                       <i v-if="story.isRecommended" class="iconfont icon-tuijian recommended-icon"></i>
