@@ -57,7 +57,6 @@ const fetchStory = async () => {
     const res = await axios.get(`/stories/${route.params.id}`)
     story.value = res.data.data
     detailDraft.value = story.value.detail || ''
-    await fetchRelations()
     await fetchComments()
   } catch (e) {
     error.value = '获取剧情详情失败'
@@ -219,7 +218,7 @@ async function searchStories() {
       params: {
         search: searchQuery.value,
         size: 30,
-        setIds: (story.value?.setIds || []).join(',')
+        setIds: (story.value?.sets?.map(set => set.id) || []).join(',')
       }
     })
     if (res.data && Array.isArray(res.data.items)) {
@@ -356,11 +355,20 @@ onMounted(() => {
         <h1 class="story-title">{{ story.title }}</h1>
         <div class="meta">
           <span v-if="story.onlineAt" class="online-time">上线时间：{{ story.onlineAt }}</span>
-          <span v-if="story.link" class="meta-sep">|</span>
+          <span v-if="story.onlineAt && story.link" class="meta-sep">|</span>
           <span v-if="story.link" class="story-link">
             <a :href="story.link" target="_blank" rel="noopener noreferrer">
               <i class="iconfont icon-bilibili1"></i>
             </a>
+          </span>
+        </div>
+        <div v-if="story.sets?.length" class="meta sets-meta">
+          <span class="sets-label">所属合集：</span>
+          <span v-for="(set, index) in story.sets" :key="set.id" class="set-item">
+            <span class="set-link">
+              {{ set.name }}
+            </span>
+            <span v-if="index < story.sets.length - 1" class="set-sep">、</span>
           </span>
         </div>
         <div class="content-block" v-if="story.content" v-html="formatStoryContent(story.content)"></div>
@@ -838,5 +846,34 @@ onMounted(() => {
 }
 .add-relation-suggest-item:hover {
   background: #f5f5f5;
+}
+
+.sets-meta {
+  margin-top: 8px;
+  color: #888;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sets-label {
+  color: #888;
+}
+
+.set-item {
+  display: inline-flex;
+  align-items: center;
+}
+
+.set-link {
+  color: #4a90e2;
+  text-decoration: none;
+}
+
+.set-sep {
+  color: #888;
+  margin: 0 2px;
 }
 </style>

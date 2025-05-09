@@ -579,13 +579,11 @@ const openEditStoryModal = async (story) => {
   if (!story) return;
   
   try {
-    // 移除: loading.value = true; 
-    
     // 获取剧情详情
     const response = await axios.get(`/stories/${story.id}`);
     const storyDetail = response.data.data;
     
-    // 创建编辑对象
+    // 创建编辑对象，从 sets 中提取 setIds
     editingStory.value = {
       id: storyDetail.id,
       title: storyDetail.title,
@@ -593,21 +591,18 @@ const openEditStoryModal = async (story) => {
       pictures: storyDetail.pictures || [],
       link: storyDetail.link || '',
       onlineAt: storyDetail.onlineAt || '',
-      setIds: storyDetail.setIds || [],
+      setIds: storyDetail.sets?.map(set => set.id) || [], // 从 sets 中提取 ID
       isRecommended: storyDetail.isRecommended === 1 || storyDetail.isRecommended === true
     };
     
     showEditStoryModal.value = true;
     isModalOpen.value = true;
-    document.body.style.overflow = 'hidden'; // 禁用背景滚动
+    document.body.style.overflow = 'hidden';
     error.value = null;
   } catch (err) {
     error.value = '获取剧情详情失败';
     console.error('获取剧情详情错误:', err);
-    // 如果获取失败，确保模态框不显示或显示错误信息
-    showEditStoryModal.value = false; // 考虑获取失败时关闭模态框
-  } finally {
-    // 移除: loading.value = false;
+    showEditStoryModal.value = false;
   }
 }
 
