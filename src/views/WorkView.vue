@@ -13,8 +13,11 @@ const canEdit = computed(() => {
     return authStore.isAuthenticated
 })
 
-const pageSize = 16
-const page = ref(1)
+const currentPage = ref(1)
+const pageSize = ref(16)
+const totalPages = ref(1)
+const totalItems = ref(0)
+const targetPage = ref('') // 用于页码跳转输入框
 const loading = ref(false)
 const hasMore = ref(true)
 const allTags = ref([])
@@ -45,7 +48,7 @@ const toggleTag = (tag) => {
   }
   // 重置并重新加载
   works.value = []
-  page.value = 1
+  currentPage.value = 1
   hasMore.value = true
   fetchWorks()
 }
@@ -71,7 +74,7 @@ const handleEditorSuccess = async () => {
   //重置列表状态
   hasMore.value = true
   works.value = []
-  page.value = 1
+  currentPage.value = 1
   await fetchWorks()
   await fetchTags()
 }
@@ -209,14 +212,14 @@ const updateWorkRecommendStatus = (workId, hasRecommended, weight) => {
 
 // 获取作品列表
 const fetchWorks = async () => {
-  if (loading.value || !hasMore.value) return
+  if (loading.value) return
 
   loading.value = true
   try {
     const response = await axios.get('/works', {
       params: {
-        page: page.value,
-        size: pageSize,
+        page: currentPage.value,
+        size: pageSize.value,
         tags: selectedTags.value.length > 0 ? selectedTags.value.join(',') : undefined,
         keyword: searchKeyword.value || undefined
       }
@@ -241,12 +244,11 @@ const fetchWorks = async () => {
       })
     )
     
-    if (page.value === 1) {
-      works.value = worksWithInteraction
-    } else {
-      works.value = [...works.value, ...worksWithInteraction]
-    }
-    hasMore.value = response.data.works.length === pageSize
+    // 直接替换数据，不再累加
+    works.value = worksWithInteraction
+    // 计算总页数
+    totalPages.value = Math.ceil(response.data.count / pageSize.value)
+    totalItems.value = response.data.count
   } catch (error) {
     console.error('获取作品列表失败:', error)
   } finally {
@@ -257,7 +259,7 @@ const fetchWorks = async () => {
 // 搜索作品
 const searchWorks = () => {
   works.value = []
-  page.value = 1
+  currentPage.value = 1
   hasMore.value = true
   fetchWorks()
 }
@@ -267,15 +269,35 @@ watch(searchKeyword, (newVal, oldVal) => {
   if (newVal === '' && oldVal !== '') {
     // 当搜索框被清空时，重置搜索结果
     works.value = []
-    page.value = 1
+    currentPage.value = 1
     hasMore.value = true
     fetchWorks()
   }
 })
 
-// 加载更多
-const loadMore = () => {
-  page.value++
+// 切换页码
+const changePage = (page) => {
+  currentPage.value = page
+  fetchWorks()
+}
+
+// 处理跳转页码
+const goToPage = () => {
+  if (!targetPage.value) return
+  
+  const pageNum = parseInt(targetPage.value)
+  if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages.value) {
+    return
+  }
+  
+  currentPage.value = pageNum
+  fetchWorks()
+  targetPage.value = ''
+}
+
+// 回到第一页
+const goToFirstPage = () => {
+  currentPage.value = 1
   fetchWorks()
 }
 
@@ -298,7 +320,7 @@ const deleteWork = async (id) => {
 // 跳转到详情页
 const goToDetail = (id) => {
   // 导航前保存当前状态
-  sessionStorage.setItem('workPage', page.value.toString())
+  sessionStorage.setItem('workPage', currentPage.value.toString())
   sessionStorage.setItem('workSelectedTags', JSON.stringify(selectedTags.value))
   sessionStorage.setItem('workSearchKeyword', searchKeyword.value || '')
   sessionStorage.setItem('workShowRecommended', showRecommended.value.toString())
@@ -353,7 +375,7 @@ const fetchRecommendedWorks = async () => {
       params: {
         type: 2,
         page: recommendedPage.value,
-        size: pageSize
+        size: pageSize.value
       }
     })
     
@@ -385,7 +407,7 @@ const fetchRecommendedWorks = async () => {
         recommendedWorks.value = [...recommendedWorks.value, ...worksWithInteraction]
       }
       
-      recommendedHasMore.value = items.length === pageSize
+      recommendedHasMore.value = items.length === pageSize.value
       recommendedPage.value++
     }
   } catch (error) {
@@ -428,7 +450,7 @@ onMounted(async () => {
     hasMore.value = true
     
     if (savedPage) {
-      page.value = parseInt(savedPage)
+      currentPage.value = parseInt(savedPage)
     }
     if (savedTags) {
       selectedTags.value = JSON.parse(savedTags)
@@ -442,7 +464,7 @@ onMounted(async () => {
   } else {
     // 如果不是从详情页返回，重置所有状态
     works.value = []
-    page.value = 1
+    currentPage.value = 1
     hasMore.value = true
     selectedTags.value = []
     searchKeyword.value = ''
@@ -581,11 +603,45 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-      <!-- 加载更多 -->
-      <div class="load-more" v-if="showRecommended ? recommendedHasMore : hasMore">
-        <a href="#" @click.prevent="showRecommended ? loadMoreRecommended() : loadMore()">
-          {{ showRecommended ? (loadingRecommended ? '加载中...' : '查看更多推荐') : (loading ? '加载中...' : '查看更多') }}
-        </a>
+      <!-- 替换原来的加载更多按钮 -->
+      <div class="pagination" v-if="totalPages > 1">
+        <button 
+          class="pagination-btn" 
+          :disabled="currentPage === 1"
+          @click="changePage(currentPage - 1)"
+        >
+          上一页
+        </button>
+        
+        <div class="pagination-info">
+          <span class="cur">{{ currentPage }}</span> / {{ totalPages }} 页
+        </div>
+        
+        <button 
+          class="pagination-btn" 
+          :disabled="currentPage === totalPages"
+          @click="changePage(currentPage + 1)"
+        >
+          下一页
+        </button>
+        
+        <div class="page-jump">
+          <input 
+            type="number" 
+            v-model="targetPage" 
+            min="1" 
+            :max="totalPages"
+            class="page-input"
+            placeholder="页码"
+            @keyup.enter="goToPage"
+          />
+          <button 
+            class="jump-btn"
+            @click="goToPage"
+          >
+            跳转
+          </button>
+        </div>
       </div>
       
       <!-- 无推荐作品提示 -->
@@ -991,5 +1047,64 @@ onUnmounted(() => {
   .search-container.is-searching {
     width: 180px;
   }
+}
+
+/* 分页样式 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+  gap: 8px;
+}
+
+.pagination-btn, .jump-btn {
+  padding: 2px 3px;
+  background-color: transparent;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.3s;
+  color: #9da09e;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: #3E3E3E;
+}
+
+.pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #9da09e;
+}
+
+.pagination-info .cur {
+  font-size: 16px;
+  color: #5e5e5e;
+}
+
+.page-jump {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.page-input {
+  width: 45px;
+  height: 24px;
+  line-height: 24px;
+  text-align: center;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.jump-btn {
+  margin-left: 5px;
 }
 </style>
