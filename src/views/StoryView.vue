@@ -2,7 +2,7 @@
 import axios from '../api'
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { useRouter, onBeforeRouteLeave, useRoute } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 import ImagePreview from '../components/ImagePreview.vue'
 
@@ -1060,19 +1060,6 @@ const navigateToStoryDetail = (storyId) => {
   router.push(`/story/${storyId}?from=list`)
 }
 
-// 添加路由离开钩子
-onBeforeRouteLeave((to, from) => {
-  // 如果是从首页进入，清除所有保存的状态
-  if (to.name === 'story') {
-    sessionStorage.removeItem('storyActiveSetId')
-    sessionStorage.removeItem('storyActiveChildId')
-    sessionStorage.removeItem('storyCurrentPage')
-    sessionStorage.removeItem('storySearchKeyword')
-    sessionStorage.removeItem('storySortDirection')
-    sessionStorage.removeItem('storyIsSimpleMode')
-    sessionStorage.removeItem('storyListScrollPosition')
-  }
-})
 </script>
 
 <template>

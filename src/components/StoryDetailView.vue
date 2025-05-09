@@ -317,10 +317,17 @@ const deleteComment = async (commentId) => {
 const handleBack = () => {
   // 在导航返回前将当前滚动位置存储到 sessionStorage
   sessionStorage.setItem('storyListScrollPosition', window.scrollY.toString())
-  router.push({
-    path: '/story',
-    query: { from: 'detail' }
-  })
+  
+  // 如果是从列表页进入的，返回到列表页并带上 from=detail 参数
+  if (route.query.from === 'list') {
+    router.push({
+      path: '/story',
+      query: { from: 'detail' }
+    })
+  } else {
+    // 如果是从其他详情页进入的，使用浏览器的后退功能
+    router.back()
+  }
 }
 
 onMounted(() => {
