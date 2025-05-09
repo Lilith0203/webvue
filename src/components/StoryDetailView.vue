@@ -315,9 +315,6 @@ const deleteComment = async (commentId) => {
 
 // 返回前保存当前滚动位置
 const handleBack = () => {
-  // 在导航返回前将当前滚动位置存储到 sessionStorage
-  sessionStorage.setItem('storyListScrollPosition', window.scrollY.toString())
-  
   // 如果是从列表页进入的，返回到列表页并带上 from=detail 参数
   if (route.query.from === 'list') {
     router.push({

@@ -1049,13 +1049,14 @@ const goToPage = () => {
 
 // 添加导航到剧情详情的函数
 const navigateToStoryDetail = (storyId) => {
-  // 导航前保存当前状态
+  // 导航前保存当前状态和滚动位置
   sessionStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
   sessionStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
   sessionStorage.setItem('storyCurrentPage', currentPage.value.toString())
   sessionStorage.setItem('storySearchKeyword', searchKeyword.value || '')
   sessionStorage.setItem('storySortDirection', sortDirection.value)
   sessionStorage.setItem('storyIsSimpleMode', isSimpleMode.value.toString())
+  sessionStorage.setItem('storyListScrollPosition', window.scrollY.toString())  // 保存滚动位置
   
   router.push(`/story/${storyId}?from=list`)
 }
