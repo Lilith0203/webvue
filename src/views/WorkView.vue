@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
 import WorkEditor from '../components/WorkEditor.vue'
@@ -20,6 +20,7 @@ const hasMore = ref(true)
 const allTags = ref([])
 const selectedTags = ref([])
 const router = useRouter()
+const route = useRoute()
 const works = ref([])
 // 拖拽相关状态
 const showEditor = ref(false)
@@ -246,7 +247,6 @@ const fetchWorks = async () => {
       works.value = [...works.value, ...worksWithInteraction]
     }
     hasMore.value = response.data.works.length === pageSize
-    page.value++
   } catch (error) {
     console.error('获取作品列表失败:', error)
   } finally {
@@ -275,6 +275,7 @@ watch(searchKeyword, (newVal, oldVal) => {
 
 // 加载更多
 const loadMore = () => {
+  page.value++
   fetchWorks()
 }
 
@@ -296,7 +297,14 @@ const deleteWork = async (id) => {
 
 // 跳转到详情页
 const goToDetail = (id) => {
-  router.push(`/works/${id}`)
+  // 导航前保存当前状态
+  sessionStorage.setItem('workPage', page.value.toString())
+  sessionStorage.setItem('workSelectedTags', JSON.stringify(selectedTags.value))
+  sessionStorage.setItem('workSearchKeyword', searchKeyword.value || '')
+  sessionStorage.setItem('workShowRecommended', showRecommended.value.toString())
+  sessionStorage.setItem('workListScrollPosition', window.scrollY.toString())
+  
+  router.push(`/works/${id}?from=list`)
 }
 
 // 格式化日期
@@ -401,8 +409,61 @@ const resetRecommendedWorks = () => {
 
 onMounted(async () => {
   await initTagColors() // 初始化标签颜色
-  fetchWorks()
-  fetchTags()
+  
+  // 检查是否是从详情页返回
+  const isFromDetail = route.query.from === 'detail'
+  
+  // 首先获取标签数据
+  await fetchTags()
+  
+  if (isFromDetail) {
+    // 恢复保存的状态
+    const savedPage = sessionStorage.getItem('workPage')
+    const savedTags = sessionStorage.getItem('workSelectedTags')
+    const savedKeyword = sessionStorage.getItem('workSearchKeyword')
+    const savedShowRecommended = sessionStorage.getItem('workShowRecommended')
+    
+    // 重置列表状态
+    works.value = []
+    hasMore.value = true
+    
+    if (savedPage) {
+      page.value = parseInt(savedPage)
+    }
+    if (savedTags) {
+      selectedTags.value = JSON.parse(savedTags)
+    }
+    if (savedKeyword) {
+      searchKeyword.value = savedKeyword
+    }
+    if (savedShowRecommended) {
+      showRecommended.value = savedShowRecommended === 'true'
+    }
+  } else {
+    // 如果不是从详情页返回，重置所有状态
+    works.value = []
+    page.value = 1
+    hasMore.value = true
+    selectedTags.value = []
+    searchKeyword.value = ''
+    showRecommended.value = false
+  }
+  
+  // 获取作品数据
+  await fetchWorks()
+  
+  // 恢复滚动位置
+  if (isFromDetail) {
+    const savedScrollPosition = sessionStorage.getItem('workListScrollPosition')
+    if (savedScrollPosition) {
+      setTimeout(() => {
+        window.scrollTo({
+          top: parseInt(savedScrollPosition),
+          behavior: 'instant'
+        })
+      }, 100)
+    }
+  }
 })
 
 onUnmounted(() => {

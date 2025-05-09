@@ -265,6 +265,19 @@ const toggleRecommend = async () => {
   }
 }
 
+const handleBack = () => {
+  // 如果是从列表页进入的，返回到列表页并带上 from=detail 参数
+  if (route.query.from === 'list') {
+    router.push({
+      path: '/works',
+      query: { from: 'detail' }
+    })
+  } else {
+    // 如果是从其他详情页进入的，使用浏览器的后退功能
+    router.back()
+  }
+}
+
 onMounted(async() => {
   await fetchWorkDetail()
   const itemId = work.value.id
@@ -289,7 +302,7 @@ onMounted(async() => {
       <!-- 作品展示 -->
       <template v-else>
         <!-- 作品标题和操作按钮 -->
-        <a @click="router.back()" class="a-back"><i class="iconfont icon-back"></i></a>
+        <a @click="handleBack()" class="a-back"><i class="iconfont icon-back"></i></a>
         <div class="header">
           <h2>{{ work.id }} {{ work.name }}</h2>
           <div v-if="canEdit" @click="startEdit(work)"><i class="iconfont icon-bianji"></i></div>
