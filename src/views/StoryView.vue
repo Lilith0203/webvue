@@ -2,12 +2,13 @@
 import axios from '../api'
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { useRouter } from 'vue-router'
+import { useRouter, onBeforeRouteLeave, useRoute } from 'vue-router'
 
 import ImagePreview from '../components/ImagePreview.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 
 // 响应式状态
 const storySets = ref([])
@@ -228,12 +229,9 @@ const fetchStorySets = async () => {
       return set
     })
     
-    // 如果没有选中合集且有合集数据，默认选中第一个
+    // 如果没有选中合集且有合集数据，只设置ID，不调用fetchStories
     if (!activeSetId.value && storySets.value.length > 0) {
-      // 直接设置ID，但不调用fetchStories
       activeSetId.value = storySets.value[0].id
-      // 手动获取一次故事，避免重复请求
-      await fetchStories()
     }
   } catch (err) {
     console.error('获取剧情合集错误:', err)
@@ -799,11 +797,6 @@ function handleKeyDown(e) {
   }
 }
 
-// 监听键盘事件
-onMounted(() => {
-  window.addEventListener('keydown', handleKeyDown);
-})
-
 onUnmounted(() => {
   document.body.style.overflow = '';
   window.removeEventListener('keydown', handleKeyDown);
@@ -917,8 +910,66 @@ const handleSearch = () => {
 }
 
 // 生命周期钩子
-onMounted(async () => {
-  await fetchStorySets()
+onMounted(() => {
+  // 添加键盘事件监听器
+  window.addEventListener('keydown', handleKeyDown)
+  
+  // 检查是否是从详情页返回
+  const isFromDetail = route.query.from === 'detail'
+  
+  // 首先获取所有剧情合集
+  fetchStorySets().then(() => {
+    // 只有在从详情页返回时才恢复状态
+    if (isFromDetail) {
+      const savedSetId = sessionStorage.getItem('storyActiveSetId')
+      const savedChildId = sessionStorage.getItem('storyActiveChildId')
+      const savedPage = sessionStorage.getItem('storyCurrentPage')
+      const savedKeyword = sessionStorage.getItem('storySearchKeyword')
+      const savedSortDirection = sessionStorage.getItem('storySortDirection')
+      const savedSimpleMode = sessionStorage.getItem('storyIsSimpleMode')
+      
+      if (savedSetId && storySets.value.length > 0) {
+        activeSetId.value = parseInt(savedSetId)
+        if (savedChildId) {
+          activeChildId.value = parseInt(savedChildId)
+        }
+        
+        // 恢复其他状态
+        if (savedPage) {
+          currentPage.value = parseInt(savedPage)
+        }
+        if (savedKeyword) {
+          searchKeyword.value = savedKeyword
+        }
+        if (savedSortDirection) {
+          sortDirection.value = savedSortDirection
+        }
+        if (savedSimpleMode) {
+          isSimpleMode.value = savedSimpleMode === 'true'
+        }
+        
+        // 使用恢复的状态获取剧情
+        fetchStories().then(() => {
+          // 剧情加载后恢复滚动位置
+          const savedScrollPosition = sessionStorage.getItem('storyListScrollPosition')
+          if (savedScrollPosition) {
+            setTimeout(() => {
+              window.scrollTo({
+                top: parseInt(savedScrollPosition),
+                behavior: 'instant'
+              })
+              // 恢复后清除保存的滚动位置
+              sessionStorage.removeItem('storyListScrollPosition')
+            }, 100)
+          }
+        })
+      }
+    } else if (storySets.value.length > 0) {
+      // 如果不是从详情页返回，则使用默认行为
+      activeSetId.value = storySets.value[0].id
+      fetchStories()
+    }
+  })
 })
 
 // 格式化故事标题，使方括号内的内容高亮显示
@@ -1006,73 +1057,21 @@ const navigateToStoryDetail = (storyId) => {
   sessionStorage.setItem('storySortDirection', sortDirection.value)
   sessionStorage.setItem('storyIsSimpleMode', isSimpleMode.value.toString())
   
-  // 导航到剧情详情
-  router.push(`/story/${storyId}`)
+  router.push(`/story/${storyId}?from=list`)
 }
 
-// 修改 onMounted 钩子以恢复状态
-onMounted(() => {
-  // 添加键盘事件监听器
-  window.addEventListener('keydown', handleKeyDown)
-  
-  // 从 sessionStorage 恢复状态（如果有）
-  const savedSetId = sessionStorage.getItem('storyActiveSetId')
-  const savedChildId = sessionStorage.getItem('storyActiveChildId')
-  const savedPage = sessionStorage.getItem('storyCurrentPage')
-  const savedKeyword = sessionStorage.getItem('storySearchKeyword')
-  const savedSortDirection = sessionStorage.getItem('storySortDirection')
-  const savedSimpleMode = sessionStorage.getItem('storyIsSimpleMode')
-  
-  // 恢复简略模式（如果有保存）
-  if (savedSimpleMode) {
-    isSimpleMode.value = savedSimpleMode === 'true'
+// 添加路由离开钩子
+onBeforeRouteLeave((to, from) => {
+  // 如果是从首页进入，清除所有保存的状态
+  if (to.name === 'story') {
+    sessionStorage.removeItem('storyActiveSetId')
+    sessionStorage.removeItem('storyActiveChildId')
+    sessionStorage.removeItem('storyCurrentPage')
+    sessionStorage.removeItem('storySearchKeyword')
+    sessionStorage.removeItem('storySortDirection')
+    sessionStorage.removeItem('storyIsSimpleMode')
+    sessionStorage.removeItem('storyListScrollPosition')
   }
-  
-  // 恢复排序方向（如果有保存）
-  if (savedSortDirection) {
-    sortDirection.value = savedSortDirection
-  }
-  
-  // 恢复搜索关键词（如果有保存）
-  if (savedKeyword) {
-    searchKeyword.value = savedKeyword
-  }
-  
-  // 首先获取所有剧情合集
-  fetchStorySets().then(() => {
-    // 合集加载后，恢复活动合集（如果有保存）
-    if (savedSetId && storySets.value.length > 0) {
-      activeSetId.value = parseInt(savedSetId)
-      if (savedChildId) {
-        activeChildId.value = parseInt(savedChildId)
-      }
-      
-      // 恢复页码（如果有保存）
-      if (savedPage) {
-        currentPage.value = parseInt(savedPage)
-      }
-      
-      // 使用恢复的状态获取剧情
-      fetchStories().then(() => {
-        // 剧情加载后恢复滚动位置
-        const savedScrollPosition = sessionStorage.getItem('storyListScrollPosition')
-        if (savedScrollPosition) {
-          setTimeout(() => {
-            window.scrollTo({
-              top: parseInt(savedScrollPosition),
-              behavior: 'instant'
-            })
-            // 恢复后清除保存的滚动位置
-            sessionStorage.removeItem('storyListScrollPosition')
-          }, 100) // 小延迟确保 DOM 已更新
-        }
-      })
-    } else if (storySets.value.length > 0) {
-      // 如果没有保存状态，则使用默认行为
-      activeSetId.value = storySets.value[0].id
-      fetchStories()
-    }
-  })
 })
 </script>
 

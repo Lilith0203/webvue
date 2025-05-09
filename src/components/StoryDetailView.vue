@@ -317,7 +317,10 @@ const deleteComment = async (commentId) => {
 const handleBack = () => {
   // 在导航返回前将当前滚动位置存储到 sessionStorage
   sessionStorage.setItem('storyListScrollPosition', window.scrollY.toString())
-  router.back()
+  router.push({
+    path: '/story',
+    query: { from: 'detail' }
+  })
 }
 
 onMounted(() => {
