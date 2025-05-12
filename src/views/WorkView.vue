@@ -429,6 +429,16 @@ const resetRecommendedWorks = () => {
   recommendedHasMore.value = true
 }
 
+// 修改 getThumbnailUrl 方法
+const getThumbUrl = (url, width = 800) => {
+  
+  if (!url) return '';
+  
+  // 使用更高的锐化参数
+  return `${url}?x-oss-process=image`
+    + `/resize,w_${width}` // 限制宽度，保持原始比例
+}
+
 onMounted(async () => {
   await initTagColors() // 初始化标签颜色
   
@@ -554,7 +564,7 @@ onUnmounted(() => {
           <div class="work-cover" @click="goToDetail(work.id)">
             <img
               v-if="work.pictures && work.pictures.length > 0" 
-              v-image="work.pictures[0]" alt="封面">
+              v-image="getThumbUrl(work.pictures[0])" alt="封面">
             <div v-else class="no-image">
               暂无图片
             </div>

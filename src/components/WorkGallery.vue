@@ -122,7 +122,7 @@ const closePreview = () => {
 const getThumbnailUrl = (url) => {
   if (!url) return ''
   // 添加OSS图片处理参数，限制宽度为200px
-  return `${url}?x-oss-process=image/resize,w_240`
+  return `${url}?x-oss-process=image/resize,w_600`
 }
 
 // 使用computed属性处理works数据

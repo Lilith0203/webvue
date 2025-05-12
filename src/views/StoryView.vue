@@ -731,7 +731,6 @@ const getThumbnailUrl = (url, width = 360) => {
   // 使用更高的锐化参数
   return `${url}?x-oss-process=image`
     + `/resize,w_${width}` // 限制宽度，保持原始比例
-    + `/sharpen,100` // 增加锐化程度到100
 }
 
 // 图片预览状态
