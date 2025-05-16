@@ -2,14 +2,37 @@
 import { ref, onMounted, computed } from 'vue'
 import { Calendar } from 'v-calendar'
 import axios from '../api' // Assuming you have an axios instance configured
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '../stores/auth'
 import 'v-calendar/style.css'
 
+// 获取认证状态
+const authStore = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const plans = ref([])
 const loading = ref(false)
 const error = ref(null)
 const selectedDate = ref(new Date())
+
+// 编辑相关状态
+const showEditModal = ref(false)
+const editingPlan = ref({
+  id: null,
+  title: '',
+  description: '',
+  status: '',
+  startDate: '',
+  endDate: '',
+  link: '',
+  sort: 0
+})
+const isNewPlan = ref(true)
+
+// 计算属性 - 登录状态
+const isLoggedIn = computed(() => {
+  return authStore.isAuthenticated
+})
 
 // Fetch plan data
 const fetchPlans = async () => {
@@ -19,10 +42,15 @@ const fetchPlans = async () => {
     const response = await axios.get('/plans', {
       params: {
         page: 1,
-        size: 100 // 获取更多数据以显示在日历上
+        size: 100
       }
     })
-    plans.value = response.data.items || []
+    // 确保日期格式正确
+    plans.value = (response.data.items || []).map(plan => ({
+      ...plan,
+      startDate: plan.startDate ? new Date(plan.startDate).toISOString().split('T')[0] : null,
+      endDate: plan.endDate ? new Date(plan.endDate).toISOString().split('T')[0] : null
+    }))
   } catch (err) {
     error.value = "获取计划失败：" + err.message
     console.error('Fetch plans error:', err)
@@ -31,9 +59,97 @@ const fetchPlans = async () => {
   }
 }
 
+// 打开创建计划模态框
+const openCreateModal = (date) => {
+  if (!isLoggedIn.value) {
+    alert('请先登录')
+    return
+  }
+
+  isNewPlan.value = true
+  editingPlan.value = {
+    id: null,
+    title: '',
+    description: '',
+    status: '进行中',
+    startDate: date.toISOString().split('T')[0],
+    endDate: date.toISOString().split('T')[0],
+    link: '',
+    sort: 0
+  }
+  showEditModal.value = true
+}
+
+// 打开编辑计划模态框
+const openEditModal = (plan) => {
+  if (!isLoggedIn.value) {
+    alert('请先登录')
+    return
+  }
+
+  isNewPlan.value = false
+  editingPlan.value = { ...plan }
+  showEditModal.value = true
+}
+
+// 保存计划
+const savePlan = async () => {
+  if (!editingPlan.value.title) {
+    error.value = '请输入计划标题'
+    return
+  }
+
+  try {
+    loading.value = true
+    error.value = null
+    
+    if (isNewPlan.value) {
+      // 创建新计划
+      await axios.post('/planAdd', editingPlan.value)
+    } else {
+      // 更新计划
+      await axios.post('/plan/edit', editingPlan.value)
+    }
+    
+    showEditModal.value = false
+    await fetchPlans() // 刷新计划列表
+  } catch (err) {
+    error.value = `计划${isNewPlan.value ? '创建' : '更新'}失败: ${err.message}`
+    console.error('Save plan error:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 删除计划
+const deletePlan = async () => {
+  if (!isLoggedIn.value) {
+    alert('请先登录')
+    return
+  }
+
+  if (!editingPlan.value.id || !confirm('确定要删除该计划吗？')) {
+    return
+  }
+
+  try {
+    loading.value = true
+    error.value = null
+    
+    await axios.post('/plan/delete', { id: editingPlan.value.id })
+    
+    showEditModal.value = false
+    await fetchPlans() // 刷新计划列表
+  } catch (err) {
+    error.value = `删除计划失败: ${err.message}`
+    console.error('Delete plan error:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
 // Calculate calendar attributes
 const calendarAttributes = computed(() => {
-  // 确保基础属性数组始终存在
   const baseAttributes = [
     {
       key: 'today',
@@ -45,24 +161,34 @@ const calendarAttributes = computed(() => {
     }
   ]
 
-  // 确保 plans.value 存在
   if (!plans.value || !Array.isArray(plans.value)) {
     return baseAttributes
   }
 
-  // 过滤并映射有效的计划
+  // 创建一个 Set 来存储有计划的日期
+  const datesWithEvents = new Set()
+
   const planAttributes = plans.value
     .filter(plan => {
-      // 更严格的验证
-      return plan 
-        && typeof plan === 'object'
-        && plan.id 
-        && plan.title 
-        && plan.startDate
-        && !isNaN(new Date(plan.startDate).getTime())
+      if (!plan || !plan.startDate) return false
+      const startDate = new Date(plan.startDate)
+      if (isNaN(startDate.getTime())) return false
+      
+      // 记录有计划的日期
+      datesWithEvents.add(startDate.toISOString().split('T')[0])
+      if (plan.endDate) {
+        const endDate = new Date(plan.endDate)
+        if (!isNaN(endDate.getTime())) {
+          datesWithEvents.add(endDate.toISOString().split('T')[0])
+        }
+      }
+      return true
     })
     .map(plan => {
       try {
+        const startDate = new Date(plan.startDate)
+        const endDate = plan.endDate ? new Date(plan.endDate) : startDate
+        
         return {
           key: `plan-${plan.id}`,
           highlight: {
@@ -70,14 +196,11 @@ const calendarAttributes = computed(() => {
             fillMode: 'light',
           },
           dates: {
-            start: new Date(plan.startDate),
-            end: plan.endDate && !isNaN(new Date(plan.endDate).getTime())
-              ? new Date(plan.endDate)
-              : new Date(plan.startDate)
+            start: startDate,
+            end: endDate
           },
           customData: {
             ...plan,
-            // 确保必要的字段存在
             title: plan.title || '未命名计划',
             status: plan.status || '未知状态'
           }
@@ -87,9 +210,16 @@ const calendarAttributes = computed(() => {
         return null
       }
     })
-    .filter(Boolean) // 移除无效的计划
+    .filter(Boolean)
 
-  return [...baseAttributes, ...planAttributes]
+  // 为有计划的日期添加 has-events 类
+  const dateAttributes = Array.from(datesWithEvents).map(date => ({
+    key: `has-events-${date}`,
+    dates: new Date(date),
+    class: 'has-events'
+  }))
+
+  return [...baseAttributes, ...dateAttributes, ...planAttributes]
 })
 
 // Get status color based on plan status
@@ -119,6 +249,16 @@ const selectedDatePlans = computed(() => {
 // Handle day click
 const onDayClick = (day) => {
   selectedDate.value = day.date
+  if (isLoggedIn.value) {
+    openCreateModal(day.date)
+  }
+}
+
+// 点击计划项
+const onPlanClick = (plan) => {
+  if (isLoggedIn.value) {
+    openEditModal(plan)
+  }
 }
 
 onMounted(() => {
@@ -158,24 +298,90 @@ onMounted(() => {
                 <div 
                   v-if="attr && attr.customData && attr.customData.title"
                   class="plan-item"
+                  @click.stop="onPlanClick(attr.customData)"
+                  :title="attr.customData.title"
                 >
                   <div class="plan-title">{{ attr.customData.title }}</div>
-                  <div 
-                    v-if="attr.customData.status"
-                    class="plan-status" 
-                    :style="{ backgroundColor: getStatusColor(attr.customData.status) }"
-                  >
-                    {{ attr.customData.status }}
-                  </div>
+                  
                 </div>
               </template>
             </div>
-            <div v-else class="day-plans empty">
-              <!-- 可以添加一些视觉提示，比如一个小的点或留白 -->
-            </div>
+            <div v-else class="day-plans empty"></div>
           </div>
         </template>
       </Calendar>
+
+      <!-- 添加按钮 - 仅登录状态显示 -->
+      <div v-if="isLoggedIn" class="action-buttons">
+        <button @click="openCreateModal(selectedDate)" class="add-plan-btn">
+          <i class="iconfont icon-add"></i> 添加计划
+        </button>
+      </div>
+    </div>
+
+    <!-- 编辑计划模态框 -->
+    <div v-if="showEditModal" class="modal-overlay" @click="showEditModal = false">
+      <div class="modal-content" @click.stop>
+        <h3>{{ isNewPlan ? '创建计划' : '编辑计划' }}</h3>
+        
+        <div class="form-group">
+          <label for="plan-title">标题</label>
+          <input id="plan-title" v-model="editingPlan.title" type="text" placeholder="计划标题" required>
+        </div>
+        
+        <div class="form-group">
+          <label for="plan-description">描述</label>
+          <textarea id="plan-description" v-model="editingPlan.description" placeholder="计划描述"></textarea>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group half">
+            <label for="plan-status">状态</label>
+            <select id="plan-status" v-model="editingPlan.status">
+              <option value="">未设置</option>
+              <option value="进行中">进行中</option>
+              <option value="已完成">已完成</option>
+              <option value="已取消">已取消</option>
+            </select>
+          </div>
+          
+          <div class="form-group half">
+            <label for="plan-sort">排序</label>
+            <input id="plan-sort" v-model="editingPlan.sort" type="number" placeholder="排序值" min="0">
+          </div>
+        </div>
+        
+        <div class="form-row">
+          <div class="form-group half">
+            <label for="plan-start-date">开始日期</label>
+            <input id="plan-start-date" v-model="editingPlan.startDate" type="date" required>
+          </div>
+          
+          <div class="form-group half">
+            <label for="plan-end-date">结束日期</label>
+            <input id="plan-end-date" v-model="editingPlan.endDate" type="date">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="plan-link">相关链接</label>
+          <input id="plan-link" v-model="editingPlan.link" type="text" placeholder="相关链接">
+        </div>
+        
+        <div v-if="error" class="error-message">{{ error }}</div>
+        
+        <div class="modal-actions">
+          <button 
+            v-if="!isNewPlan" 
+            @click="deletePlan" 
+            class="delete-btn"
+          >
+            删除
+          </button>
+          <button @click="showEditModal = false" class="cancel-btn">取消</button>
+          <button @click="savePlan" class="save-btn">保存</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -257,14 +463,6 @@ onMounted(() => {
   color: var(--color-text);
 }
 
-.plan-status {
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: 4px;
-  color: white;
-  font-size: 0.8rem;
-}
-
 .selected-date-plans {
   flex: 1;
   min-width: 300px;
@@ -287,37 +485,35 @@ onMounted(() => {
 }
 
 .plan-item {
-  display: flex;
-  gap: 10px;
-  padding: 10px;
-  background: var(--color-background);
-  border-radius: 6px;
+  padding: 2px 4px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: all 0.2s;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%; /* 确保计划项占满容器宽度 */
 }
 
-.plan-item:hover {
-  transform: translateX(5px);
-}
-
-.plan-content {
-  flex: 1;
-}
-
-.plan-content h5 {
-  margin: 0 0 5px 0;
-  font-size: 0.9rem;
-  color: var(--color-heading);
-}
-
-.plan-content p {
-  margin: 0 0 5px 0;
-  font-size: 0.8rem;
-  color: var(--color-text);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.plan-title {
+  font-size: 0.75rem;
+  line-height: 1.2;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  padding: 1px 0;
+}
+
+.plan-status {
+  font-size: 0.65rem;
+  padding: 0 3px;
+  border-radius: 2px;
+  color: white;
+  text-align: center;
+  display: inline-block;
+  max-width: fit-content;
 }
 
 .plan-date {
@@ -358,80 +554,56 @@ onMounted(() => {
   color: #dc3545;
 }
 
-/* 日历单元格样式 */
-:deep(.vc-day-content) {
-  height: 100%;
-  padding: 2px;
+/* 日历单元格基础样式 */
+:deep(.vc-day) {
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  transition: all 0.2s;
 }
 
+/* 日期内容容器 */
 .day-content {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
+/* 日期数字样式 */
 .day-number {
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.8rem;
   color: var(--color-text);
   text-align: right;
   padding: 2px 4px;
-  margin-bottom: 2px;
+  flex-shrink: 0; /* 防止日期数字被压缩 */
 }
 
+/* 计划列表容器 */
 .day-plans {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   overflow-y: auto;
-  max-height: 75px; /* 调整计划列表最大高度 */
+  max-height: 55px; /* 减小最大高度，保持单元格一致性 */
   padding-right: 2px;
+  margin-top: 2px;
 }
 
-.day-plans::-webkit-scrollbar {
-  width: 4px;
+/* 空状态样式 */
+.day-plans.empty {
+  display: none; /* 完全隐藏空容器 */
 }
 
-.day-plans::-webkit-scrollbar-thumb {
-  background-color: var(--color-border);
-  border-radius: 2px;
+/* 日历网格样式 */
+:deep(.vc-weeks) {
+  padding: 0; /* 移除网格padding */
 }
 
-.plan-item {
-  padding: 4px 6px;
-  border-radius: 4px;
-  background: var(--color-background-mute);
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid transparent;
-}
-
-.plan-item:hover {
-  transform: translateY(-1px);
-  border-color: var(--color-border);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.plan-title {
+:deep(.vc-weekday) {
+  padding: 6px 0;
   font-size: 0.8rem;
   font-weight: 500;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 2px;
-}
-
-.plan-status {
-  font-size: 0.7rem;
-  padding: 1px 4px;
-  border-radius: 3px;
-  color: white;
-  text-align: center;
-  display: inline-block;
-  min-width: 40px;
 }
 
 /* 今天的高亮样式 */
@@ -442,16 +614,6 @@ onMounted(() => {
 :deep(.vc-day.is-today .day-number) {
   color: #2196F3;
   font-weight: 600;
-}
-
-/* 空状态样式 */
-.day-plans.empty {
-  min-height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-light);
-  font-size: 0.8rem;
 }
 
 /* 日历头部样式 */
@@ -522,71 +684,12 @@ onMounted(() => {
   right: 10px;
 }
 
-/* 日历网格样式 */
-:deep(.vc-weeks) {
-  padding: 0 12px; /* 增加网格padding */
-}
-
-:deep(.vc-weekday) {
-  font-weight: 500;
-  color: var(--color-text);
-  padding: 6px 0; /* 增加星期行padding */
-  font-size: 0.8rem; /* 增大星期字体 */
-}
-
-:deep(.vc-day) {
-  padding: 4px;
-  border: 1px solid var(--color-border);
-  transition: background-color 0.2s;
-}
-
-:deep(.vc-day:hover) {
-  background-color: var(--color-background-mute);
-}
-
-:deep(.vc-day.is-not-in-month) {
-  background-color: var(--color-background-mute);
-  opacity: 0.6;
-}
-
-/* 日期单元格内容样式 */
-.day-content {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.day-number {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--color-text);
-  text-align: right;
-  padding: 2px 4px;
-  margin-bottom: 2px;
-}
-
-/* 今天的高亮样式 */
-:deep(.vc-day.is-today) {
-  background-color: rgba(33, 150, 243, 0.05);
-}
-
-:deep(.vc-day.is-today .day-number) {
-  color: #2196F3;
-  font-weight: 600;
+:deep(.vc-highlight) {
+  width: 20px;
+  height: 20px;
 }
 
 /* 计划项样式优化 */
-.day-plans {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  overflow-y: auto;
-  max-height: 75px; /* 调整计划列表最大高度 */
-  padding-right: 2px;
-}
-
 .day-plans::-webkit-scrollbar {
   width: 4px;
 }
@@ -596,48 +699,150 @@ onMounted(() => {
   border-radius: 2px;
 }
 
-.plan-item {
-  padding: 4px 6px;
-  border-radius: 4px;
-  background: var(--color-background-mute);
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid transparent;
+/* 添加按钮样式 */
+.action-buttons {
+  margin-top: 15px;
+  display: flex;
+  justify-content: flex-end;
 }
 
-.plan-item:hover {
-  transform: translateY(-1px);
-  border-color: var(--color-border);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.plan-title {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 2px;
-}
-
-.plan-status {
-  font-size: 0.7rem;
-  padding: 1px 4px;
-  border-radius: 3px;
+.add-plan-btn {
+  background-color: var(--color-blue);
   color: white;
-  text-align: center;
-  display: inline-block;
-  min-width: 40px;
-}
-
-/* 空状态样式 */
-.day-plans.empty {
-  min-height: 20px;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 4px;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--color-text-light);
+  gap: 5px;
   font-size: 0.8rem;
+  transition: background-color 0.2s;
 }
+
+/* 模态框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--color-background);
+  border-radius: 8px;
+  padding: 20px;
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--color-heading);
+  font-size: 1.2rem;
+  text-align: center;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-row {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.form-group.half {
+  flex: 1;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+input[type="text"],
+input[type="date"],
+input[type="number"],
+textarea,
+select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.error-message {
+  color: #f44336;
+  margin-top: 10px;
+  font-size: 0.85rem;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.save-btn,
+.cancel-btn,
+.delete-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+.save-btn {
+  background-color: var(--color-blue);
+  color: white;
+}
+
+.save-btn:hover {
+  background-color: var(--vc-accent-700);
+}
+
+.cancel-btn {
+  background-color: var(--color-background-mute);
+  color: var(--color-text);
+}
+
+.cancel-btn:hover {
+  background-color: var(--color-border);
+}
+
+.delete-btn {
+  background-color: #f44336;
+  color: white;
+  margin-right: auto; /* 推到左侧 */
+}
+
+.delete-btn:hover {
+  background-color: #d32f2f;
+}
+
+
 </style>
