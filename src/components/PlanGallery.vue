@@ -344,11 +344,7 @@ onMounted(() => {
               <option value="已取消">已取消</option>
             </select>
           </div>
-          
-          <div class="form-group half">
-            <label for="plan-sort">排序</label>
-            <input id="plan-sort" v-model="editingPlan.sort" type="number" placeholder="排序值" min="0">
-          </div>
+        
         </div>
         
         <div class="form-row">
@@ -641,8 +637,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative; /* 添加相对定位 */
+  position: relative;
   margin-top: 0px;
+  padding: 15px 0; /* 增加上下padding */
+  min-height: 60px; /* 增加最小高度 */
+  width: 100%;
 }
 
 :deep(.vc-title) {
@@ -651,12 +650,12 @@ onMounted(() => {
   font-weight: 600;
   color: var(--color-heading);
   white-space: nowrap;
-  padding: 0 40px; /* 增加两侧padding，为导航按钮留出空间 */
+  padding: 0 60px; /* 增加两侧padding，为导航按钮留出更多空间 */
   text-align: center;
   width: 100%; /* 确保标题占满容器宽度 */
 }
 
-/* 添加导航按钮样式 */
+/* 调整导航按钮位置 */
 :deep(.vc-nav-arrow) {
   position: absolute;
   top: 50%;
@@ -670,18 +669,15 @@ onMounted(() => {
   color: var(--color-text);
   border-radius: 50%;
   transition: background-color 0.2s;
-}
-
-:deep(.vc-nav-arrow:hover) {
-  background-color: var(--color-background-mute);
+  z-index: 10; /* 确保箭头在最上层 */
 }
 
 :deep(.vc-nav-arrow.is-left) {
-  left: 10px;
+  left: 20px; /* 调整左侧箭头位置，移得更远 */
 }
 
 :deep(.vc-nav-arrow.is-right) {
-  right: 10px;
+  right: 20px; /* 调整右侧箭头位置，移得更远 */
 }
 
 :deep(.vc-highlight) {
@@ -745,9 +741,9 @@ onMounted(() => {
 
 .modal-content h3 {
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   color: var(--color-heading);
-  font-size: 1.2rem;
+  font-size: 1rem;
   text-align: center;
 }
 
@@ -808,11 +804,11 @@ textarea {
 .save-btn,
 .cancel-btn,
 .delete-btn {
-  padding: 8px 16px;
+  padding: 5px 8px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   transition: background-color 0.2s;
 }
 
@@ -821,28 +817,73 @@ textarea {
   color: white;
 }
 
-.save-btn:hover {
-  background-color: var(--vc-accent-700);
-}
-
 .cancel-btn {
   background-color: var(--color-background-mute);
   color: var(--color-text);
 }
 
-.cancel-btn:hover {
-  background-color: var(--color-border);
-}
-
 .delete-btn {
-  background-color: #f44336;
+  background-color: #d32f2f;
   color: white;
   margin-right: auto; /* 推到左侧 */
 }
 
 .delete-btn:hover {
-  background-color: #d32f2f;
+  background-color: #f44336;
 }
 
+/* 修改月份选择弹出层样式 */
+:deep(.vc-nav-popover-container) {
+  padding: 8px !important;
+}
+
+:deep(.vc-nav-container) {
+  width: 226px !important; /* 增加宽度 */
+}
+
+:deep(.vc-nav-items) {
+  grid-template-columns: repeat(3, 1fr) !important; /* 改为3列布局 */
+  gap: 8px !important;
+}
+
+:deep(.vc-nav-item) {
+  padding: 4px 6px !important;
+  font-size: 0.8rem !important;
+  min-width: 70px !important; /* 确保每个月份项有足够宽度 */
+  font-weight: normal;
+  background-color: #fff;
+}
+
+:deep(.vc-nav-item.is-active) {
+  background-color: var(--vc-nav-item-active-bg);
+}
+
+/* 调整导航箭头位置 */
+:deep(.vc-nav-header) {
+  position: relative;
+  padding: 5px 0;
+  margin-bottom: 8px;
+}
+
+:deep(.vc-nav-header .vc-nav-arrow) {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+:deep(.vc-nav-header .vc-nav-arrow.is-left) {
+  left: 0px;
+}
+
+:deep(.vc-nav-header .vc-nav-arrow.is-right) {
+  right: 0px;
+}
+
+:deep(.vc-nav-header .vc-nav-title) {
+  margin: 0 40px; /* 为左右箭头预留空间 */
+  width: auto;
+  font-weight: normal;
+  background: transparent;
+}
 
 </style>
