@@ -6,6 +6,12 @@ const commentsEnabled = ref(true) // 默认启用评论功能
 const aboutContent = ref('') // 关于页面内容
 const isEditingAbout = ref(false) // 是否正在编辑关于页面
 
+// 评论管理相关变量
+const pendingComments = ref([]) // 未审核评论列表
+const approvedComments = ref([]) // 已审核评论列表
+const activeTab = ref('pending') // 当前活动的评论标签：pending 或 approved
+const isLoading = ref(false) // 加载状态
+
 // 格式化预览内容，将换行符转换为<p>标签，将链接格式转换为HTML链接
 const formattedPreviewContent = computed(() => {
   if (!aboutContent.value) return '';
@@ -96,10 +102,91 @@ const formatPreviewText = (text, maxLength = 100) => {
   return previewText.substring(0, maxLength) + '...';
 }
 
-// 加载设置和关于页面内容
+// 加载评论列表
+const loadComments = async (status) => {
+  isLoading.value = true
+  try {
+    const response = await axios.get('/comments', {
+      params: {
+        approval: status
+      }
+    })
+    
+    if (status === 'pending') {
+      pendingComments.value = response.data.comments || []
+    } else {
+      approvedComments.value = response.data.comments || []
+    }
+  } catch (error) {
+    console.error(`获取${status === 'pending' ? '未审核' : '已审核'}评论失败:`, error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// 切换评论标签
+const switchTab = (tab) => {
+  activeTab.value = tab
+  loadComments(tab === 'pending' ? 'pending' : 'approved')
+}
+
+// 审核评论
+const approveComment = async (commentId, isApproved) => {
+  try {
+    await axios.post('/comment_approve', {
+      id: commentId,
+      isApproved: isApproved ? 1 : 0
+    })
+    
+    // 从未审核列表中移除
+    pendingComments.value = pendingComments.value.filter(comment => comment.id !== commentId)
+    
+    // 如果是批准，可以选择刷新已审核列表
+    if (isApproved && activeTab.value === 'approved') {
+      loadComments('approved')
+    }
+  } catch (error) {
+    console.error('审核评论失败:', error)
+    alert('审核操作失败，请重试')
+  }
+}
+
+// 删除评论
+const deleteComment = async (commentId) => {
+  if (!confirm('确定要删除此评论吗？')) return
+  
+  try {
+    await axios.post('/comment_delete', {
+      id: commentId
+    })
+    
+    // 从列表中移除
+    if (activeTab.value === 'pending') {
+      pendingComments.value = pendingComments.value.filter(comment => comment.id !== commentId)
+    } else {
+      approvedComments.value = approvedComments.value.filter(comment => comment.id !== commentId)
+    }
+  } catch (error) {
+    console.error('删除评论失败:', error)
+    alert('删除操作失败，请重试')
+  }
+}
+
+// 获取评论类型名称
+const getCommentTypeName = (type) => {
+  const types = {
+    1: '文章',
+    2: '作品',
+    // 可以添加更多类型
+  }
+  return types[type] || '未知'
+}
+
+// 加载设置、关于页面内容和未审核评论
 onMounted(() => {
   loadSettings()
   loadAboutContent()
+  loadComments('pending') // 默认加载未审核评论
 })
 </script>
 
@@ -115,6 +202,93 @@ onMounted(() => {
           <div class="toggle-indicator" :class="{ 'active': commentsEnabled }"></div>
         </div>
         <span>{{ commentsEnabled ? '评论功能已启用' : '评论功能已禁用' }}</span>
+      </div>
+    </section>
+    
+    <!-- 评论管理 -->
+    <section class="setting-section">
+      <h3>评论管理</h3>
+      <div class="comment-tabs">
+        <button 
+          :class="['tab-button', { active: activeTab === 'pending' }]"
+          @click="switchTab('pending')"
+        >
+          待审核评论
+          <span v-if="pendingComments.length" class="comment-count">{{ pendingComments.length }}</span>
+        </button>
+        <button 
+          :class="['tab-button', { active: activeTab === 'approved' }]"
+          @click="switchTab('approved')"
+        >
+          已审核评论
+        </button>
+      </div>
+      
+      <div class="comment-list">
+        <div v-if="isLoading" class="loading">加载中...</div>
+        
+        <div v-else-if="activeTab === 'pending' && pendingComments.length === 0" class="no-comments">
+          没有待审核的评论
+        </div>
+        
+        <div v-else-if="activeTab === 'approved' && approvedComments.length === 0" class="no-comments">
+          没有已审核的评论
+        </div>
+        
+        <div v-else class="comments">
+          <div 
+            v-for="comment in activeTab === 'pending' ? pendingComments : approvedComments" 
+            :key="comment.id"
+            class="comment-item"
+          >
+            <div class="comment-header">
+              <span class="comment-author">{{ comment.name }}</span>
+              <span class="comment-time">{{ comment.createdAt }}</span>
+              <span class="comment-type">{{ getCommentTypeName(comment.type) }}评论</span>
+            </div>
+            
+            <div class="comment-content">{{ comment.content }}</div>
+            
+            <div class="comment-actions">
+              <template v-if="activeTab === 'pending'">
+                <button @click="approveComment(comment.id, true)" class="approve-btn">
+                  通过
+                </button>
+                <button @click="approveComment(comment.id, false)" class="reject-btn">
+                  拒绝
+                </button>
+              </template>
+              <button @click="deleteComment(comment.id)" class="delete-btn">
+                删除
+              </button>
+            </div>
+            
+            <!-- 显示回复评论 -->
+            <div v-if="comment.replies && comment.replies.length > 0" class="comment-replies">
+              <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
+                <div class="comment-header">
+                  <span class="comment-author">{{ reply.name }}</span>
+                  <span class="comment-time">{{ reply.createdAt }}</span>
+                  <span class="comment-type">回复</span>
+                </div>
+                <div class="comment-content">{{ reply.content }}</div>
+                <div class="comment-actions">
+                  <template v-if="activeTab === 'pending' && reply.isApproved === 0">
+                    <button @click="approveComment(reply.id, true)" class="approve-btn">
+                      通过
+                    </button>
+                    <button @click="approveComment(reply.id, false)" class="reject-btn">
+                      拒绝
+                    </button>
+                  </template>
+                  <button @click="deleteComment(reply.id)" class="delete-btn">
+                    删除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
     
@@ -209,6 +383,134 @@ onMounted(() => {
 
 .toggle-button.active {
   background-color: #499e8d; /* 切换开启时的背景颜色 */
+}
+
+/* 评论管理样式 */
+.comment-tabs {
+  display: flex;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.tab-button {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  position: relative;
+  color: #666;
+}
+
+.tab-button.active {
+  color: #499e8d;
+  border-bottom: 2px solid #499e8d;
+}
+
+.comment-count {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: #f44336;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.comment-list {
+  width: 100%;
+}
+
+.loading, .no-comments {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.comment-item {
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+  border-left: 3px solid #499e8d;
+}
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.comment-author {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.comment-time {
+  color: #999;
+  font-size: 0.8rem;
+  margin-right: 10px;
+}
+
+.comment-type {
+  font-size: 0.8rem;
+  background-color: #e0e0e0;
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+.comment-content {
+  margin-bottom: 10px;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.comment-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.approve-btn, .reject-btn, .delete-btn {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.approve-btn {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.reject-btn {
+  background-color: #FF9800;
+  color: white;
+}
+
+.delete-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.comment-replies {
+  margin-top: 10px;
+  margin-left: 20px;
+  border-left: 2px solid #ddd;
+  padding-left: 15px;
+}
+
+.reply-item {
+  margin-bottom: 10px;
+  padding: 10px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
 }
 
 /* 关于页面编辑样式 */

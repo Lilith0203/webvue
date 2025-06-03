@@ -45,6 +45,7 @@ const fetchComments = async (itemId) => {
     const response = await axios.get(`/comments/${itemId}`, {
       params: {
         type: 2,
+        approval: 'approved'
       }
     })
     comments.value = response.data.comments  // 假设返回的评论数据在 comments 字段中
@@ -70,7 +71,7 @@ const submitComment = async (commentData) => {
       message.alert(response.data.message)
       return
     }
-    comments.value.push(response.data.data.comment)  // 假设返回的评论数据在 comment 字段中
+    //comments.value.push(response.data.data.comment)  // 假设返回的评论数据在 comment 字段中
   } catch (error) {
     console.error('提交评论失败:', error)
     message.alert('提交评论失败：' + error.message)

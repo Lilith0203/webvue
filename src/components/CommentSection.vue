@@ -34,7 +34,7 @@ const submitComment = () => {
     message.alert('请填写姓名和评论内容')
     return
   }
-  //return;
+  
   const currentTime = Date.now();
   if (currentTime - lastCommentTime.value < commentCooldown) {
     message.alert('请稍等再提交评论。');
@@ -55,14 +55,20 @@ const submitComment = () => {
     newComment.value.content = ''
     return;
   }
+  
   const commentData = {
     name: newComment.value.name,
     content: newComment.value.content,
     reply: 0  // 初始化回复数组
   }
+  
   // 调用父组件的提交评论方法
   props.onCommentSubmit(commentData)
   lastCommentTime.value = currentTime; // 更新最后提交时间
+
+  // 显示评论提交成功、等待审核的消息
+  message.alert('评论提交成功，审核通过后将会显示。')
+  
   // 清空输入框
   newComment.value.name = ''
   newComment.value.content = ''

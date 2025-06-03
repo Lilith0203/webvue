@@ -273,7 +273,10 @@ const fetchComments = async () => {
   errorComments.value = null
   try {
     const res = await axios.get(`/comments/${story.value.id}`, {
-      params: { type: 3 }
+      params: { 
+        type: 3,
+        approval: 'approved'
+       }
     })
     comments.value = res.data.comments || []
   } catch (e) {
@@ -293,7 +296,7 @@ const submitComment = async (commentData) => {
       reply: commentData.reply
     })
     if (res.data.success) {
-      comments.value.push(res.data.data.comment)
+      //comments.value.push(res.data.data.comment)
     } else {
       alert(res.data.message)
     }
