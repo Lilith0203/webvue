@@ -1,10 +1,20 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import axios from '../api'
+import { message } from '../utils/message'
 
 const commentsEnabled = ref(true) // 默认启用评论功能
-const aboutContent = ref('') // 关于页面内容
-const isEditingAbout = ref(false) // 是否正在编辑关于页面
+
+// 公告管理相关状态
+const announcementTabs = [
+  { key: 'works', name: '作品页公告' },
+  { key: 'story', name: '剧情页公告' },
+  { key: 'about', name: '关于页公告' }
+  // 可以添加更多页面的公告
+]
+const activeAnnouncementTab = ref('works')
+const currentAnnouncement = ref('')
+const announcementData = ref({})
 
 // 评论管理相关变量
 const pendingComments = ref([]) // 未审核评论列表
@@ -12,17 +22,67 @@ const approvedComments = ref([]) // 已审核评论列表
 const activeTab = ref('pending') // 当前活动的评论标签：pending 或 approved
 const isLoading = ref(false) // 加载状态
 
-// 格式化预览内容，将换行符转换为<p>标签，将链接格式转换为HTML链接
-const formattedPreviewContent = computed(() => {
-  if (!aboutContent.value) return '';
+// 切换公告标签
+const switchAnnouncementTab = (tabKey) => {
+  activeAnnouncementTab.value = tabKey
+  currentAnnouncement.value = announcementData.value[`announcement_${tabKey}`] || ''
+}
+
+// 加载公告数据
+const loadAnnouncements = async () => {
+  try {
+    const keys = announcementTabs.map(tab => `announcement_${tab.key}`).join(',')
+    const response = await axios.get('/config/load', {
+      params: { keys }
+    })
+    
+    if (response.data && response.data.success) {
+      announcementData.value = response.data.data
+      // 设置当前选中标签的公告内容
+      currentAnnouncement.value = announcementData.value[`announcement_${activeAnnouncementTab.value}`] || ''
+    }
+  } catch (error) {
+    console.error('加载公告失败:', error)
+  }
+}
+
+// 保存当前公告
+const saveAnnouncement = async () => {
+  try {
+    const key = `announcement_${activeAnnouncementTab.value}`
+    await axios.post('/config/set', {
+      [key]: currentAnnouncement.value
+    })
+    
+    // 更新本地数据
+    announcementData.value[key] = currentAnnouncement.value
+    message.alert('公告保存成功')
+  } catch (error) {
+    console.error('保存公告失败:', error)
+    message.alert('保存失败，请重试')
+  }
+}
+
+// 清空当前公告
+const clearAnnouncement = () => {
+  currentAnnouncement.value = ''
+}
+
+// 格式化公告预览内容，将换行符转换为<p>标签，将链接格式转换为HTML链接
+const formattedAnnouncementPreview = computed(() => {
+  if (!currentAnnouncement.value) return '';
   
   // 将内容分割成段落
-  const paragraphs = aboutContent.value.split('\n').filter(line => line.trim() !== '');
+  const paragraphs = currentAnnouncement.value.split('\n').filter(line => line.trim() !== '');
   
-  // 处理每个段落，转换链接格式
+  // 处理每个段落，转换链接和颜色格式
   return paragraphs.map(paragraph => {
-    // 转换链接格式 [文本](链接)
-    const withLinks = paragraph.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+    // 首先转换颜色标记 [color:red|文本内容]
+    let withColors = paragraph.replace(/\[color:([a-z#0-9]+)\|(.*?)\]/g, '<span style="color:$1">$2</span>');
+    
+    // 然后转换链接格式 [文本](链接)
+    const withLinks = withColors.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+    
     return `<p>${withLinks}</p>`;
   }).join('');
 });
@@ -53,53 +113,6 @@ const loadSettings = async() => {
   } catch (error) {
     console.error('获取配置失败:', error)
   }
-}
-
-// 加载关于页面内容
-const loadAboutContent = async() => {
-  try {
-    const response = await axios.get('/about')
-    aboutContent.value = response.data.data.content || ''
-  } catch (error) {
-    console.error('获取关于页面内容失败:', error)
-  }
-}
-
-// 保存关于页面内容
-const saveAboutContent = async() => {
-  try {
-    await axios.post('/admin/about', { content: aboutContent.value })
-    isEditingAbout.value = false
-  } catch (error) {
-    console.error('保存关于页面内容失败:', error)
-    alert('保存失败，请重试')
-  }
-}
-
-// 开始编辑关于页面
-const startEditAbout = () => {
-  isEditingAbout.value = true
-}
-
-// 取消编辑关于页面
-const cancelEditAbout = () => {
-  isEditingAbout.value = false
-  // 重新加载内容，放弃更改
-  loadAboutContent()
-}
-
-// 格式化预览文本，保留换行（用于简短预览）
-const formatPreviewText = (text, maxLength = 100) => {
-  if (!text) return '';
-  
-  // 替换换行符为空格，避免在预览中显示换行
-  const previewText = text.replace(/\n/g, ' ');
-  
-  if (previewText.length <= maxLength) {
-    return previewText;
-  }
-  
-  return previewText.substring(0, maxLength) + '...';
 }
 
 // 加载评论列表
@@ -182,11 +195,11 @@ const getCommentTypeName = (type) => {
   return types[type] || '未知'
 }
 
-// 加载设置、关于页面内容和未审核评论
+// 加载设置、公告和未审核评论
 onMounted(() => {
   loadSettings()
-  loadAboutContent()
   loadComments('pending') // 默认加载未审核评论
+  loadAnnouncements() // 加载公告数据
 })
 </script>
 
@@ -291,31 +304,43 @@ onMounted(() => {
         </div>
       </div>
     </section>
-    
-    <!-- 关于页面设置 -->
+
+    <!-- 公告管理 -->
     <section class="setting-section">
-      <h3>关于页面</h3>
-      <div v-if="isEditingAbout" class="about-edit">
-        <textarea 
-          v-model="aboutContent" 
-          class="about-textarea"
-          rows="10"
-          placeholder="请输入关于页面内容..."
-        ></textarea>
-        <div class="format-tips">
-          支持链接格式：[链接文本](https://example.com)
-        </div>
-        <div class="edit-actions">
-          <button @click="saveAboutContent" class="save-btn">保存</button>
-          <button @click="cancelEditAbout" class="cancel-btn">取消</button>
-        </div>
+      <h3>公告管理</h3>
+      <div class="announcement-tabs">
+        <button 
+          v-for="tab in announcementTabs" 
+          :key="tab.key"
+          :class="['tab-button', { active: activeAnnouncementTab === tab.key }]"
+          @click="switchAnnouncementTab(tab.key)"
+        >
+          {{ tab.name }}
+        </button>
       </div>
-      <div v-else class="about-preview">
-        <div class="about-content-preview">
-          <div v-if="aboutContent" v-html="formattedPreviewContent" class="preview-text"></div>
-          <p v-else class="empty-content">暂无内容</p>
+      
+      <div class="announcement-editor">
+        <textarea 
+          v-model="currentAnnouncement" 
+          rows="5"
+          placeholder="输入该页面的公告内容..."
+          class="announcement-textarea"
+        ></textarea>
+        
+        <div class="format-tips">
+          支持链接格式：[链接文本](https://example.com)<br>
+          支持彩色文字：[color:red|红色文字] 或 [color:#ff5500|自定义颜色]
         </div>
-        <button @click="startEditAbout" class="edit-btn">编辑内容</button>
+        
+        <div class="preview-container" v-if="currentAnnouncement">
+          <h4>预览</h4>
+          <div class="announcement-preview" v-html="formattedAnnouncementPreview"></div>
+        </div>
+        
+        <div class="edit-actions">
+          <button @click="saveAnnouncement" class="save-btn">保存</button>
+          <button @click="clearAnnouncement" class="cancel-btn">清空</button>
+        </div>
       </div>
     </section>
   </div>
@@ -386,7 +411,7 @@ onMounted(() => {
 }
 
 /* 评论管理样式 */
-.comment-tabs {
+.comment-tabs, .announcement-tabs {
   display: flex;
   margin-bottom: 15px;
   border-bottom: 1px solid #eee;
@@ -514,16 +539,16 @@ onMounted(() => {
 }
 
 /* 关于页面编辑样式 */
-.about-edit {
+.announcement-editor {
   width: 100%;
 }
 
-.about-textarea {
+.announcement-textarea {
   width: 100%;
   padding: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   line-height: 1.6;
   resize: vertical;
   margin-bottom: 10px;
@@ -533,6 +558,7 @@ onMounted(() => {
   display: flex;
   justify-content: center; /* 居中显示按钮 */
   gap: 10px;
+  margin-top: 15px;
 }
 
 .save-btn, .cancel-btn, .edit-btn {
@@ -599,12 +625,48 @@ onMounted(() => {
   line-height: 1.4;
 }
 
+/* 公告预览样式 */
+.preview-container {
+  margin-top: 15px;
+}
+
+.preview-container h4 {
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.announcement-preview {
+  padding: 10px;
+  background-color: #fff7e6;
+  border-left: 4px solid #ffb74d;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  line-height: 1.5;
+  font-size: 0.9rem;
+}
+
 @media (min-width: 1024px) {
   .admin-panel {
     min-height: 100vh;
     max-width: 800px;
     margin-left: auto;
     margin-right: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-panel {
+    padding: 0 15px;
+  }
+  
+  .tab-button {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+  }
+  
+  .announcement-textarea, .about-textarea {
+    font-size: 0.9rem;
   }
 }
 </style>

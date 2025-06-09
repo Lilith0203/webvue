@@ -5,6 +5,7 @@ import axios from '../api' // Assuming you have an axios instance configured
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import 'v-calendar/style.css'
+import { confirm } from '../utils/confirm'
 
 // 获取认证状态
 const authStore = useAuthStore()
@@ -128,7 +129,8 @@ const deletePlan = async () => {
     return
   }
 
-  if (!editingPlan.value.id || !confirm('确定要删除该计划吗？')) {
+  const confirmed = await confirm('确定要删除该计划吗？')
+  if (!editingPlan.value.id || !confirmed) {
     return
   }
 
@@ -489,7 +491,10 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  width: 100%; /* 确保计划项占满容器宽度 */
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+  overflow: hidden;
 }
 
 .plan-title {
@@ -500,6 +505,7 @@ onMounted(() => {
   text-overflow: ellipsis;
   margin: 0;
   padding: 1px 0;
+  max-width: 100%;
 }
 
 .plan-status {
@@ -552,9 +558,16 @@ onMounted(() => {
 
 /* 日历单元格基础样式 */
 :deep(.vc-day) {
+  min-width: 0;
+  height: auto;
   padding: 4px;
   border: 1px solid var(--color-border);
   transition: all 0.2s;
+  box-sizing: border-box;
+  overflow: hidden;
+  flex: 1 !important;
+  position: relative !important;
+  min-height: 10px !important;
 }
 
 /* 日期内容容器 */
@@ -563,6 +576,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow: hidden;
 }
 
 /* 日期数字样式 */
@@ -591,15 +605,51 @@ onMounted(() => {
   display: none; /* 完全隐藏空容器 */
 }
 
-/* 日历网格样式 */
+/* 删除之前的grid网格修改，恢复默认布局 */
 :deep(.vc-weeks) {
-  padding: 0; /* 移除网格padding */
+  display: block !important; /* 恢复原始布局 */
+}
+
+:deep(.vc-weekdays) {
+  display: flex !important;
+  width: 100% !important;
 }
 
 :deep(.vc-weekday) {
-  padding: 6px 0;
-  font-size: 0.8rem;
-  font-weight: 500;
+  position: relative !important;
+  flex: 1 !important;
+  padding: 8px 0 !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+}
+
+:deep(.vc-week) {
+  display: flex !important;
+  width: 100% !important;
+}
+
+/* 调整日历主容器 */
+:deep(.vc-container) {
+  background-color: transparent;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+:deep(.vc-bordered) {
+  border: none;
+}
+
+:deep(.vc-pane-container) {
+  width: 100% !important;
+}
+
+:deep(.vc-pane) {
+  width: 100% !important;
+}
+
+:deep(.vc-pane-layout) {
+  width: 100% !important;
 }
 
 /* 今天的高亮样式 */
@@ -613,26 +663,7 @@ onMounted(() => {
 }
 
 /* 日历头部样式 */
-:deep(.vc-container) {
-  --vc-accent-50: #e3f2fd;
-  --vc-accent-100: #bbdefb;
-  --vc-accent-200: #90caf9;
-  --vc-accent-300: #64b5f6;
-  --vc-accent-400: #42a5f5;
-  --vc-accent-500: #2196f3;
-  --vc-accent-600: #1e88e5;
-  --vc-accent-700: #1976d2;
-  --vc-accent-800: #1565c0;
-  --vc-accent-900: #0d47a1;
-  
-  border: none;
-  border-radius: 12px;
-  overflow: hidden;
-  width: 100%;
-}
-
 :deep(.vc-header) {
-  background-color: var(--color-background);
   border-bottom: 1px solid var(--color-border);
   display: flex;
   align-items: center;
@@ -683,6 +714,11 @@ onMounted(() => {
 :deep(.vc-highlight) {
   width: 20px;
   height: 20px;
+}
+
+:deep(.vc-header .vc-arrow) {
+  background-color: transparent;
+  display: none;
 }
 
 /* 计划项样式优化 */
@@ -886,4 +922,38 @@ textarea {
   background: transparent;
 }
 
+/* 添加工具提示效果 */
+.plan-item:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 100%;
+  margin-bottom: 5px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  white-space: normal;
+  max-width: 200px;
+  z-index: 100;
+  word-break: break-word;
+  pointer-events: none;
+}
+
+/* 添加小箭头 */
+.plan-item:hover::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 100%;
+  border-width: 5px;
+  border-style: solid;
+  border-color: transparent transparent rgba(0, 0, 0, 0.8) transparent;
+  pointer-events: none;
+}
+
 </style>
+

@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useRouter, useRoute } from 'vue-router'
 
 import ImagePreview from '../components/ImagePreview.vue'
+import Announcement from '../components/Announcement.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -1063,8 +1064,15 @@ const navigateToStoryDetail = (storyId) => {
 </script>
 
 <template>
+  <Announcement 
+    title="剧情百科"
+    configKey="story" 
+    :showTitle="true"
+    :compact="true"
+  />
+
   <div class="story-view">
-    <h1 class="page-title">剧情百科</h1>
+    <!--<h1 class="page-title">剧情百科</h1>-->
     
     <!-- 导航菜单 -->
     <div class="story-sets-nav">

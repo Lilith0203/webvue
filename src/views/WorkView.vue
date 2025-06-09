@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import WorkEditor from '../components/WorkEditor.vue'
 import { confirm } from '../utils/confirm'
 import { getTagColor, getTextColor, initTagColors } from '../utils/tags'
+import Announcement from '../components/Announcement.vue'
 
 const authStore = useAuthStore()
 //判断是否有编辑权限
@@ -503,6 +504,15 @@ onUnmounted(() => {
 </script>
 
 <template>
+  <!-- 在页面顶部添加公告组件 -->
+   <div class ="announcement">
+    <Announcement 
+      title="公告"
+      configKey="works" 
+      :showTitle="true"
+      :compact="true"
+    />
+  </div>
   
   <WorkEditor 
     v-if="showEditor"
@@ -663,6 +673,14 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.announcement {
+  border-radius: 15px;
+  padding: 0 20px 10px;
+  background-color: #fff;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  margin-bottom: 15px;
+}
+
 .work-view {
   padding: 20px 0;
   max-width: 1200px;
