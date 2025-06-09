@@ -613,6 +613,7 @@ onMounted(() => {
 :deep(.vc-weekdays) {
   display: flex !important;
   width: 100% !important;
+  border-bottom: 1px solid var(--color-border);
 }
 
 :deep(.vc-weekday) {
@@ -627,6 +628,7 @@ onMounted(() => {
 :deep(.vc-week) {
   display: flex !important;
   width: 100% !important;
+  border-right: 1px solid var(--color-border);
 }
 
 /* 调整日历主容器 */
@@ -719,6 +721,11 @@ onMounted(() => {
 :deep(.vc-header .vc-arrow) {
   background-color: transparent;
   display: none;
+}
+
+:deep(.vc-day) {
+  border-right: none;
+  border-top: none;
 }
 
 /* 计划项样式优化 */
