@@ -126,6 +126,7 @@ onMounted(fetchContent)
 }
 
 :deep(.about-content p) {
+  color: #949494;
 }
 
 .about p a {

@@ -1064,12 +1064,14 @@ const navigateToStoryDetail = (storyId) => {
 </script>
 
 <template>
-  <Announcement 
-    title="剧情百科"
-    configKey="story" 
-    :showTitle="true"
-    :compact="true"
-  />
+  <div class="announcement">
+    <Announcement 
+      title="剧情百科"
+      configKey="story" 
+      :showTitle="true"
+      :compact="true"
+    />
+  </div>
 
   <div class="story-view">
     <!--<h1 class="page-title">剧情百科</h1>-->
@@ -1744,6 +1746,14 @@ const navigateToStoryDetail = (storyId) => {
 </template>
 
 <style scoped>
+.announcement {
+  border-radius: 15px;
+  padding: 0 15px 10px;
+  background-color: #fff;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.05);
+  margin-bottom: 15px;
+}
+
 .story-view {
   padding: 20px 0;
   max-width: 1200px;

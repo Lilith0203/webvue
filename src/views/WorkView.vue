@@ -675,9 +675,9 @@ onUnmounted(() => {
 <style scoped>
 .announcement {
   border-radius: 15px;
-  padding: 0 20px 10px;
+  padding: 0 15px 10px;
   background-color: #fff;
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   margin-bottom: 15px;
 }
 
