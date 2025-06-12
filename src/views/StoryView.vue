@@ -1751,7 +1751,6 @@ const navigateToStoryDetail = (storyId) => {
   padding: 0 15px 10px;
   background-color: #fff;
   box-shadow: 0 2px 2px rgba(0, 0, 0, 0.05);
-  margin-bottom: 15px;
 }
 
 .story-view {
