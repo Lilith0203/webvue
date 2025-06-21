@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import axios from '../api'
 import { message } from '../utils/message'
+import { confirm } from '../utils/confirm'
 
 const commentsEnabled = ref(true) // 默认启用评论功能
 
@@ -21,6 +22,16 @@ const pendingComments = ref([]) // 未审核评论列表
 const approvedComments = ref([]) // 已审核评论列表
 const activeTab = ref('pending') // 当前活动的评论标签：pending 或 approved
 const isLoading = ref(false) // 加载状态
+
+// 新增：分页相关状态
+const pagination = ref({
+  page: 1,
+  pageSize: 10,
+  totalCount: 0,
+  totalPages: 0,
+  hasNextPage: false,
+  hasPrevPage: false
+})
 
 // 切换公告标签
 const switchAnnouncementTab = (tabKey) => {
@@ -116,12 +127,14 @@ const loadSettings = async() => {
 }
 
 // 加载评论列表
-const loadComments = async (status) => {
+const loadComments = async (status, page = 1) => {
   isLoading.value = true
   try {
     const response = await axios.get('/comments', {
       params: {
-        approval: status
+        approval: status,
+        page: page,
+        pageSize: pagination.value.pageSize
       }
     })
     
@@ -129,6 +142,14 @@ const loadComments = async (status) => {
       pendingComments.value = response.data.comments || []
     } else {
       approvedComments.value = response.data.comments || []
+    }
+    
+    // 更新分页信息
+    if (response.data.pagination) {
+      pagination.value = {
+        ...pagination.value,
+        ...response.data.pagination
+      }
     }
   } catch (error) {
     console.error(`获取${status === 'pending' ? '未审核' : '已审核'}评论失败:`, error)
@@ -140,7 +161,29 @@ const loadComments = async (status) => {
 // 切换评论标签
 const switchTab = (tab) => {
   activeTab.value = tab
-  loadComments(tab === 'pending' ? 'pending' : 'approved')
+  pagination.value.page = 1 // 重置页码
+  loadComments(tab === 'pending' ? 'pending' : 'approved', 1)
+}
+
+// 新增：翻页函数
+const goToPage = (page) => {
+  if (page < 1 || page > pagination.value.totalPages) return
+  pagination.value.page = page
+  loadComments(activeTab.value === 'pending' ? 'pending' : 'approved', page)
+}
+
+// 上一页
+const prevPage = () => {
+  if (pagination.value.hasPrevPage) {
+    goToPage(pagination.value.page - 1)
+  }
+}
+
+// 下一页
+const nextPage = () => {
+  if (pagination.value.hasNextPage) {
+    goToPage(pagination.value.page + 1)
+  }
 }
 
 // 审核评论
@@ -151,13 +194,8 @@ const approveComment = async (commentId, isApproved) => {
       isApproved: isApproved ? 1 : 0
     })
     
-    // 从未审核列表中移除
-    pendingComments.value = pendingComments.value.filter(comment => comment.id !== commentId)
-    
-    // 如果是批准，可以选择刷新已审核列表
-    if (isApproved && activeTab.value === 'approved') {
-      loadComments('approved')
-    }
+    // 重新加载当前页面的评论
+    loadComments(activeTab.value === 'pending' ? 'pending' : 'approved', pagination.value.page)
   } catch (error) {
     console.error('审核评论失败:', error)
     alert('审核操作失败，请重试')
@@ -166,22 +204,19 @@ const approveComment = async (commentId, isApproved) => {
 
 // 删除评论
 const deleteComment = async (commentId) => {
-  if (!confirm('确定要删除此评论吗？')) return
+  if (await confirm('确定要删除吗？')) {
   
-  try {
-    await axios.post('/comment_delete', {
-      id: commentId
-    })
-    
-    // 从列表中移除
-    if (activeTab.value === 'pending') {
-      pendingComments.value = pendingComments.value.filter(comment => comment.id !== commentId)
-    } else {
-      approvedComments.value = approvedComments.value.filter(comment => comment.id !== commentId)
+    try {
+      await axios.post('/comment_delete', {
+        id: commentId
+      })
+      
+      // 重新加载当前页面的评论
+      loadComments(activeTab.value === 'pending' ? 'pending' : 'approved', pagination.value.page)
+    } catch (error) {
+      console.error('删除评论失败:', error)
+      alert('删除操作失败，请重试')
     }
-  } catch (error) {
-    console.error('删除评论失败:', error)
-    alert('删除操作失败，请重试')
   }
 }
 
@@ -190,9 +225,29 @@ const getCommentTypeName = (type) => {
   const types = {
     1: '文章',
     2: '作品',
+    3: '剧情',
     // 可以添加更多类型
   }
   return types[type] || '未知'
+}
+
+// 根据type和itemId生成跳转链接
+const getCommentLink = (type, itemId) => {
+  const baseUrl = window.location.origin
+  const routes = {
+    1: `/article/${itemId}`, // 文章详情页
+    2: `/works/${itemId}`,   // 作品详情页
+    3: `/story/${itemId}`,   // 剧情详情页
+  }
+  return routes[type] ? `${baseUrl}${routes[type]}` : null
+}
+
+// 跳转到评论对应的页面
+const goToCommentPage = (type, itemId) => {
+  const link = getCommentLink(type, itemId)
+  if (link) {
+    window.open(link, '_blank')
+  }
 }
 
 // 加载设置、公告和未审核评论
@@ -257,7 +312,13 @@ onMounted(() => {
             <div class="comment-header">
               <span class="comment-author">{{ comment.name }}</span>
               <span class="comment-time">{{ comment.createdAt }}</span>
-              <span class="comment-type">{{ getCommentTypeName(comment.type) }}评论</span>
+              <span 
+                class="comment-type" 
+                @click="goToCommentPage(comment.type, comment.itemId)"
+                :class="{ 'clickable': getCommentLink(comment.type, comment.itemId) }"
+              >
+                {{ getCommentTypeName(comment.type) }}：{{ comment.itemId }}
+              </span>
             </div>
             
             <div class="comment-content">{{ comment.content }}</div>
@@ -302,6 +363,30 @@ onMounted(() => {
             </div>
           </div>
         </div>
+      </div>
+      
+      <!-- 新增：分页组件 -->
+      <div v-if="pagination.totalPages > 1" class="pagination">
+        <button 
+          @click="prevPage" 
+          :disabled="!pagination.hasPrevPage"
+          class="page-btn"
+        >
+          上一页
+        </button>
+        
+        <span class="page-info">
+          第 {{ pagination.page }} 页，共 {{ pagination.totalPages }} 页
+          (共 {{ pagination.totalCount }} 条评论)
+        </span>
+        
+        <button 
+          @click="nextPage" 
+          :disabled="!pagination.hasNextPage"
+          class="page-btn"
+        >
+          下一页
+        </button>
       </div>
     </section>
 
@@ -458,8 +543,8 @@ onMounted(() => {
 }
 
 .comment-item {
-  margin-bottom: 20px;
-  padding: 15px;
+  margin-bottom: 10px;
+  padding: 10px;
   border-radius: 4px;
   background-color: #f9f9f9;
   border-left: 3px solid #499e8d;
@@ -484,10 +569,20 @@ onMounted(() => {
 }
 
 .comment-type {
-  font-size: 0.8rem;
-  background-color: #e0e0e0;
-  padding: 2px 6px;
-  border-radius: 10px;
+  font-size: 0.75rem;
+  color: #fff;
+  background-color: #bbb7b7;
+  padding: 1px 6px 0px;
+  border-radius: 3px;
+}
+
+.comment-type.clickable {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.comment-type.clickable:hover {
+  background-color: #499e8d;
 }
 
 .comment-content {
@@ -502,11 +597,11 @@ onMounted(() => {
 }
 
 .approve-btn, .reject-btn, .delete-btn {
-  padding: 4px 8px;
+  padding: 2px 7px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .approve-btn {
@@ -644,6 +739,46 @@ onMounted(() => {
   margin-bottom: 15px;
   line-height: 1.5;
   font-size: 0.9rem;
+}
+
+/* 新增：分页样式 */
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin-top: 20px;
+  padding: 15px 0;
+  border-top: 1px solid #eee;
+}
+
+.page-btn {
+  padding: 2px 4px;
+  border: none;
+  background-color: transparent;
+  color: #333;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background-color: #499e8d;
+  color: white;
+  border-color: #499e8d;
+}
+
+.page-btn:disabled {
+  color: #ccc;
+  cursor: not-allowed;
+  border-color: #eee;
+}
+
+.page-info {
+  font-size: 0.85rem;
+  color: #666;
+  white-space: nowrap;
 }
 
 @media (min-width: 1024px) {

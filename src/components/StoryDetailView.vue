@@ -523,7 +523,7 @@ onMounted(() => {
 }
 .recommended {
   color: #fd964c;
-  font-size: 1rem;
+  font-size: 0.8rem;
   background: #fff7e6;
   border-radius: 4px;
   padding: 2px 8px;
