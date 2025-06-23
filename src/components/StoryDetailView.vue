@@ -363,7 +363,7 @@ onMounted(() => {
           <span v-if="story.isRecommended" class="recommended">推荐</span>
         </div>
         <h1 class="story-title">{{ story.title }}</h1>
-        <div class="meta">
+        <div class="meta meta-time">
           <span v-if="story.onlineAt" class="online-time">上线时间：{{ story.onlineAt }}</span>
           <span v-if="story.onlineAt && story.link" class="meta-sep">|</span>
           <span v-if="story.link" class="story-link">
@@ -533,16 +533,20 @@ onMounted(() => {
   font-size: 1.1rem;
   font-weight: 600;
   color: #333;
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0;
 }
 .meta {
   color: #888;
   font-size: 0.95rem;
-  margin-bottom: 10px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
+.meta-time span {
+  line-height: 24px;
+}
+
 .online-time {
   color: #888;
   font-size: 0.9rem;
@@ -578,7 +582,7 @@ onMounted(() => {
   margin-right: 0;
 }
 .content-block {
-  margin-bottom: 15px;
+  margin: 5px 0 15px;
   font-size: 0.95rem;
   color: #444;
   line-height: 1.6;
@@ -616,9 +620,7 @@ onMounted(() => {
 .story-image-area:hover .story-thumbnail {
   transform: scale(1.05);
 }
-.detail-section {
-  margin-top: 36px;
-}
+
 .detail-header {
   display: flex;
   align-items: center;
@@ -638,7 +640,7 @@ onMounted(() => {
   border-radius: 6px;
   min-height: 80px;
   color: #333;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   margin-bottom: 12px;
   border: 1px solid #e6e6e6;
 }
@@ -859,13 +861,13 @@ onMounted(() => {
 }
 
 .sets-meta {
-  margin-top: 8px;
   color: #888;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
+  margin-bottom: 10px;
 }
 
 .sets-label {

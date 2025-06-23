@@ -127,6 +127,21 @@ onMounted(fetchContent)
 
 :deep(.about-content p) {
   color: #949494;
+  display: block;
+  line-height: 1.6;
+}
+
+:deep(.about-content span) {
+  display: inline;
+  vertical-align: middle;
+}
+
+:deep(.about-content i) {
+  vertical-align: middle;
+  display: inline-block;
+  line-height: 1;
+  position: relative;
+  top: -0.1em;
 }
 
 .about p a {

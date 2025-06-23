@@ -7,7 +7,10 @@ import { isValidComment } from '../utils/validation'
 const authStore = useAuthStore()
 const lastCommentTime = ref(0);
 const commentCooldown = 10000; // 10秒冷却时间
-  
+
+// 评论截断字符数配置
+const COMMENT_TRUNCATE_LENGTH = 100
+
 const props = defineProps({
   comments: {
     type: Array,
@@ -27,6 +30,22 @@ const newComment = ref({
   name: '',
   content: ''
 })
+  
+// 为每条评论维护展开状态
+const expandedComments = ref({})
+
+const toggleExpand = (id) => {
+  expandedComments.value[id] = !expandedComments.value[id]
+}
+
+// 计算需要截断的文本长度，为展开按钮留出空间
+const getTruncatedText = (text, maxLength = COMMENT_TRUNCATE_LENGTH) => {
+  if (text.length <= maxLength) return text;
+  
+  // 简单截断，为"展开"按钮预留空间
+  const truncated = text.substring(0, maxLength);
+  return truncated;
+}
   
 // 提交评论
 const submitComment = () => {
@@ -77,6 +96,13 @@ const submitComment = () => {
 const commentDelete = async(commentId) => {
   props.onCommentDelete(commentId)
 }
+
+const handleCommentClick = (event, commentId) => {
+  // 只在折叠状态下处理点击
+  if (!expandedComments.value[commentId]) {
+    toggleExpand(commentId);
+  }
+}
 </script>
 
 <template>
@@ -89,7 +115,35 @@ const commentDelete = async(commentId) => {
           <span class="comm-time">{{ comment.createdAt }}</span>
         </div>
         <div class="comment-content">
-          <div class="comm-text">{{ comment.content }}</div>
+          <div
+            :class="expandedComments[comment.id] ? 'comm-text-expanded' : 'comm-text-collapsed'"
+            :data-comment-id="comment.id"
+            @click="!expandedComments[comment.id] && comment.content.length > COMMENT_TRUNCATE_LENGTH && toggleExpand(comment.id)"
+          >
+            <span v-if="!expandedComments[comment.id]">
+              {{ getTruncatedText(comment.content) }}
+              <span v-if="comment.content.length > COMMENT_TRUNCATE_LENGTH">...</span>
+              <!-- 折叠状态下显示展开按钮 -->
+              <button 
+                v-if="comment.content.length > COMMENT_TRUNCATE_LENGTH"
+                class="expand-btn" 
+                @click.stop="toggleExpand(comment.id)"
+              >
+                展开
+              </button>
+            </span>
+            <span v-else>
+              {{ comment.content }}
+              <!-- 展开状态下显示收起按钮 -->
+              <button 
+                v-if="comment.content.length > COMMENT_TRUNCATE_LENGTH"
+                class="collapse-btn" 
+                @click.stop="toggleExpand(comment.id)"
+              >
+                收起
+              </button>
+            </span>
+          </div>
           <div class="op">
             <a href="#" class="reply-link">回复</a>
             <a v-if="authStore.isAuthenticated" 
@@ -170,9 +224,9 @@ const commentDelete = async(commentId) => {
 }
 
 .comment-item {
-  border-radius: 5px;
+  border-radius: 8px;
   background-color: rgba(0,0,0,0.03);
-  padding: 10px 20px;
+  padding: 10px 15px 6px;
   font-size: 0.9rem;
   margin: 10px 0;
 }
@@ -185,9 +239,56 @@ const commentDelete = async(commentId) => {
 
 .comment-content {
   align-items: flex-end;
+  text-indent: 2em;
 }
 
-.comm-text {
+/* 修改折叠样式 */
+.comm-text-collapsed {
+  overflow: hidden;
+  position: relative;
+  padding-right: 0;
+  cursor: pointer;
+}
+
+.comm-text-expanded {
+  overflow: visible;
+  padding-right: 0;
+  cursor: default;
+}
+
+/* 展开按钮样式 */
+.expand-btn {
+  background: none;
+  border: none;
+  color: var(--color-blue);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 2px;
+  margin-left: 2px;
+  display: inline;
+}
+
+.expand-btn:hover {
+  color: var(--color-blue-hover, #2980b9);
+}
+
+/* 收起按钮样式 */
+.collapse-btn {
+  background: none;
+  border: none;
+  color: var(--color-blue);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 2px;
+  margin-left: 2px;
+  display: inline;
+}
+
+.collapse-btn:hover {
+  color: var(--color-blue-hover, #2980b9);
+}
+
+.comm-text, .reply-content {
   text-indent: 2em;
   padding: 4px 0 0 0;
 }
@@ -213,5 +314,58 @@ const commentDelete = async(commentId) => {
 
 .comm-name span {
   color: var(--color-blue)
+}
+
+/* 回复部分样式 */
+.replies-section {
+  margin-top: 8px;
+  padding-left: 1em;
+  border-left: 2px solid #e5e5e5;
+}
+
+.replies-title {
+  font-size: 0.95em;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+.replies-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reply-item {
+  background: #f7f7f7;
+  border-radius: 4px;
+  padding: 6px 12px;
+}
+
+.reply-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85em;
+  color: #999;
+}
+
+.reply-author {
+  font-weight: bold;
+  color: var(--color-blue);
+}
+
+.reply-content-collapsed {
+  max-height: 4.5em;
+  overflow: hidden;
+  position: relative;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.reply-content-expanded {
+  max-height: none;
+  overflow: visible;
+  -webkit-line-clamp: unset;
 }
 </style>
