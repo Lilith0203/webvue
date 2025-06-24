@@ -1073,6 +1073,12 @@ const showTooltip = (event, content) => {
 }
 
 const showCustomTooltip = (event, content) => {
+  // 检查文本中是否包含链接格式 [文本](链接)
+  if (content.includes('[') && content.includes('](') && content.includes(')')) {
+    // 如果包含链接，不显示tooltip，让链接正常工作
+    return;
+  }
+  
   // 如果已存在并且点击的是同一个元素，则移除
   const existingTooltip = document.querySelector('.custom-tooltip');
   if (existingTooltip) {
