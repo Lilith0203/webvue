@@ -583,7 +583,7 @@ onMounted(() => {
 }
 .content-block {
   margin: 5px 0 15px;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: #444;
   line-height: 1.6;
   background: #f8f8f8;
@@ -751,10 +751,11 @@ onMounted(() => {
 }
 .relation-type {
   color: #fd964c;
-  font-size: 0.95em;
+  font-size: 0.85rem;
   margin-right: 4px;
 }
 .relation-title {
+  font-size: 0.9rem;
   display: flex;
   align-items: center;
   min-height: 28px;
@@ -880,7 +881,7 @@ onMounted(() => {
 }
 
 .set-link {
-  color: #4a90e2;
+  color: var(--color-text);
   text-decoration: none;
 }
 

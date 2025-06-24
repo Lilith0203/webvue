@@ -133,7 +133,6 @@ onMounted(fetchContent)
 
 :deep(.about-content span) {
   display: inline;
-  vertical-align: middle;
 }
 
 :deep(.about-content i) {
@@ -141,7 +140,7 @@ onMounted(fetchContent)
   display: inline-block;
   line-height: 1;
   position: relative;
-  top: -0.1em;
+  top: -0.05em;
 }
 
 .about p a {

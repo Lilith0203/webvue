@@ -2030,11 +2030,23 @@ const navigateToStoryDetail = (storyId) => {
   font-size: 0.85rem;
   line-height: 1.5;
   color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  display: block;
+}
+
+.story-content-text * {
+  display: inline;
+  white-space: nowrap;
 }
 
 .story-link {
   flex-shrink: 0;
   line-height: 1;
+  display: flex;
+  align-items: flex-end;
 }
 
 .story-link a {
