@@ -72,6 +72,9 @@ const targetPage = ref('');
 // 添加一个新的响应式状态来控制body滚动
 const isModalOpen = ref(false)
 
+// 添加展开的故事状态
+const expandedStories = ref([])
+
 // 检查菜单是否展开
 const isMenuExpanded = (setId) => {
   return expandedMenus.value[setId] === true
@@ -1061,6 +1064,64 @@ const navigateToStoryDetail = (storyId) => {
   router.push(`/story/${storyId}?from=list`)
 }
 
+// 显示tooltip
+const showTooltip = (event, content) => {
+  // 在移动端，点击时显示alert（简单方案）
+  if (window.innerWidth <= 768) {
+    alert(content)
+  }
+}
+
+const showCustomTooltip = (event, content) => {
+  // 如果已存在并且点击的是同一个元素，则移除
+  const existingTooltip = document.querySelector('.custom-tooltip');
+  if (existingTooltip) {
+    // 判断是否点在同一个元素上
+    if (existingTooltip.__owner === event.target) {
+      existingTooltip.remove();
+      return;
+    } else {
+      existingTooltip.remove();
+    }
+  }
+
+  // 创建tooltip
+  const tooltip = document.createElement('div');
+  tooltip.className = 'custom-tooltip';
+  tooltip.textContent = content;
+  tooltip.style.position = 'absolute';
+  tooltip.style.background = 'rgba(0,0,0,0.85)';
+  tooltip.style.color = '#fff';
+  tooltip.style.padding = '8px 12px';
+  tooltip.style.borderRadius = '4px';
+  tooltip.style.fontSize = '14px';
+  tooltip.style.lineHeight = '1.5';
+  tooltip.style.whiteSpace = 'pre-wrap';
+  tooltip.style.zIndex = 9999;
+  tooltip.style.maxWidth = '80vw';
+
+  // 定位到点击位置
+  const rect = event.target.getBoundingClientRect();
+  tooltip.style.left = rect.left + window.scrollX + 'px';
+  tooltip.style.top = rect.bottom + window.scrollY + 4 + 'px';
+
+  // 记录归属元素
+  tooltip.__owner = event.target;
+
+  document.body.appendChild(tooltip);
+
+  // 点击其它地方关闭
+  const removeTooltip = (e) => {
+    if (!tooltip.contains(e.target) && e.target !== event.target) {
+      tooltip.remove();
+      document.removeEventListener('click', removeTooltip, true);
+    }
+  };
+  setTimeout(() => {
+    document.addEventListener('click', removeTooltip, true);
+  }, 0);
+};
+
 </script>
 
 <template>
@@ -1207,7 +1268,12 @@ const navigateToStoryDetail = (storyId) => {
                     </div>
                     
                     <div class="story-content-row">
-                      <div v-if="story.content" class="story-content-text" v-html="formatStoryContent(story.content)"></div>
+                      <div 
+                        v-if="story.content"
+                        class="story-content-text"
+                        @click="showCustomTooltip($event, story.content)"
+                        v-html="formatStoryContent(story.content)"
+                      ></div>
                       
                       <div v-if="story.link" class="story-link">
                         <a :href="story.link" target="_blank" rel="noopener noreferrer">
@@ -2538,4 +2604,6 @@ input[type="datetime-local"] {
       max-height: calc(100vh - 70px);
     }
 }
+
+.custom-tooltip { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 </style>

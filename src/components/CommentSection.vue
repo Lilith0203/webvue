@@ -360,6 +360,7 @@ const handleCommentClick = (event, commentId) => {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
 }
 
@@ -367,5 +368,6 @@ const handleCommentClick = (event, commentId) => {
   max-height: none;
   overflow: visible;
   -webkit-line-clamp: unset;
+  line-clamp: unset;
 }
 </style>
