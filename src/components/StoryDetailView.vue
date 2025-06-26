@@ -549,7 +549,7 @@ onMounted(() => {
 
 .online-time {
   color: #888;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 .meta-sep {
   font-size: 1em;
@@ -642,7 +642,7 @@ onMounted(() => {
   color: #333;
   font-size: 0.9rem;
   margin-bottom: 12px;
-  border: 1px solid #e6e6e6;
+  border: 1px dashed #e6e6e6;
 }
 .empty-detail {
   color: #bbb;
@@ -731,8 +731,6 @@ onMounted(() => {
 
 .relation-section {
   margin-top: 24px;
-  padding-top: 8px;
-  border-top: 1px dashed #e4e4e4;
 }
 .relation-section h3 {
   font-size: 1rem;
@@ -755,7 +753,7 @@ onMounted(() => {
   margin-right: 4px;
 }
 .relation-title {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
   min-height: 28px;
@@ -766,7 +764,9 @@ onMounted(() => {
   height: 100%;
   color: #4a90e2;
   cursor: pointer;
+  padding: 0;
 }
+
 .relation-link:hover {
   color: #35796b;
 }
@@ -863,7 +863,7 @@ onMounted(() => {
 
 .sets-meta {
   color: #888;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
   flex-wrap: wrap;

@@ -72,9 +72,6 @@ const targetPage = ref('');
 // 添加一个新的响应式状态来控制body滚动
 const isModalOpen = ref(false)
 
-// 添加展开的故事状态
-const expandedStories = ref([])
-
 // 检查菜单是否展开
 const isMenuExpanded = (setId) => {
   return expandedMenus.value[setId] === true
@@ -1064,14 +1061,6 @@ const navigateToStoryDetail = (storyId) => {
   router.push(`/story/${storyId}?from=list`)
 }
 
-// 显示tooltip
-const showTooltip = (event, content) => {
-  // 在移动端，点击时显示alert（简单方案）
-  if (window.innerWidth <= 768) {
-    alert(content)
-  }
-}
-
 const showCustomTooltip = (event, content) => {
   // 检查文本中是否包含链接格式 [文本](链接)
   if (content.includes('[') && content.includes('](') && content.includes(')')) {
@@ -1832,7 +1821,7 @@ const showCustomTooltip = (event, content) => {
 }
 
 .page-title {
-    font-size: 1.2rem;
+  font-size: 1.2rem;
   margin-bottom: 16px;
   color: #333;
   text-align: center;
