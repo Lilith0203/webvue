@@ -33,7 +33,10 @@ const menuConfig = [
   {
     label: '文章',
     key: 'article',
-    path: '/article',
+    children: [
+      {label: '文章', path: '/article'},
+      {label: '攻略', path: '/guide'}
+    ]
   },
   {
     label: '小工具',

@@ -2,6 +2,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import ArticleView from '../views/ArticleView.vue'
 import ArticleDetailView from '../views/ArticleDetailView.vue'
+import GuideView from '../views/GuideView.vue'
+import GuideDetailView from '../views/GuideDetailView.vue'
+import GuideEditor from '../views/GuideEditor.vue'
 import WorkView from '../views/WorkView.vue'
 import WorkDetailView from '../views/WorkDetailView.vue'
 import MaterialView from '../views/MaterialView.vue'
@@ -108,6 +111,26 @@ const router = createRouter({
       path: '/admin',
       name: 'admin',
       component: AdminView
+    },
+    {
+      path: '/guide',
+      name: 'guide',
+      component: GuideView
+    },
+    {
+      path: '/guide/:id',
+      name: 'guide-detail',
+      component: GuideDetailView
+    },
+    {
+      path: '/guide/publish',
+      name: 'guide-publish',
+      component: GuideEditor
+    },
+    {
+      path: '/guide/:id/edit',
+      name: 'guide-edit',
+      component: GuideEditor
     }
   ],
 })
@@ -119,7 +142,9 @@ router.beforeEach((to, from, next) => {
     '/material/type',
     '/publish',
     '/article/:id/edit',
-    '/admin'
+    '/admin',
+    '/guide/publish',
+    '/guide/:id/edit'
   ]
   const authRequired = privatePages.includes(to.path)
 
