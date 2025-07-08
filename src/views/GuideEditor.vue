@@ -206,10 +206,9 @@ const insertTable = () => {
   const afterText = text.substring(start)
   const scrollTop = textarea.scrollTop;
   
-  const tableMarkdown = `| 列1 | 列2 | 列3 |
-|-----|-----|-----|
-| 内容1 | 内容2 | 内容3 |
-| 内容4 | 内容5 | 内容6 |`
+  const tableMarkdown = `| 列1 | 列2 | 列3 | 列4 | 列5 |
+|-----|-----|-----|-----|-----|
+| 内容1 | 内容2 | 内容3 | 内容4 | 内容5 |`
   
   guideForm.value.content = beforeText + tableMarkdown + afterText
     

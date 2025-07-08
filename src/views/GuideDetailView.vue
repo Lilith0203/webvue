@@ -29,9 +29,16 @@ const fetchGuide = async () => {
   }
 }
 
-// 返回上一个页面
+// 返回攻略列表页，保持搜索条件和页码状态
 const goBack = () => {
-  router.go(-1)
+  // 从当前URL获取查询参数
+  const currentQuery = route.query
+  // 构建返回URL，保持所有查询参数
+  const backUrl = {
+    path: '/guide',
+    query: currentQuery
+  }
+  router.push(backUrl)
 }
 
 onMounted(() => {
@@ -72,8 +79,8 @@ onMounted(() => {
 }
 
 .g-title {
-  font-size: 24px;
-  line-height: 2.5;
+  font-size: 22px;
+  line-height: 1.8;
   font-weight: bold;
 }
 
@@ -242,7 +249,11 @@ onMounted(() => {
 }
 
 .g-back {
-  display: none;
+  margin-top: 15px;
+}
+
+.icon-back {
+    font-size: 20px;
 }
 
 .loading, .error {
@@ -261,6 +272,7 @@ onMounted(() => {
   }
 
   .g-back {
+    margin-top: 0;
     display: initial;
   }
 
