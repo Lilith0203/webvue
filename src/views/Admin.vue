@@ -239,6 +239,7 @@ const getCommentLink = (type, itemId) => {
     1: `/article/${itemId}`, // 文章详情页
     2: `/works/${itemId}`,   // 作品详情页
     3: `/story/${itemId}`,   // 剧情详情页
+    4: `/guide/${itemId}`,   // 攻略详情页
   }
   return routes[type] ? `${baseUrl}${routes[type]}` : null
 }
