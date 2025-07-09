@@ -16,8 +16,20 @@ const searchQuery = ref('')
 const categories = ref([])
 const selectedCategory = ref('')
 
-// 格式化日期为 2025-07-03 15:46:11 格式
+// 格式化日期为分层显示格式
 const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return {
+    day: date.getDate().toString().padStart(2, '0'),
+    month: date.getMonth() + 1,
+    month_en: date.toLocaleString('en', { month: 'short' }),
+    year: date.getFullYear()
+  }
+}
+
+// 格式化最后更新时间
+const formatUpdateTime = (dateString) => {
   if (!dateString) return ''
   const date = new Date(dateString)
   const year = date.getFullYear()
@@ -153,7 +165,9 @@ watch(
       <div class="list-wrapper" v-if="backendData">
         <article class="g-brief" v-for="guide in backendData.guides" :key="guide.id">
           <time :datetime="guide?.createdAt" class="create-time">
-            <span class="time-date">{{ formatDate(guide.createdAt) }}</span>
+            <span class="time-date">{{ formatDate(guide.createdAt).month }}.{{ formatDate(guide.createdAt).day }}</span><br/>
+            <span>{{ formatDate(guide.createdAt).month_en }}.</span><br/>
+            <span>{{ formatDate(guide.createdAt).year }}</span>
           </time>
           <div class="g-content">
             <div class="operation">
@@ -174,7 +188,7 @@ watch(
                 <a href="#" @click.prevent="router.push(`/guide/${guide.id}`)" class="read-detail">（阅读全文）</a>
               </p>
             </div>
-            <time class="update-time" :datetime="guide?.updatedAt">最后更新时间：<span>{{ formatDate(guide.updatedAt) }}</span></time>
+            <time class="update-time" :datetime="guide?.updatedAt">最后更新时间：<span>{{ formatUpdateTime(guide.updatedAt) }}</span></time>
           </div>
         </article>
 
