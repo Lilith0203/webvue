@@ -16,6 +16,19 @@ const searchQuery = ref('')
 const categories = ref([])
 const selectedCategory = ref('')
 
+// 格式化日期为 2025-07-03 15:46:11 格式
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
+
 // 获取分类列表
 const fetchCategories = async () => {
   try {
@@ -80,16 +93,6 @@ const handleDelete = async (id) => {
   }
 }
 
-const formatDate = (dateString) => {
-  const date = new Date(dateString)
-  return {
-    day: date.getDate().toString().padStart(2, '0'),
-    month: date.getMonth() + 1,
-    month_en: date.toLocaleString('en', { month: 'short' }),
-    year: date.getFullYear()
-  }
-}
-
 // 清空搜索框
 const clearSearch = () => {
   searchQuery.value = ''
@@ -150,9 +153,7 @@ watch(
       <div class="list-wrapper" v-if="backendData">
         <article class="g-brief" v-for="guide in backendData.guides" :key="guide.id">
           <time :datetime="guide?.createdAt" class="create-time">
-            <span class="time-date">{{ formatDate(guide.createdAt).month }}.{{ formatDate(guide.createdAt).day }}</span><br/>
-            <span>{{ formatDate(guide.createdAt).month_en }}.</span><br/>
-            <span>{{ formatDate(guide.createdAt).year }}</span>
+            <span class="time-date">{{ formatDate(guide.createdAt) }}</span>
           </time>
           <div class="g-content">
             <div class="operation">
@@ -173,7 +174,7 @@ watch(
                 <a href="#" @click.prevent="router.push(`/guide/${guide.id}`)" class="read-detail">（阅读全文）</a>
               </p>
             </div>
-            <time class="update-time" :datetime="guide?.updatedAt">最后更新时间：<span>{{ guide.updatedAt }}</span></time>
+            <time class="update-time" :datetime="guide?.updatedAt">最后更新时间：<span>{{ formatDate(guide.updatedAt) }}</span></time>
           </div>
         </article>
 
@@ -214,7 +215,6 @@ watch(
   gap: 10px;
   margin-bottom: 15px;
   align-items: center;
-  justify-content: space-between;
 }
 
 .category-item {

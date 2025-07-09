@@ -226,6 +226,7 @@ const getCommentTypeName = (type) => {
     1: '文章',
     2: '作品',
     3: '剧情',
+    4: '攻略',
     // 可以添加更多类型
   }
   return types[type] || '未知'

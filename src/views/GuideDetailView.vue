@@ -4,6 +4,8 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { marked } from 'marked'
+import CommentSection from '../components/CommentSection.vue'
+import { confirm } from '../utils/confirm'
 
 const authStore = useAuthStore()
 const route = useRoute()
@@ -11,6 +13,24 @@ const router = useRouter()
 const guide = ref(null)
 const loading = ref(false)
 const error = ref(null)
+
+// 评论相关状态
+const comments = ref([])
+const loadingComments = ref(false)
+const errorComments = ref(null)
+
+// 格式化日期为 2025-07-03 15:46:11 格式
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
 
 const fetchGuide = async () => {
   loading.value = true
@@ -26,6 +46,57 @@ const fetchGuide = async () => {
     error.value = "获取攻略失败：" + err.message
   } finally {
     loading.value = false
+  }
+}
+
+// 获取评论
+const fetchComments = async () => {
+  loadingComments.value = true
+  errorComments.value = null
+  try {
+    const res = await axios.get(`/comments/${guide.value.id}`, {
+      params: { 
+        type: 4, // 攻略评论类型
+        approval: 'approved'
+       }
+    })
+    comments.value = res.data.comments || []
+  } catch (e) {
+    errorComments.value = '获取评论失败'
+  } finally {
+    loadingComments.value = false
+  }
+}
+
+// 提交评论
+const submitComment = async (commentData) => {
+  try {
+    const res = await axios.post('/comment', {
+      name: commentData.name,
+      content: commentData.content,
+      type: 4, // 攻略评论类型
+      itemId: guide.value.id,
+      reply: commentData.reply
+    })
+    if (res.data.success) {
+      await fetchComments() // 重新获取评论
+    } else {
+      alert(res.data.message)
+    }
+  } catch (e) {
+    alert('提交评论失败')
+  }
+}
+
+// 删除评论
+const deleteComment = async (commentId) => {
+  if (await confirm('确定要删除吗？')) {
+    try {
+      await axios.post('/comment_delete', { id: commentId })
+      await fetchComments()
+    } catch (e) {
+      alert('删除失败')
+    }
   }
 }
 
@@ -60,7 +131,7 @@ onMounted(() => {
         </a>
       </h1>
       <div class="meta">
-        <span class="date">最后更新时间: {{ guide.updatedAt }}</span>
+        <span class="date">最后更新时间: {{ formatDate(guide.updatedAt) }}</span>
         <p v-if="guide.category" class="tags">分类：
           <span class="category-tag">{{ guide.category }}</span>
         </p>
@@ -71,11 +142,18 @@ onMounted(() => {
       <div class="guide-content" v-html="guide.renderedContent"></div>
     </article>
   </div>
+  
+  <!-- 评论组件 -->
+  <CommentSection
+    :comments="comments"
+    :onCommentSubmit="submitComment"
+    :onCommentDelete="deleteComment"
+  />
 </template>
 
 <style scoped>
 .guide-detail {
-  margin: 0px auto 0;
+  margin: 0px auto 10px;
 }
 
 .g-title {
@@ -268,7 +346,7 @@ onMounted(() => {
 
 @media (min-width: 1024px) {
   .guide-detail {
-    margin: 50px auto 120px;
+    margin: 50px auto 30px;
   }
 
   .g-back {
