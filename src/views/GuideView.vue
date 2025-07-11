@@ -259,16 +259,11 @@ watch(
   padding-bottom: 0.5rem;
 }
 
-.g-title {
-  font-size: 18px;
-  line-height: 45px;
-}
-
 .create-time {
   flex: 0 0 60px;
   height: 86px;
   padding-top: 15px;
-  margin-right: 20px;
+  margin-right: 12px;
   background: url(/images/article-time.png) no-repeat;
   color: #d6d6d6;
   text-align: center;
@@ -316,9 +311,13 @@ watch(
   transform: translateY(-1px);
 }
 
+.g-title {
+  line-height: 1.5;
+}
+
 .g-title a {
-  font-size: 18px;
-  line-height: 45px;
+  padding: 0;
+  font-size: 1rem;
   color: #5e5e5e;
   font-weight: bold;
 }
@@ -328,7 +327,8 @@ watch(
 }
 
 .read-detail {
-  color: #499e8d
+  color: #499e8d;
+  padding: 0;
 }
 
 .g-brief-text {
@@ -337,7 +337,7 @@ watch(
 
 .update-time {
   display: block;
-  margin-top: 0.6rem;
+  margin-top: 0.5rem;
   font-size: 0.8rem;
   color: #9da09e;
 }

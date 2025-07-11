@@ -7,9 +7,9 @@ import AboutView from './AboutView.vue'
 
 <template>
   <main>
+    <AboutView />
     <WorkGallery />
     <ArticleGallery />
     <PlanGallery />
-    <AboutView />
   </main>
 </template>
