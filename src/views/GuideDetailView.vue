@@ -112,8 +112,10 @@ const goBack = () => {
   router.push(backUrl)
 }
 
-onMounted(() => {
-  fetchGuide()
+onMounted(async () => {
+  await fetchGuide()
+  const itemId = guide.value.id/* 获取当前文章或作品的 ID */
+  await fetchComments(itemId)
 })
 </script>
 

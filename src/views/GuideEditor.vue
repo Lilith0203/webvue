@@ -545,6 +545,7 @@ select:focus {
 }
   
 .cancel-btn {
+  font-size: 14px;
   padding: 8px 16px;
   background-color: #dc3545;
   color: white;
