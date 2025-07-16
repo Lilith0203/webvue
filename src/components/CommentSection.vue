@@ -30,7 +30,14 @@ const newComment = ref({
   name: '',
   content: ''
 })
-  
+
+// 回复相关状态
+const replyingTo = ref(null) // 当前正在回复的评论ID
+const replyForm = ref({
+  name: '',
+  content: ''
+})
+
 // 为每条评论维护展开状态
 const expandedComments = ref({})
 
@@ -97,6 +104,64 @@ const commentDelete = async(commentId) => {
   props.onCommentDelete(commentId)
 }
 
+// 开始回复
+const startReply = (commentId) => {
+  replyingTo.value = commentId
+  replyForm.value = {
+    name: '',
+    content: ''
+  }
+}
+
+// 取消回复
+const cancelReply = () => {
+  replyingTo.value = null
+  replyForm.value = {
+    name: '',
+    content: ''
+  }
+}
+
+// 提交回复
+const submitReply = () => {
+  if (!replyForm.value.name || !replyForm.value.content) {
+    message.alert('请填写姓名和回复内容')
+    return
+  }
+
+  const currentTime = Date.now();
+  if (currentTime - lastCommentTime.value < commentCooldown) {
+    message.alert('请稍等再提交回复。');
+    return;
+  }
+
+  const validation1 = isValidComment(replyForm.value.content);
+  if (!validation1.valid) {
+    message.alert(validation1.message);
+    return;
+  }
+  const validation2 = isValidComment(replyForm.value.name);
+  if (!validation2.valid) {
+    message.alert(validation2.message);
+    return;
+  }
+
+  const replyData = {
+    name: replyForm.value.name,
+    content: replyForm.value.content,
+    reply: replyingTo.value // 回复的评论ID
+  }
+
+  // 调用父组件的提交评论方法
+  props.onCommentSubmit(replyData)
+  lastCommentTime.value = currentTime;
+
+  message.alert('回复提交成功，审核通过后将会显示。')
+  
+  // 清空回复表单并关闭回复框
+  cancelReply()
+}
+
 const handleCommentClick = (event, commentId) => {
   // 只在折叠状态下处理点击
   if (!expandedComments.value[commentId]) {
@@ -145,21 +210,61 @@ const handleCommentClick = (event, commentId) => {
             </span>
           </div>
           <div class="op">
-            <a href="#" class="reply-link">回复</a>
+            <a href="#" class="reply-link" @click.prevent="startReply(comment.id)">回复</a>
             <a v-if="authStore.isAuthenticated" 
               href="#" class="delete-link"
               @click.prevent="commentDelete(comment.id)">删除</a>
           </div>
         </div>
+        
+        <!-- 回复表单 -->
+        <div v-if="replyingTo === comment.id" class="reply-form">
+          <h4>回复 {{ comment.name }}：</h4>
+          <form @submit.prevent="submitReply">
+            <label for="reply-name">Name：</label>
+            <input v-model="replyForm.name" type="text" placeholder="昵称请不要多于10个字" required>
+            <textarea v-model="replyForm.content" placeholder="添加回复..." rows="3" required></textarea>
+            <div class="reply-actions">
+              <button type="submit" class="reply-submit">发表回复</button>
+              <button type="button" class="reply-cancel" @click="cancelReply">取消</button>
+            </div>
+          </form>
+        </div>
+        
         <!-- 如果有回复，可以在这里递归显示 -->
-        <div v-if="comment.replies && comment.replies.length">
-          <h4>回复:</h4>
-          <ul>
-            <li v-for="reply in comment.replies" :key="reply.id">
-              <p><strong>{{ reply.name }}</strong>: {{ reply.content }}</p>
-              <p>发表于: {{ new Date(reply.createdAt).toLocaleString() }}</p>
-            </li>
-          </ul>
+        <div v-if="comment.replies && comment.replies.length" class="replies-section">
+          <h4 class="replies-title">回复:</h4>
+          <div class="replies-list">
+            <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
+              <div class="reply-header">
+                <span class="reply-author">{{ reply.name }}</span>
+                <span class="reply-time">{{ reply.createdAt }}</span>
+              </div>
+              <div class="reply-content">
+                {{ reply.content }}
+              </div>
+              <div class="reply-op">
+                <a href="#" class="reply-link" @click.prevent="startReply(reply.id)">回复</a>
+                <a v-if="authStore.isAuthenticated" 
+                  href="#" class="delete-link"
+                  @click.prevent="commentDelete(reply.id)">删除</a>
+              </div>
+              
+              <!-- 回复的回复表单 -->
+              <div v-if="replyingTo === reply.id" class="nested-reply-form">
+                <h5>回复 {{ reply.name }}：</h5>
+                <form @submit.prevent="submitReply">
+                  <label for="nested-reply-name">Name：</label>
+                  <input v-model="replyForm.name" type="text" placeholder="昵称请不要多于10个字" required>
+                  <textarea v-model="replyForm.content" placeholder="添加回复..." rows="2" required></textarea>
+                  <div class="reply-actions">
+                    <button type="submit" class="reply-submit">发表回复</button>
+                    <button type="button" class="reply-cancel" @click="cancelReply">取消</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -238,6 +343,7 @@ const handleCommentClick = (event, commentId) => {
 }
 
 .comment-content {
+  border-bottom: 2px dashed #fff;
   align-items: flex-end;
   text-indent: 2em;
 }
@@ -248,6 +354,7 @@ const handleCommentClick = (event, commentId) => {
   position: relative;
   padding-right: 0;
   cursor: pointer;
+  margin-top: 5px;
 }
 
 .comm-text-expanded {
@@ -320,7 +427,6 @@ const handleCommentClick = (event, commentId) => {
 .replies-section {
   margin-top: 8px;
   padding-left: 1em;
-  border-left: 2px solid #e5e5e5;
 }
 
 .replies-title {
@@ -330,6 +436,8 @@ const handleCommentClick = (event, commentId) => {
 }
 
 .replies-list {
+  border-radius: 5px;
+  background-color: #fff;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -338,7 +446,6 @@ const handleCommentClick = (event, commentId) => {
 .reply-item {
   background: #f7f7f7;
   border-radius: 4px;
-  padding: 6px 12px;
 }
 
 .reply-header {
@@ -369,5 +476,171 @@ const handleCommentClick = (event, commentId) => {
   overflow: visible;
   -webkit-line-clamp: unset;
   line-clamp: unset;
+}
+
+/* 回复表单样式 */
+.reply-form {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #f8f8f8;
+  border-radius: 6px;
+}
+
+.reply-form h4 {
+  margin: 0 0 8px 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.reply-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reply-form input {
+  padding: 4px 4px;
+}
+
+.reply-form input,
+.reply-form textarea {
+  border: 1px solid #e5e5e5;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 0.9rem;
+}
+
+.reply-form textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.reply-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.reply-submit {
+  background-color: var(--color-blue);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 7px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.reply-submit:hover {
+  background-color: var(--color-blue-hover, #2980b9);
+}
+
+.reply-cancel {
+  background-color: #999;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 7px 3px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.reply-cancel:hover {
+  background-color: #777;
+}
+
+/* 回复列表样式 */
+
+.replies-title {
+  font-size: 0.9em;
+  color: #888;
+  margin-bottom: 6px;
+}
+
+.reply-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85em;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.reply-author {
+  font-weight: bold;
+  color: var(--color-blue);
+}
+
+.reply-time {
+  font-size: 0.8em;
+}
+
+.reply-content {
+  color: #333;
+  line-height: 1.4;
+}
+
+.reply-op {
+  text-align: right;
+  font-size: 0.8rem;
+}
+
+/* 嵌套回复表单样式 */
+.nested-reply-form {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  border-left: 2px solid var(--color-blue);
+}
+
+.nested-reply-form h5 {
+  margin: 0 0 6px 0;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.nested-reply-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nested-reply-form input,
+.nested-reply-form textarea {
+  border: 1px solid #e5e5e5;
+  border-radius: 3px;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+}
+
+.nested-reply-form textarea {
+  resize: vertical;
+  min-height: 40px;
+}
+
+.nested-reply-form .reply-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.nested-reply-form .reply-submit {
+  background-color: var(--color-blue);
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.nested-reply-form .reply-cancel {
+  background-color: #999;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 0.8rem;
 }
 </style>

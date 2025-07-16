@@ -76,7 +76,7 @@ const submitComment = async (commentData) => {
       content: commentData.content,
       type: 4, // 攻略评论类型
       itemId: guide.value.id,
-      reply: commentData.reply
+      reply: commentData.reply || 0 // 如果是回复，传递回复的评论ID
     })
     if (res.data.success) {
       await fetchComments() // 重新获取评论

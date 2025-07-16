@@ -65,16 +65,16 @@ const submitComment = async (commentData) => {
       content: commentData.content,
       type: 2,
       itemId: work.value.id,
-      reply: commentData.reply
+      reply: commentData.reply || 0 // 如果是回复，传递回复的评论ID
     })
-    if (!response.data.success) {
-      message.alert(response.data.message)
-      return
+    if (response.data.success) {
+      await fetchComments(work.value.id) // 重新获取评论
+    } else {
+      alert(response.data.message)
     }
-    //comments.value.push(response.data.data.comment)  // 假设返回的评论数据在 comment 字段中
   } catch (error) {
     console.error('提交评论失败:', error)
-    message.alert('提交评论失败：' + error.message)
+    alert('提交评论失败：' + error.message)
   }
 }
 
@@ -82,10 +82,9 @@ const deleteComment = async(commentId) => {
   if (await confirm('确定要删除吗？')) {
     try {
       await axios.post(`/comment_delete`, {id:commentId})
+      await fetchComments(work.value.id) // 重新获取评论
     } catch (error) {
       console.error('删除失败:', error)
-    } finally {
-      await fetchComments(work.value.id)
     }
   }
 }

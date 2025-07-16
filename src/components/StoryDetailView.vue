@@ -293,10 +293,10 @@ const submitComment = async (commentData) => {
       content: commentData.content,
       type: 3,
       itemId: story.value.id,
-      reply: commentData.reply
+      reply: commentData.reply || 0 // 如果是回复，传递回复的评论ID
     })
     if (res.data.success) {
-      //comments.value.push(res.data.data.comment)
+      await fetchComments() // 重新获取评论
     } else {
       alert(res.data.message)
     }
