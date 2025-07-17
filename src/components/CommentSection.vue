@@ -210,7 +210,7 @@ const handleCommentClick = (event, commentId) => {
             </span>
           </div>
           <div class="op">
-            <a href="#" class="reply-link" @click.prevent="startReply(comment.id)">回复</a>
+            <a v-if="authStore.isAuthenticated" href="#" class="reply-link" @click.prevent="startReply(comment.id)">回复</a>
             <a v-if="authStore.isAuthenticated" 
               href="#" class="delete-link"
               @click.prevent="commentDelete(comment.id)">删除</a>
@@ -236,15 +236,10 @@ const handleCommentClick = (event, commentId) => {
           <h4 class="replies-title">回复:</h4>
           <div class="replies-list">
             <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
-              <div class="reply-header">
-                <span class="reply-author">{{ reply.name }}</span>
-                <span class="reply-time">{{ reply.createdAt }}</span>
-              </div>
               <div class="reply-content">
                 {{ reply.content }}
               </div>
               <div class="reply-op">
-                <a href="#" class="reply-link" @click.prevent="startReply(reply.id)">回复</a>
                 <a v-if="authStore.isAuthenticated" 
                   href="#" class="delete-link"
                   @click.prevent="commentDelete(reply.id)">删除</a>
@@ -329,10 +324,11 @@ const handleCommentClick = (event, commentId) => {
 }
 
 .comment-item {
+  border: 1px solid #fff;
   border-radius: 8px;
   background-color: rgba(0,0,0,0.03);
-  padding: 10px 15px 6px;
-  font-size: 0.9rem;
+  padding: 10px 15px 10px;
+  font-size: 0.85rem;
   margin: 10px 0;
 }
 
@@ -343,7 +339,7 @@ const handleCommentClick = (event, commentId) => {
 }
 
 .comment-content {
-  border-bottom: 2px dashed #fff;
+  border-bottom: 1px dashed #fff;
   align-items: flex-end;
   text-indent: 2em;
 }
@@ -397,7 +393,7 @@ const handleCommentClick = (event, commentId) => {
 
 .comm-text, .reply-content {
   text-indent: 2em;
-  padding: 4px 0 0 0;
+  padding: 0px 0 0 0;
 }
 
 .comm-name, .comm-time, .reply-link {
@@ -432,7 +428,6 @@ const handleCommentClick = (event, commentId) => {
 .replies-title {
   font-size: 0.95em;
   color: #888;
-  margin-bottom: 4px;
 }
 
 .replies-list {
@@ -547,14 +542,6 @@ const handleCommentClick = (event, commentId) => {
 
 .reply-cancel:hover {
   background-color: #777;
-}
-
-/* 回复列表样式 */
-
-.replies-title {
-  font-size: 0.9em;
-  color: #888;
-  margin-bottom: 6px;
 }
 
 .reply-header {
