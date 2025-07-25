@@ -299,6 +299,7 @@ watch(
 }
 
 .category-name {
+  color: #499e8d;
   font-size: 0.8rem;
   transition: all 0.3s ease;
   padding: 0px 0px 1px 0;

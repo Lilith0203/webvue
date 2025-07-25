@@ -1,6 +1,6 @@
 <script setup>
 import axios from '../api'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { marked } from 'marked'
@@ -112,11 +112,25 @@ const goBack = () => {
   router.push(backUrl)
 }
 
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+const showBackToTop = ref(false);
+
+const handleScroll = () => {
+  showBackToTop.value = window.scrollY > 200;
+};
+
 onMounted(async () => {
   await fetchGuide()
   const itemId = guide.value.id/* 获取当前文章或作品的 ID */
   await fetchComments(itemId)
+  window.addEventListener('scroll', handleScroll);
 })
+onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll);
+});
 </script>
 
 <template>
@@ -151,6 +165,11 @@ onMounted(async () => {
     :onCommentSubmit="submitComment"
     :onCommentDelete="deleteComment"
   />
+
+  <!-- 悬浮置顶按钮 -->
+  <div v-if="showBackToTop" class="back-to-top" @click="scrollToTop">
+    <i class="iconfont icon-zhiding"></i>
+  </div>
 </template>
 
 <style scoped>
@@ -344,6 +363,31 @@ onMounted(async () => {
 
 .error {
   color: #dc3545;
+}
+
+.back-to-top {
+  position: fixed;
+  right: 15px;
+  bottom: 80px;
+  z-index: 999;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px #0002;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+}
+.back-to-top:hover {
+  box-shadow: 0 4px 16px #0003;
+  background: #f5f5f5;
+}
+.back-to-top .iconfont {
+  font-size: 14px;
+  color: #9d84f5;
 }
 
 @media (min-width: 1024px) {
