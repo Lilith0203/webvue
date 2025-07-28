@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth'
 import ImagePreview from './ImagePreview.vue'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
+import { marked } from 'marked'
 
 const route = useRoute()
 const router = useRouter()
@@ -57,6 +58,10 @@ const fetchStory = async () => {
     const res = await axios.get(`/stories/${route.params.id}`)
     story.value = res.data.data
     detailDraft.value = story.value.detail || ''
+    // 对detail内容进行Markdown渲染
+    if (story.value.detail) {
+      story.value.renderedDetail = marked(story.value.detail)
+    }
     await fetchComments()
   } catch (e) {
     error.value = '获取剧情详情失败'
@@ -74,6 +79,10 @@ const saveDetail = async () => {
       detail: detailDraft.value
     })
     story.value.detail = detailDraft.value
+    // 更新渲染后的内容
+    if (story.value.detail) {
+      story.value.renderedDetail = marked(story.value.detail)
+    }
     editing.value = false
   } catch (e) {
     error.value = '保存失败'
@@ -406,7 +415,7 @@ onMounted(() => {
             ><i class="iconfont icon-edit"></i></button>
           </div>
           <div v-if="editing" class="edit-area">
-            <textarea v-model="detailDraft" rows="10" class="detail-textarea"></textarea>
+            <textarea v-model="detailDraft" rows="20" class="detail-textarea"></textarea>
             <div class="edit-actions">
               <button class="btn btn-confirm" @click="saveDetail" :disabled="loading">
                 <i class="iconfont icon-ok"></i>
@@ -417,7 +426,7 @@ onMounted(() => {
             </div>
           </div>
           <div v-else>
-            <div class="detail-text" v-html="story.detail || '<span class=\'empty-detail\'>暂无详情</span>'"></div>
+            <div class="detail-text" v-html="story.renderedDetail || '<span class=\'empty-detail\'>暂无详情</span>'"></div>
           </div>
         </div>
         <div class="relation-section">
@@ -644,6 +653,119 @@ onMounted(() => {
   margin-bottom: 12px;
   border: 1px dashed #e6e6e6;
 }
+
+/* 为Markdown内容添加样式 */
+:deep(.detail-text p) {
+  line-height: 1.8em;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+:deep(.detail-text ul), 
+:deep(.detail-text ol) {
+  font-size: 14px;
+  line-height: 1.6em;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+:deep(.detail-text h1) {
+  line-height: 2;
+  margin-top: 10px;
+  font-weight: bold;
+  text-align: left;
+}
+
+:deep(.detail-text h3) {
+  line-height: 2;
+  margin-top: 10px;
+  font-weight: bold;
+  text-align: left;
+}
+
+:deep(.detail-text a) {
+  color: #4a9dd9;
+  border-bottom: 1px dashed #C9DFFB;
+}
+
+:deep(.detail-text strong) {
+  font-weight: bold;
+}
+
+:deep(.detail-text code) {
+  display: block;
+  white-space: pre-wrap;
+  text-align: left;
+  margin: 10px 35px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #575757;
+}
+
+:deep(.detail-text img) {
+  display: block;
+  max-width: 100%;
+  border: 3px solid #fff;
+  box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.2);
+  margin: 8px auto;
+}
+
+:deep(.detail-text blockquote) {
+  font-style: italic;
+  font-size: 13px;
+  text-align: left;
+  color: #3E3E3E;
+}
+
+:deep(.detail-text table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+  font-size: 12px;
+  overflow-x: auto;
+  min-width: 600px;
+}
+
+:deep(.detail-text table th) {
+  background-color: #f2f2f2;
+  border: 1px solid #ddd;
+  padding: 5px;
+  text-align: left;
+  font-weight: bold;
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-all;
+}
+
+:deep(.detail-text table td) {
+  border: 1px solid #ddd;
+  padding: 5px;
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+:deep(.detail-text table tr:nth-child(even)) {
+  background-color: #f9f9f9;
+}
+
+:deep(.detail-text table tr:hover) {
+  background-color: #f5f5f5;
+}
+
+:deep(.detail-text) {
+  overflow-x: auto;
+}
+
+:deep(.detail-text .pink) {
+  color: #ff9eb6;
+}
+
+:deep(.detail-text .blue) {
+  color: #6092e1;
+}
+
 .empty-detail {
   color: #bbb;
   font-style: italic;
