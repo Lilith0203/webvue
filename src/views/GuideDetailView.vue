@@ -1,6 +1,6 @@
 <script setup>
 import axios from '../api'
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { marked } from 'marked'
@@ -10,6 +10,10 @@ import { confirm } from '../utils/confirm'
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+
+// 添加颜色管理相关状态
+const tagColors = ref([])
+
 const guide = ref(null)
 const loading = ref(false)
 const error = ref(null)
@@ -18,6 +22,33 @@ const error = ref(null)
 const comments = ref([])
 const loadingComments = ref(false)
 const errorComments = ref(null)
+
+// 获取标签颜色
+const fetchTagColors = async () => {
+  try {
+    const response = await axios.get('/colors')
+    // 过滤出标签颜色（category: 2）且set为"文本"的颜色
+    tagColors.value = response.data.data.filter(color => color.category === 2 && color.set === '文本')
+  } catch (error) {
+    console.error('获取标签颜色失败:', error)
+  }
+}
+
+// 处理Markdown内容，为颜色类添加内联样式
+const processMarkdownContent = (content) => {
+  if (!content) return ''
+  
+  // 使用marked渲染Markdown
+  let rendered = marked(content)
+  
+  // 为所有标签颜色添加内联样式
+  tagColors.value.forEach(color => {
+    const regex = new RegExp(`class="([^"]*\\s)?${color.name}(\\s[^"]*)?"`, 'g')
+    rendered = rendered.replace(regex, `class="$1${color.name}$2" style="color: ${color.code};"`)
+  })
+  
+  return rendered
+}
 
 // 格式化日期为 2025-07-03 15:46:11 格式
 const formatDate = (dateString) => {
@@ -40,7 +71,7 @@ const fetchGuide = async () => {
     const response = await axios.get(`/guide/${route.params.id}`)
     guide.value = response.data.data
     if (guide.value.content) {
-      guide.value.renderedContent = marked(guide.value.content)
+      guide.value.renderedContent = processMarkdownContent(guide.value.content)
     }
   } catch (err) {
     error.value = "获取攻略失败：" + err.message
@@ -123,7 +154,8 @@ const handleScroll = () => {
 };
 
 onMounted(async () => {
-  await fetchGuide()
+  await fetchTagColors() // 先获取标签颜色
+  await fetchGuide() // 再获取攻略内容
   const itemId = guide.value.id/* 获取当前文章或作品的 ID */
   await fetchComments(itemId)
   window.addEventListener('scroll', handleScroll);
@@ -346,6 +378,8 @@ onUnmounted(() => {
 :deep(.guide-content) {
   overflow-x: auto;
 }
+
+/* 动态颜色类，使用内联样式实现，支持所有颜色管理中的标签颜色 */
 
 .g-back {
   margin-top: 15px;

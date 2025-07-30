@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, onBeforeUnmount } from 'vue'
+import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
@@ -11,6 +11,9 @@ import { marked } from 'marked'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+
+// 添加颜色管理相关状态
+const tagColors = ref([])
 
 const story = ref(null)
 const loading = ref(false)
@@ -44,6 +47,33 @@ const errorComments = ref(null)
 // 添加保存导航状态的变量
 const savedScrollPosition = ref(0)
 
+// 获取标签颜色
+const fetchTagColors = async () => {
+  try {
+    const response = await axios.get('/colors')
+    // 过滤出标签颜色（category: 2）且set为"文本"的颜色
+    tagColors.value = response.data.data.filter(color => color.category === 2 && color.set === '文本')
+  } catch (error) {
+    console.error('获取标签颜色失败:', error)
+  }
+}
+
+// 处理Markdown内容，为颜色类添加内联样式
+const processMarkdownContent = (content) => {
+  if (!content) return ''
+  
+  // 使用marked渲染Markdown
+  let rendered = marked(content)
+  
+  // 为所有标签颜色添加内联样式
+  tagColors.value.forEach(color => {
+    const regex = new RegExp(`class="([^"]*\\s)?${color.name}(\\s[^"]*)?"`, 'g')
+    rendered = rendered.replace(regex, `class="$1${color.name}$2" style="color: ${color.code};"`)
+  })
+  
+  return rendered
+}
+
 const relationTypeOptions = [
   { value: 'prequel', label: '前传' },
   { value: 'sequel', label: '后续' },
@@ -60,7 +90,7 @@ const fetchStory = async () => {
     detailDraft.value = story.value.detail || ''
     // 对detail内容进行Markdown渲染
     if (story.value.detail) {
-      story.value.renderedDetail = marked(story.value.detail)
+      story.value.renderedDetail = processMarkdownContent(story.value.detail)
     }
     await fetchComments()
   } catch (e) {
@@ -81,7 +111,7 @@ const saveDetail = async () => {
     story.value.detail = detailDraft.value
     // 更新渲染后的内容
     if (story.value.detail) {
-      story.value.renderedDetail = marked(story.value.detail)
+      story.value.renderedDetail = processMarkdownContent(story.value.detail)
     }
     editing.value = false
   } catch (e) {
@@ -358,6 +388,8 @@ onMounted(() => {
     () => story.value?.id,
     (id) => { if (id) fetchRelations() }
   )
+  // 获取标签颜色
+  fetchTagColors()
 })
 </script>
 
@@ -654,6 +686,9 @@ onMounted(() => {
   border: 1px dashed #e6e6e6;
 }
 
+/* 动态颜色类，使用CSS变量 */
+/* 这些类现在通过内联样式实现，支持所有颜色管理中的标签颜色 */
+
 /* 为Markdown内容添加样式 */
 :deep(.detail-text p) {
   line-height: 1.8em;
@@ -756,14 +791,6 @@ onMounted(() => {
 
 :deep(.detail-text) {
   overflow-x: auto;
-}
-
-:deep(.detail-text .pink) {
-  color: #ff9eb6;
-}
-
-:deep(.detail-text .blue) {
-  color: #6092e1;
 }
 
 .empty-detail {
