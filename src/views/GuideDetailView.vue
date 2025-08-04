@@ -43,8 +43,13 @@ const processMarkdownContent = (content) => {
   
   // 为所有标签颜色添加内联样式
   tagColors.value.forEach(color => {
-    const regex = new RegExp(`class="([^"]*\\s)?${color.name}(\\s[^"]*)?"`, 'g')
-    rendered = rendered.replace(regex, `class="$1${color.name}$2" style="color: ${color.code};"`)
+    // 处理已有的class写法
+    const classRegex = new RegExp(`class="([^"]*\\s)?${color.name}(\\s[^"]*)?"`, 'g')
+    rendered = rendered.replace(classRegex, `class="$1${color.name}$2" style="color: ${color.code};"`)
+    
+    // 处理简便写法：[文字:color]
+    const colorRegex = new RegExp(`\\[([^\\]]+):${color.name}\\]`, 'g')
+    rendered = rendered.replace(colorRegex, `<span style="color: ${color.code};">$1</span>`)
   })
   
   return rendered
