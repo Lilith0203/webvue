@@ -164,8 +164,37 @@ const isSetActive = (setId) => {
   return false
 }
 
+// 添加缩写映射
+const abbreviationMap = {
+  '时空中的绘旅人': '绘旅人',
+  '世界之外': '世外',
+  '光与夜之恋': '光夜',
+  '未定事件簿': '未定',
+  '恋与深空': '深空'
+}
+
 // 获取显示名称（如果是子合集，显示"父合集-子合集"的形式）
 const getDisplayName = (setId) => {
+  // 获取当前根合集
+  const rootSet = rootSets.value.find(set => set.id === setId)
+  if (!rootSet) return ''
+  
+  // 如果当前选中的是子合集，并且这个子合集属于当前根合集
+  if (activeChildId.value && rootSet.children && rootSet.children.some(child => child.id === activeChildId.value)) {
+    const childSet = rootSet.children.find(child => child.id === activeChildId.value)
+    if (childSet) {
+      const parentName = abbreviationMap[rootSet.name] || rootSet.name
+      const childName = abbreviationMap[childSet.name] || childSet.name
+      return `${parentName} - ${childName}`
+    }
+  }
+  
+  // 默认显示根合集名称
+  return abbreviationMap[rootSet.name] || rootSet.name
+}
+
+// 获取全称显示名称（桌面端使用）
+const getFullDisplayName = (setId) => {
   // 获取当前根合集
   const rootSet = rootSets.value.find(set => set.id === setId)
   if (!rootSet) return ''
@@ -1142,7 +1171,8 @@ const showCustomTooltip = (event, content) => {
           :class="{ active: isSetActive(rootSet.id) }"
         >
           <div class="set-header" @click="toggleMenu(rootSet.id)">
-            {{ getDisplayName(rootSet.id) }}
+            <span class="set-name-mobile">{{ getDisplayName(rootSet.id) }}</span>
+            <span class="set-name-desktop">{{ getFullDisplayName(rootSet.id) }}</span>
             <span class="toggle-icon" v-if="rootSet.children && rootSet.children.length > 0">▼</span>
           </div>
           
@@ -1855,6 +1885,14 @@ const showCustomTooltip = (event, content) => {
   align-items: center;
   gap: 3px;
   transition: background-color 0.3s;
+}
+
+.set-name-mobile {
+  display: block;
+}
+
+.set-name-desktop {
+  display: none;
 }
 
 .set-header:hover {
@@ -2581,6 +2619,14 @@ input[type="datetime-local"] {
 }
 
 @media (min-width: 1024px) {
+  .set-name-mobile {
+    display: none;
+  }
+  
+  .set-name-desktop {
+    display: block;
+  }
+
     .root-sets {
         gap: 8px;
     }
