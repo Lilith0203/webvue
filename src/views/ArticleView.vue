@@ -20,7 +20,7 @@ const fetchData = async () => {
 
   try {
     const page = route.query.page || 1
-    const size = route.query.size || 8
+    const size = route.query.size || 12
     const tag = route.query.tag || ''
     const response = await axios.get(`/article?`, {
       params: {

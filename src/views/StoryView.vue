@@ -167,7 +167,7 @@ const isSetActive = (setId) => {
 // 添加缩写映射
 const abbreviationMap = {
   '时空中的绘旅人': '绘旅人',
-  '世界之外': '世外',
+  '世界之外': '世界之外',
   '光与夜之恋': '光夜',
   '未定事件簿': '未定',
   '恋与深空': '深空'
@@ -259,9 +259,11 @@ const fetchStorySets = async () => {
       return set
     })
     
-    // 如果没有选中合集且有合集数据，只设置ID，不调用fetchStories
+    // 如果没有选中合集且有合集数据，设置ID并获取剧情
     if (!activeSetId.value && storySets.value.length > 0) {
       activeSetId.value = storySets.value[0].id
+      // 确保在设置activeSetId后调用fetchStories
+      await fetchStories()
     }
   } catch (err) {
     console.error('获取剧情合集错误:', err)
@@ -273,7 +275,10 @@ const fetchStorySets = async () => {
 
 // 获取剧情列表
 const fetchStories = async () => {
-  if (!activeSetId.value) return
+  if (!activeSetId.value) {
+    console.log('fetchStories: activeSetId is null, skipping fetch')
+    return
+  }
   
   loading.value = true
   error.value = null
@@ -992,11 +997,19 @@ onMounted(() => {
             }, 100)
           }
         })
+      } else {
+        // 如果没有保存的状态但有合集数据，使用默认行为
+        if (storySets.value.length > 0) {
+          activeSetId.value = storySets.value[0].id
+          fetchStories()
+        }
       }
-    } else if (storySets.value.length > 0) {
+    } else {
       // 如果不是从详情页返回，则使用默认行为
-      activeSetId.value = storySets.value[0].id
-      fetchStories()
+      if (storySets.value.length > 0) {
+        activeSetId.value = storySets.value[0].id
+        fetchStories()
+      }
     }
   })
 })
@@ -1868,7 +1881,7 @@ const showCustomTooltip = (event, content) => {
 .root-sets {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .root-set-item {
