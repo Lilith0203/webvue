@@ -586,6 +586,37 @@ const addMaterial = async () => {
   }
 }
 
+// 打开复制材料模态框
+const openCopyMaterialModal = async (row) => {
+  if (!row) return;
+  
+  try {
+    // 打开新建模态框并预填充内容
+    isAddingMaterial.value = true;
+    
+    // 预填充表单数据
+    newMaterialForm.value = {
+      name: row.name,
+      type: row.type || '',
+      substance: row.substance || '',
+      size: row.size || '',
+      shape: row.shape || '',
+      color: row.color || '',
+      price: row.price || '',
+      stock: row.stock || '',
+      shop: row.shop || '',
+      note: row.note || '',
+      link: row.link || ''
+    };
+    
+    // 重置错误状态
+    formErrors.value = {};
+  } catch (err) {
+    error.value = '复制材料失败：' + err.message;
+    console.error('复制材料错误:', err);
+  }
+}
+
 // 添加删除方法
 const deleteMaterial = async (row) => {
   if (!canEdit.value) return
@@ -905,6 +936,9 @@ const removeImage = (rowId) => {
                     </template>
                     <template v-else-if="key === 'actions' && canEdit">
                       <div class="action-buttons">
+                        <button class="copy-btn" @click="openCopyMaterialModal(row)">
+                          <i class="iconfont icon-fuzhi"></i>
+                        </button>
                         <button class="edit-btn" @click="startEdit(row)"><i class="iconfont icon-edit"></i></button>
                         <button class="delete-btn" @click="deleteMaterial(row)"><i class="iconfont icon-ashbin"></i></button>
                       </div>
@@ -1185,9 +1219,9 @@ button {
   cursor: pointer;
 }
 
-.edit-btn, .delete-btn {
+.copy-btn, .edit-btn, .delete-btn {
   background-color: transparent;
-  padding: 2px 5px;
+  padding: 2px 0px;
   border: none;
   cursor: pointer;
 }

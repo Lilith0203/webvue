@@ -1159,6 +1159,37 @@ const showCustomTooltip = (event, content) => {
   }, 0);
 };
 
+// 打开复制剧情模态框
+const openCopyStoryModal = async (story) => {
+  if (!story) return;
+  
+  try {
+    // 获取剧情详情
+    const response = await axios.get(`/stories/${story.id}`);
+    const storyDetail = response.data.data;
+    
+    // 打开新建模态框并预填充内容
+    showAddStoryModal.value = true;
+    isModalOpen.value = true;
+    document.body.style.overflow = 'hidden';
+    
+    newStory.value = {
+      title: storyDetail.title,
+      content: storyDetail.content || '',
+      pictures: storyDetail.pictures || [],
+      link: storyDetail.link || '',
+      onlineAt: storyDetail.onlineAt || '',
+      setIds: storyDetail.sets?.map(set => set.id) || (activeSetId.value ? [activeSetId.value] : []),
+      isRecommended: false // 复制的剧情默认不推荐
+    };
+    
+    error.value = null;
+  } catch (err) {
+    error.value = '获取剧情详情失败';
+    console.error('获取剧情详情错误:', err);
+  }
+}
+
 </script>
 
 <template>
@@ -1291,6 +1322,9 @@ const showCustomTooltip = (event, content) => {
                       <i v-if="story.isRecommended" class="iconfont icon-tuijian recommended-icon"></i>
                     </div>
                     <div class="story-actions" v-if="isLoggedIn">
+                      <button class="action-btn" @click="openCopyStoryModal(story)">
+                        <i class="iconfont icon-fuzhi"></i>
+                      </button>
                       <button class="action-btn" @click="openEditStoryModal(story)">
                         <i class="iconfont icon-edit"></i>
                       </button>
@@ -2450,7 +2484,7 @@ input[type="datetime-local"] {
 
 .story-actions {
   display: flex;
-  gap: 5px;
+  gap: 2px;
 }
 
 .action-btn {
