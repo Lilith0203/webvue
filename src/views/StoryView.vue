@@ -1037,12 +1037,6 @@ const formatStoryContent = (content) => {
   }).join('');
 }
 
-// 添加回到第一页的方法
-const goToFirstPage = () => {
-  currentPage.value = 1;
-  fetchStories();
-}
-
 // 添加清除搜索的方法
 const clearSearch = () => {
   searchKeyword.value = '';
@@ -1295,9 +1289,6 @@ const openCopyStoryModal = async (story) => {
                     <i class="iconfont icon-sousuo"></i>
                   </button>
                 </div>
-                <button class="btn btn-first-page" @click="goToFirstPage" title="回到第一页">
-                    <i class="iconfont icon-shouye"></i>
-                  </button>
             </div>
           </div>
           
@@ -1321,6 +1312,12 @@ const openCopyStoryModal = async (story) => {
                       ></div>
                       <i v-if="story.isRecommended" class="iconfont icon-tuijian recommended-icon"></i>
                     </div>
+
+                    <div v-if="story.link" class="story-link">
+                        <a :href="story.link" target="_blank" rel="noopener noreferrer">
+                          <i class="iconfont icon-bilibili1"></i>
+                        </a>
+                      </div>
                     
                   </div>
                   
@@ -1337,11 +1334,7 @@ const openCopyStoryModal = async (story) => {
                         v-html="formatStoryContent(story.content)"
                       ></div>
                       
-                      <div v-if="story.link" class="story-link">
-                        <a :href="story.link" target="_blank" rel="noopener noreferrer">
-                          <i class="iconfont icon-bilibili1"></i>
-                        </a>
-                      </div>
+                      
                     </div>
                   </div>
                   <div class="story-actions" v-if="isLoggedIn">
@@ -2486,6 +2479,7 @@ input[type="datetime-local"] {
 
 .story-actions {
   display: flex;
+  justify-content: flex-end;
   gap: 2px;
 }
 
@@ -2640,7 +2634,7 @@ input[type="datetime-local"] {
   color: #999;
 }
 
-.btn-search, .btn-first-page {
+.btn-search {
   background-color: transparent;
   border: none;
   cursor: pointer;
