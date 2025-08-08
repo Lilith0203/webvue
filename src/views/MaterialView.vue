@@ -354,7 +354,11 @@ const loadColumnSettings = () => {
       'size',
       'shape',
       'color',
+      'price',
       'stock',
+      'shop',
+      'note',
+      'actions'
     ]
   }
 }

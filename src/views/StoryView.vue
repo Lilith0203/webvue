@@ -1321,17 +1321,7 @@ const openCopyStoryModal = async (story) => {
                       ></div>
                       <i v-if="story.isRecommended" class="iconfont icon-tuijian recommended-icon"></i>
                     </div>
-                    <div class="story-actions" v-if="isLoggedIn">
-                      <button class="action-btn" @click="openCopyStoryModal(story)">
-                        <i class="iconfont icon-fuzhi"></i>
-                      </button>
-                      <button class="action-btn" @click="openEditStoryModal(story)">
-                        <i class="iconfont icon-edit"></i>
-                      </button>
-                      <button class="action-btn" @click="openDeleteStoryConfirmModal(story)">
-                        <i class="iconfont icon-ashbin"></i>
-                      </button>
-                    </div>
+                    
                   </div>
                   
                   <div v-if="!isSimpleMode">
@@ -1354,6 +1344,17 @@ const openCopyStoryModal = async (story) => {
                       </div>
                     </div>
                   </div>
+                  <div class="story-actions" v-if="isLoggedIn">
+                      <button class="action-btn" @click="openCopyStoryModal(story)">
+                        <i class="iconfont icon-fuzhi"></i>
+                      </button>
+                      <button class="action-btn" @click="openEditStoryModal(story)">
+                        <i class="iconfont icon-edit"></i>
+                      </button>
+                      <button class="action-btn" @click="openDeleteStoryConfirmModal(story)">
+                        <i class="iconfont icon-ashbin"></i>
+                      </button>
+                    </div>
                 </div>
                 
                 <!-- 右侧图片区域 -->
@@ -1369,6 +1370,7 @@ const openCopyStoryModal = async (story) => {
                   />
                 </div>
               </div>
+              
             </div>
             
             <!-- 分页控件 -->
@@ -2493,7 +2495,7 @@ input[type="datetime-local"] {
   cursor: pointer;
   color: #666;
   font-size: 16px;
-  padding: 2px;
+  padding: 0 2px;
   transition: color 0.3s;
 }
 
