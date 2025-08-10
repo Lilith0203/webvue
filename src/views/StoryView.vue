@@ -1954,7 +1954,7 @@ const openCopyStoryModal = async (story) => {
 
 /* 下拉菜单样式 */
 .dropdown-menu {
-    min-width: 100px;
+    min-width: 110px;
     font-size: 0.85rem;
   position: absolute;
   top: 100%;
