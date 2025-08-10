@@ -1,6 +1,6 @@
 <script setup>
 import axios from '../api'
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { marked } from 'marked'
@@ -55,6 +55,20 @@ const processMarkdownContent = (content) => {
   return rendered
 }
 
+// 重新处理攻略内容（当颜色加载完成后调用）
+const reprocessGuideContent = () => {
+  if (guide.value && guide.value.content && tagColors.value.length > 0) {
+    guide.value.renderedContent = processMarkdownContent(guide.value.content)
+  }
+}
+
+// 监听tagColors变化，当颜色加载完成后重新处理内容
+watch(tagColors, (newColors) => {
+  if (newColors.length > 0 && guide.value && guide.value.content) {
+    reprocessGuideContent()
+  }
+}, { immediate: false })
+
 // 格式化日期为 2025-07-03 15:46:11 格式
 const formatDate = (dateString) => {
   if (!dateString) return ''
@@ -75,7 +89,8 @@ const fetchGuide = async () => {
   try {
     const response = await axios.get(`/guide/${route.params.id}`)
     guide.value = response.data.data
-    if (guide.value.content) {
+    // 只有当tagColors已经加载完成时才处理内容
+    if (guide.value.content && tagColors.value.length > 0) {
       guide.value.renderedContent = processMarkdownContent(guide.value.content)
     }
   } catch (err) {

@@ -79,6 +79,20 @@ const processMarkdownContent = (content) => {
   return rendered
 }
 
+// 重新处理剧情详情内容（当颜色加载完成后调用）
+const reprocessStoryDetail = () => {
+  if (story.value && story.value.detail && tagColors.value.length > 0) {
+    story.value.renderedDetail = processMarkdownContent(story.value.detail)
+  }
+}
+
+// 监听tagColors变化，当颜色加载完成后重新处理内容
+watch(tagColors, (newColors) => {
+  if (newColors.length > 0 && story.value && story.value.detail) {
+    reprocessStoryDetail()
+  }
+}, { immediate: false })
+
 const relationTypeOptions = [
   { value: 'prequel', label: '前传' },
   { value: 'sequel', label: '后续' },
@@ -93,8 +107,8 @@ const fetchStory = async () => {
     const res = await axios.get(`/stories/${route.params.id}`)
     story.value = res.data.data
     detailDraft.value = story.value.detail || ''
-    // 对detail内容进行Markdown渲染
-    if (story.value.detail) {
+    // 只有当tagColors已经加载完成时才处理内容
+    if (story.value.detail && tagColors.value.length > 0) {
       story.value.renderedDetail = processMarkdownContent(story.value.detail)
     }
     await fetchComments()
@@ -114,8 +128,8 @@ const saveDetail = async () => {
       detail: detailDraft.value
     })
     story.value.detail = detailDraft.value
-    // 更新渲染后的内容
-    if (story.value.detail) {
+    // 更新渲染后的内容，确保tagColors已加载
+    if (story.value.detail && tagColors.value.length > 0) {
       story.value.renderedDetail = processMarkdownContent(story.value.detail)
     }
     editing.value = false
