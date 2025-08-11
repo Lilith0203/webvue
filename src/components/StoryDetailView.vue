@@ -80,6 +80,25 @@ const processMarkdownContent = (content) => {
     rendered = rendered.replace(colorRegex, `<span style="color: ${color.code};">$1</span>`)
   })
   
+  // 为所有图片URL添加OSS的resize参数，减少流量
+  rendered = rendered.replace(
+    /<img([^>]+)src="([^"]+)"([^>]*)>/g,
+    (match, before, src, after) => {
+      try {
+        const url = new URL(src)
+        // 如果URL中没有x-oss-process参数，则添加resize参数
+        if (!url.searchParams.has('x-oss-process')) {
+          url.searchParams.set('x-oss-process', 'image/resize,w_800')
+          return `<img${before}src="${url.toString()}"${after}>`
+        }
+      } catch (e) {
+        // 如果URL解析失败，保持原样
+        console.warn('无法解析图片URL:', src)
+      }
+      return match
+    }
+  )
+  
   return rendered
 }
 
@@ -1232,5 +1251,11 @@ onMounted(() => {
 .set-sep {
   color: #888;
   margin: 0 2px;
+}
+
+@media (min-width: 1024px) {
+  :deep(.detail-text img) {
+    max-width: 650px;
+  }
 }
 </style>
