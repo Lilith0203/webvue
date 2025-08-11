@@ -15,6 +15,10 @@ const authStore = useAuthStore()
 // 添加颜色管理相关状态
 const tagColors = ref([])
 
+// 添加图片上传相关状态
+const uploadingImage = ref(false)
+const imageUploadError = ref(null)
+
 const story = ref(null)
 const loading = ref(false)
 const error = ref(null)
@@ -137,6 +141,86 @@ const saveDetail = async () => {
     error.value = '保存失败'
   } finally {
     loading.value = false
+  }
+}
+
+// 图片上传相关方法
+const uploadDetailImage = async (file) => {
+  if (!file || !file.type.startsWith('image/')) {
+    alert('请选择图片文件')
+    return
+  }
+
+  uploadingImage.value = true
+  imageUploadError.value = null
+
+  try {
+    // 创建 FormData
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('folder', 'stories')
+
+    // 发送上传请求
+    const response = await axios.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+
+    // 获取图片URL
+    const imageUrl = response.data.url
+
+    // 在光标位置插入Markdown图片语法
+    insertDetailImageMarkdown(imageUrl)
+  } catch (error) {
+    console.error('上传失败:', error)
+    imageUploadError.value = '上传图片失败'
+  } finally {
+    uploadingImage.value = false
+  }
+}
+
+// 插入Markdown图片语法到详情文本
+const insertDetailImageMarkdown = (imageUrl) => {
+  // 解析 URL，移除签名相关参数
+  const urlObj = new URL(imageUrl)
+  const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token', 'x-oss-process']
+  paramsToRemove.forEach(param => urlObj.searchParams.delete(param))
+  const cleanImageUrl = urlObj.toString()
+  
+  const imageMarkdown = `\n![image](${cleanImageUrl})\n`
+  
+  // 在文本末尾添加图片
+  detailDraft.value += imageMarkdown
+}
+
+// 处理文件选择
+const handleDetailImageUpload = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    uploadDetailImage(file)
+  }
+  // 清除选择，允许重复选择同一文件
+  event.target.value = ''
+}
+
+// 处理拖拽
+const handleDetailDragOver = (event) => {
+  event.preventDefault()
+  event.currentTarget.classList.add('dragover')
+}
+
+const handleDetailDragLeave = (event) => {
+  event.preventDefault()
+  event.currentTarget.classList.remove('dragover')
+}
+
+const handleDetailDrop = (event) => {
+  event.preventDefault()
+  event.currentTarget.classList.remove('dragover')
+  const file = event.dataTransfer.files[0]
+  if (file && file.type.startsWith('image/')) {
+    uploadDetailImage(file)
   }
 }
 
@@ -467,6 +551,38 @@ onMounted(() => {
           </div>
           <div v-if="editing" class="edit-area">
             <textarea v-model="detailDraft" rows="20" class="detail-textarea"></textarea>
+            
+            <!-- 详情图片上传区域 -->
+            <div class="detail-images-upload">
+              <div 
+                class="detail-images-drop-zone"
+                @drop="handleDetailDrop"
+                @dragover="handleDetailDragOver"
+                @dragenter.prevent
+                @dragleave="handleDetailDragLeave"
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  @change="handleDetailImageUpload"
+                  class="detail-images-file-input"
+                  id="detail-images-upload"
+                />
+                <label for="detail-images-upload" class="detail-images-upload-label">
+                  <i class="iconfont icon-tianjia"></i>
+                  <span>点击上传或拖拽图片到此处</span>
+                </label>
+              </div>
+              
+              <!-- 上传状态和错误提示 -->
+              <div v-if="uploadingImage" class="upload-status">
+                ⏳ 上传中...
+              </div>
+              <div v-if="imageUploadError" class="upload-error">
+                {{ imageUploadError }}
+              </div>
+            </div>
+            
             <div class="edit-actions">
               <button class="btn btn-confirm" @click="saveDetail" :disabled="loading">
                 <i class="iconfont icon-ok"></i>
@@ -759,8 +875,6 @@ onMounted(() => {
 :deep(.detail-text img) {
   display: block;
   max-width: 100%;
-  border: 3px solid #fff;
-  box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.2);
   margin: 8px auto;
 }
 
@@ -821,6 +935,68 @@ onMounted(() => {
   flex-direction: column;
   gap: 10px;
 }
+
+/* 详情图片上传相关样式 */
+.detail-images-upload {
+  margin-top: 15px;
+}
+
+.detail-images-drop-zone {
+  position: relative;
+  border: 2px dashed #ccc;
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+  background: white;
+  transition: border-color 0.3s;
+  cursor: pointer;
+}
+
+.detail-images-drop-zone:hover {
+  border-color: #4a90e2;
+}
+
+.detail-images-drop-zone.dragover {
+  border-color: #4a90e2;
+  background: #f0f8ff;
+}
+
+.detail-images-file-input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.detail-images-upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #666;
+  cursor: pointer;
+}
+
+.detail-images-upload-label .iconfont {
+  font-size: 24px;
+  color: #999;
+}
+
+.upload-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #4a90e2;
+  font-size: 0.85rem;
+  margin-top: 10px;
+}
+
+.upload-error {
+  color: #e74c3c;
+  font-size: 0.85rem;
+  margin-top: 10px;
+}
+
 .detail-textarea {
   width: 100%;
   min-height: 100px;
