@@ -44,6 +44,16 @@ const searchResults = ref([])
 const searching = ref(false)
 const searchError = ref(null)
 let searchTimeout = null
+
+// 添加编辑关联的状态
+const editingRelation = ref(null)
+const editRelationType = ref('')
+const editRelatedId = ref('')
+const editSearchQuery = ref('')
+const editSearchResults = ref([])
+const editLoading = ref(false)
+const editError = ref(null)
+let editSearchTimeout = null
 const comments = ref([])
 const loadingComments = ref(false)
 const errorComments = ref(null)
@@ -117,10 +127,10 @@ watch(tagColors, (newColors) => {
 }, { immediate: false })
 
 const relationTypeOptions = [
+  { value: 'related', label: '关联' },
   { value: 'prequel', label: '前传' },
   { value: 'sequel', label: '后续' },
-  { value: 'parallel', label: '平行' },
-  { value: 'related', label: '关联' }
+  { value: 'parallel', label: '平行' }
 ]
 
 const fetchStory = async () => {
@@ -351,18 +361,20 @@ async function handleAddRelation() {
 }
 
 async function handleDeleteRelation(relId) {
-  delLoading.value[relId] = true
-  try {
-    const res = await axios.post('/story-relation/delete', { id: relId })
-    if (res.data.success) {
-      await fetchRelations()
-    } else {
-      alert(res.data.message || '删除失败')
+  if (await confirm('确定要删除关联吗？')) {
+    delLoading.value[relId] = true
+    try {
+      const res = await axios.post('/story-relation/delete', { id: relId })
+      if (res.data.success) {
+        await fetchRelations()
+      } else {
+        alert(res.data.message || '删除失败')
+      }
+    } catch (e) {
+      alert('删除失败')
+    } finally {
+      delLoading.value[relId] = false
     }
-  } catch (e) {
-    alert('删除失败')
-  } finally {
-    delLoading.value[relId] = false
   }
 }
 
@@ -415,6 +427,97 @@ function onCancelAddRelation() {
   searchQuery.value = ''
   searchResults.value = []
   addError.value = null
+}
+
+// 添加编辑关联的方法
+function startEditRelation(relation) {
+  editingRelation.value = relation
+  editRelationType.value = relation.relationType
+  editRelatedId.value = relation.relatedId
+  editSearchQuery.value = relation.relatedStory?.title || ''
+  editSearchResults.value = []
+  editError.value = null
+}
+
+function cancelEditRelation() {
+  editingRelation.value = null
+  editRelationType.value = ''
+  editRelatedId.value = ''
+  editSearchQuery.value = ''
+  editSearchResults.value = []
+  editError.value = null
+}
+
+// 编辑关联的搜索功能
+async function editSearchStories() {
+  if (!editSearchQuery.value.trim()) {
+    editSearchResults.value = []
+    return
+  }
+  
+  try {
+    const res = await axios.get('/stories', {
+      params: {
+        search: editSearchQuery.value,
+        size: 30,
+        setIds: (story.value?.sets?.map(set => set.id) || []).join(',')
+      }
+    })
+    if (res.data && Array.isArray(res.data.items)) {
+      // 过滤掉自己和当前关联的剧情
+      editSearchResults.value = res.data.items.filter(item => 
+        item.id !== story.value.id && item.id !== editRelatedId.value
+      )
+    } else {
+      editSearchResults.value = []
+    }
+  } catch (e) {
+    editSearchResults.value = []
+  }
+}
+
+function onEditSearchInput() {
+  clearTimeout(editSearchTimeout)
+  editSearchTimeout = setTimeout(editSearchStories, 300)
+}
+
+function selectEditRelatedStory(item) {
+  editRelatedId.value = item.id
+  editSearchQuery.value = item.title
+  editSearchResults.value = []
+}
+
+async function saveEditRelation() {
+  if (!editRelationType.value || !editRelatedId.value) {
+    editError.value = '请选择关联类型和关联剧情'
+    return
+  }
+  
+  editLoading.value = true
+  editError.value = null
+  
+  try {
+    // 先删除原关联
+    await axios.post('/story-relation/delete', { id: editingRelation.value.id })
+    
+    // 创建新关联
+    const res = await axios.post('/story-relation/add', {
+      storyId: story.value.id,
+      relatedId: editRelatedId.value,
+      relationType: editRelationType.value
+    })
+    
+    if (res.data.success) {
+      await fetchRelations()
+      cancelEditRelation()
+    } else {
+      editError.value = res.data.message || '更新失败'
+    }
+  } catch (e) {
+    editError.value = '更新失败'
+  } finally {
+    editLoading.value = false
+  }
 }
 
 function openAddRelationForm() {
@@ -656,21 +759,73 @@ onMounted(() => {
           <div v-else-if="relations.length === 0" class="relation-empty">暂无关联剧情</div>
           <div v-else class="relation-list">
             <div v-for="rel in relations" :key="rel.id" class="relation-item">
-              <span class="relation-type">{{ relationTypeText(rel.relationType) }}</span>
-              <span class="relation-title" v-if="rel.relatedStory">
-                <a @click.prevent="router.push(`/story/${rel.relatedStory.id}`)" href="#" class="relation-link">
-                  {{ rel.relatedStory.title }}
-                </a>
-              </span>
-              <span v-else class="relation-title relation-missing">[已删除]</span>
-              <span v-if="rel.note" class="relation-note">（{{ rel.note }}）</span>
-              <button
-                v-if="authStore.isAuthenticated"
-                class="btn btn-cancel btn-del-relation"
-                :disabled="delLoading[rel.id]"
-                @click="handleDeleteRelation(rel.id)"
-                title="删除关联"
-              >×</button>
+              <!-- 编辑模式 -->
+              <div v-if="editingRelation?.id === rel.id" class="relation-edit-form">
+                <select v-model="editRelationType" class="edit-relation-type">
+                  <option v-for="opt in relationTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                
+                <!-- 关联对象搜索 -->
+                <div class="edit-relation-search">
+                  <input
+                    v-model="editSearchQuery"
+                    class="edit-relation-search-input"
+                    placeholder="搜索剧情标题"
+                    @input="onEditSearchInput"
+                    autocomplete="off"
+                  />
+                  <div v-if="editSearchResults.length" class="edit-relation-suggest">
+                    <div
+                      v-for="item in editSearchResults"
+                      :key="item.id"
+                      class="edit-relation-suggest-item"
+                      @click="selectEditRelatedStory(item)"
+                    >{{ item.title }}</div>
+                  </div>
+                </div>
+                
+                <button
+                  class="btn btn-confirm"
+                  :disabled="editLoading || !editRelatedId"
+                  @click="saveEditRelation"
+                >
+                  <i class="iconfont icon-ok"></i>
+                </button>
+                <button class="btn btn-cancel" @click="cancelEditRelation">
+                  <i class="iconfont icon-cancel-test"></i>
+                </button>
+                <span v-if="editError" class="edit-relation-error">{{ editError }}</span>
+              </div>
+              
+              <!-- 显示模式 -->
+              <div v-else class="relation-display">
+                <span class="relation-type">{{ relationTypeText(rel.relationType) }}</span>
+                <span class="relation-title" v-if="rel.relatedStory">
+                  <a @click.prevent="router.push(`/story/${rel.relatedStory.id}`)" href="#" class="relation-link">
+                    {{ rel.relatedStory.title }}
+                  </a>
+                </span>
+                <span v-else class="relation-title relation-missing">[已删除]</span>
+                
+                <!-- 操作按钮 -->
+                <div class="relation-actions">
+                  <button
+                    v-if="authStore.isAuthenticated"
+                    class="btn btn-edit btn-edit-relation"
+                    @click="startEditRelation(rel)"
+                    title="编辑关联"
+                  >
+                    <i class="iconfont icon-edit"></i>
+                  </button>
+                  <button
+                    v-if="authStore.isAuthenticated"
+                    class="btn btn-cancel btn-del-relation"
+                    :disabled="delLoading[rel.id]"
+                    @click="handleDeleteRelation(rel.id)"
+                    title="删除关联"
+                  >×</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1187,10 +1342,7 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
 }
-.btn-del-relation:hover {
-  background: #fdcfcf;
-  color: #e74c3c;
-}
+
 .add-relation-search {
   position: relative;
   width: 180px;
@@ -1251,6 +1403,96 @@ onMounted(() => {
 .set-sep {
   color: #888;
   margin: 0 2px;
+}
+
+/* 关联编辑表单 */
+.relation-edit-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.edit-relation-type {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 0.85rem;
+  min-width: 80px;
+}
+
+.edit-relation-search {
+  position: relative;
+  width: 180px;
+}
+
+.edit-relation-search-input {
+  width: 100%;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.edit-relation-suggest {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 110%;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px #0001;
+  z-index: 10;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.edit-relation-suggest-item {
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #444;
+}
+
+.edit-relation-suggest-item:hover {
+  background: #f5f5f5;
+}
+
+.edit-relation-error {
+  color: #e74c3c;
+  font-size: 0.85rem;
+  margin-left: 8px;
+}
+
+.relation-display {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  gap: 8px;
+}
+
+.relation-actions {
+  display: flex;
+  margin-left: 20px;
+}
+
+.btn-edit-relation {
+  font-size: 1rem;
+  padding: 0px 5px;
+  line-height: 1.5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  transition: background 0.2s;
+  cursor: pointer;
 }
 
 @media (min-width: 1024px) {
