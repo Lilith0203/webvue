@@ -167,7 +167,7 @@ const isSetActive = (setId) => {
 // 添加缩写映射
 const abbreviationMap = {
   '时空中的绘旅人': '绘旅人',
-  '世界之外': '世界之外',
+  '世界之外': '世外',
   '光与夜之恋': '光夜',
   '未定事件簿': '未定',
   '恋与深空': '深空'
@@ -1240,8 +1240,6 @@ const openCopyStoryModal = async (story) => {
           </div>
         </div>
       </div>
-      
-      <div v-if="isLoggedIn" class="add-set-btn" @click="openAddSetModal">+</div>
     </div>
     
     <!-- 剧情内容区域 -->
@@ -1254,11 +1252,24 @@ const openCopyStoryModal = async (story) => {
       <template v-else>
         <!-- 有选中合集时显示 -->
         <template v-if="activeSetId">
-            <div v-if="isLoggedIn" class="set-actions">
+          <!-- 合集说明 -->
+          <div class="set-description" v-if="activeSet && (activeSet.description || activeSet.cover)">
+            <div class="set-info">
+              <div class="set-details">
+                <p v-if="activeSet.description" class="set-desc">{{ activeSet.description }}</p>
+                <div class="set-meta">
+                  <span v-if="activeSet.onlineAt" class="set-online-time">上线时间: {{ activeSet.onlineAt }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div v-if="isLoggedIn" class="set-actions">
+              <button class="btn btn-add" @click="openAddStoryModal">添加剧情</button>
               <button class="btn btn-edit" @click="openEditSetModal(activeSet)">编辑</button>
+              <button class="btn add-set-btn" @click="openAddSetModal">新建</button>
               <!--<button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除</button>-->
-              <button class="btn btn-add" @click="openAddStoryModal">+剧情</button>
-        </div>
+          </div>
           <div class="stories-header">
             <div class="sort-area">
                 <button class="btn btn-mode" @click="toggleSimpleMode">
@@ -2011,27 +2022,46 @@ const openCopyStoryModal = async (story) => {
   color: #666;
 }
 
-.add-set-btn {
-  min-width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: #f5f5f5;
-  border-radius: 10px;
-  margin-left: 5px;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.add-set-btn:hover {
-  background-color: #e0e0e0;
-}
-
 /* 剧情内容区域样式 */
 .story-content {
   border-radius: 8px;
   min-height: 400px;
+}
+
+/* 合集说明样式 */
+.set-description {
+  padding: 8px 10px;
+}
+
+.set-info {
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+}
+
+.set-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.set-desc {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #666;
+}
+
+.set-meta {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 0.8rem;
+  color: #888;
+}
+
+.set-online-time {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .stories-header {
@@ -2102,6 +2132,11 @@ const openCopyStoryModal = async (story) => {
 
 .btn-danger:hover {
   background-color: #c0392b;
+}
+
+.add-set-btn {
+  background-color: #f59e56;
+  color:#fff;
 }
 
 .empty-set-actions {
