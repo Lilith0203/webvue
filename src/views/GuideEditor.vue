@@ -19,7 +19,7 @@ const imageInput = ref(null)
 const isDragging = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref(0)
-const categories = ref(['世界之外', '时空中的绘旅人'])
+const categories = ref(['世界之外', '时空中的绘旅人', '未分类'])
 
 // 表单数据
 const guideForm = ref({
