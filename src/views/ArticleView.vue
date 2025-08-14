@@ -137,10 +137,10 @@ watch(
                 <a class="delete" href="#" @click.prevent="handleDelete(article.id)"><i class="iconfont icon-shanchu"></i></a>
               </span>
             </div>
-            <h1 class="a-title"><a href="#" @click.prevent="router.push(`/article/${article.id}`)">{{article.title}}</a></h1>
+            <h1 class="a-title"><a href="#" @click.prevent="router.push(`/article/${article.id}?page=${route.query.page || 1}`)">{{article.title}}</a></h1>
             <div class="a-brief-text">
               <p>{{article.abbr}}
-                <a href="#" @click.prevent="router.push(`/article/${article.id}`)" class="read-detail">（阅读全文）</a>
+                <a href="#" @click.prevent="router.push(`/article/${article.id}?page=${route.query.page || 1}`)" class="read-detail">（阅读全文）</a>
               </p>
             </div>
             <time class="update-time" :datetime="article?.updatedAt">最后更新时间：<span>{{ article.updatedAt }}</span></time>

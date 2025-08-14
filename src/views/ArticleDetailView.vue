@@ -103,7 +103,13 @@ const processContent = async (content) => {
 
 // 返回上一个页面
 const goBack = () => {
- router.go(-1) 
+  // 获取进入详情页之前的页码，如果没有则默认为第1页
+  const page = route.query.page || 1
+  // 返回到文章列表页，并保留页码
+  router.push({
+    path: '/article',
+    query: { page }
+  })
 }
 
 // 提交评论

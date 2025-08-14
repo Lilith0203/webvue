@@ -631,6 +631,18 @@ const openEditStoryModal = async (story) => {
     showEditStoryModal.value = true;
     isModalOpen.value = true;
     document.body.style.overflow = 'hidden';
+    
+    // 移动端键盘优化
+    if (window.innerWidth <= 768) {
+      // 延迟设置，确保模态框已渲染
+      setTimeout(() => {
+        const modalContent = document.querySelector('.modal-content')
+        if (modalContent) {
+          modalContent.scrollTop = 0
+        }
+      }, 100)
+    }
+    
     error.value = null;
   } catch (err) {
     error.value = '获取剧情详情失败';
@@ -2286,6 +2298,9 @@ const openCopyStoryModal = async (story) => {
   z-index: 1000;
   padding: 20px 0;
   /* 删除 overflow-y: auto */
+  /* 移动端键盘优化 */
+  height: 100vh; /* 兼容性 */
+  height: 100dvh; /* 动态视口高度，支持现代浏览器 */
 }
 
 .modal-content {
@@ -2295,9 +2310,12 @@ const openCopyStoryModal = async (story) => {
   width: 400px;
   max-width: 90%;
   max-height: calc(100vh - 140px); /* 调整最大高度 */
+  max-height: calc(100dvh - 140px); /* 动态视口高度 */
   overflow-y: auto;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
   margin-top: 10px; /* 添加固定的顶部边距 */
+  /* 移动端键盘优化 */
+  -webkit-overflow-scrolling: touch; /* iOS 滚动优化 */
 }
 
 .modal-content h3 {
@@ -2725,4 +2743,26 @@ input[type="datetime-local"] {
 }
 
 .custom-tooltip { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+
+/* 移动端键盘弹出优化 */
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 10px 0;
+    align-items: flex-start;
+  }
+  
+  .modal-content {
+    width: 95%;
+    max-width: 95%;
+    max-height: calc(100dvh - 80px);
+    margin-top: 5px;
+    padding: 15px 20px 20px;
+  }
+  
+  /* 确保模态框内容可以正常滚动 */
+  .modal-content {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 </style>
