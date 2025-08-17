@@ -1269,9 +1269,6 @@ const openCopyStoryModal = async (story) => {
             <div class="set-info">
               <div class="set-details">
                 <p v-if="activeSet.description" class="set-desc">{{ activeSet.description }}</p>
-                <div class="set-meta">
-                  <span v-if="activeSet.onlineAt" class="set-online-time">上线时间: {{ activeSet.onlineAt }}</span>
-                </div>
               </div>
             </div>
           </div>
@@ -2042,7 +2039,8 @@ const openCopyStoryModal = async (story) => {
 
 /* 合集说明样式 */
 .set-description {
-  padding: 8px 10px;
+  padding: 5px 10px;
+  margin-bottom: 10px;
 }
 
 .set-info {
@@ -2060,20 +2058,6 @@ const openCopyStoryModal = async (story) => {
   font-size: 0.85rem;
   line-height: 1.5;
   color: #666;
-}
-
-.set-meta {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  font-size: 0.8rem;
-  color: #888;
-}
-
-.set-online-time {
-  display: flex;
-  align-items: center;
-  gap: 5px;
 }
 
 .stories-header {
