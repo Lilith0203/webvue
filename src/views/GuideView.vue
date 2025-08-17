@@ -16,6 +16,25 @@ const searchQuery = ref('')
 const categories = ref([])
 const selectedCategory = ref('')
 
+// 添加缩写映射
+const abbreviationMap = {
+  '时空中的绘旅人': '绘旅人',
+  '世界之外': '世外',
+  '光与夜之恋': '光夜',
+  '未定事件簿': '未定',
+  '恋与深空': '深空'
+}
+
+// 获取显示名称（手机端使用略写，桌面端使用全称）
+const getDisplayName = (category) => {
+  return abbreviationMap[category] || category
+}
+
+// 获取全称显示名称（桌面端使用）
+const getFullDisplayName = (category) => {
+  return category
+}
+
 // 格式化日期为分层显示格式
 const formatDate = (dateString) => {
   if (!dateString) return ''
@@ -144,7 +163,8 @@ watch(
           :key="category"
           :class="{ active: route.query.category === category }"
           @click="selectCategory(category)">
-          {{ category }}
+          <span class="category-name-mobile">{{ getDisplayName(category) }}</span>
+          <span class="category-name-desktop">{{ getFullDisplayName(category) }}</span>
         </div>
         <span v-if="authStore.isAuthenticated" class="publish-new">
           <a href="/guide/publish" @click.prevent="router.push('/guide/publish')">发布+</a>
@@ -173,7 +193,7 @@ watch(
             <div class="operation">
               <div class="g-category">
                 <span class="category-label">分类: </span>
-                <span class="category-name">{{ guide.category }}</span>
+                <span class="category-name">{{ getFullDisplayName(guide.category) }}</span>
               </div>
               <span v-if="authStore.isAuthenticated" class="edit-delete">
                 <a class="edit" 
@@ -486,7 +506,23 @@ watch(
   background-color: #218838;
 }
 
+.category-name-mobile {
+  display: block;
+}
+
+.category-name-desktop {
+  display: none;
+}
+
 @media (min-width: 1024px) {
+  .category-name-mobile {
+    display: none;
+  }
+  
+  .category-name-desktop {
+    display: block;
+  }
+  
   .search-wrapper {
     justify-content: left;
   }
