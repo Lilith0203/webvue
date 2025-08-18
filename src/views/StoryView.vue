@@ -576,6 +576,9 @@ const addStory = async () => {
     return
   }
   
+  // 记录当前滚动位置
+  const scrollPosition = window.scrollY
+  
   try {
     loading.value = true
     error.value = null
@@ -599,6 +602,12 @@ const addStory = async () => {
     
     // 重新获取剧情列表
     await fetchStories()
+    
+    // 恢复滚动位置
+    window.scrollTo({
+      top: scrollPosition,
+      behavior: 'instant'
+    })
   } catch (err) {
     error.value = '添加剧情失败: ' + (err.response?.data?.message || err.message)
     console.error('添加剧情错误:', err)
@@ -732,6 +741,9 @@ const closeDeleteStoryConfirmModal = () => {
 const deleteStory = async () => {
   if (!storyToDelete.value) return
   
+  // 记录当前滚动位置
+  const scrollPosition = window.scrollY
+  
   try {
     loading.value = true
     // 使用POST请求代替DELETE
@@ -742,6 +754,12 @@ const deleteStory = async () => {
     // 更新剧情列表
     await fetchStories()
     closeDeleteStoryConfirmModal()
+    
+    // 恢复滚动位置
+    window.scrollTo({
+      top: scrollPosition,
+      behavior: 'instant'
+    })
   } catch (err) {
     error.value = '删除剧情失败: ' + (err.response?.data?.message || err.message)
     console.error('删除剧情错误:', err)
