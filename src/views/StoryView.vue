@@ -240,6 +240,8 @@ const selectChildSet = async (id) => {
   
   // 手动获取故事
   currentPage.value = 1
+  sessionStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+  sessionStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
   await fetchStories()
 }
 
@@ -780,6 +782,8 @@ const selectAllInSet = async (rootSetId) => {
   
   // 确保重置页码
   currentPage.value = 1
+  sessionStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+  sessionStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
   await fetchStories()
 }
 
@@ -983,37 +987,36 @@ onMounted(() => {
   
   // 首先获取所有剧情合集
   fetchStorySets().then(() => {
+    const savedSetId = sessionStorage.getItem('storyActiveSetId')
+    const savedChildId = sessionStorage.getItem('storyActiveChildId')
+    if (savedSetId && storySets.value.length > 0) {
+      activeSetId.value = parseInt(savedSetId)
+      if (savedChildId) {
+        activeChildId.value = parseInt(savedChildId)
+      }
+    }
     // 只有在从详情页返回时才恢复状态
     if (isFromDetail) {
-      const savedSetId = sessionStorage.getItem('storyActiveSetId')
-      const savedChildId = sessionStorage.getItem('storyActiveChildId')
       const savedPage = sessionStorage.getItem('storyCurrentPage')
       const savedKeyword = sessionStorage.getItem('storySearchKeyword')
       const savedSortDirection = sessionStorage.getItem('storySortDirection')
       const savedSimpleMode = sessionStorage.getItem('storyIsSimpleMode')
-      
-      if (savedSetId && storySets.value.length > 0) {
-        activeSetId.value = parseInt(savedSetId)
-        if (savedChildId) {
-          activeChildId.value = parseInt(savedChildId)
-        }
-        
-        // 恢复其他状态
-        if (savedPage) {
-          currentPage.value = parseInt(savedPage)
-        }
-        if (savedKeyword) {
-          searchKeyword.value = savedKeyword
-        }
-        if (savedSortDirection) {
-          sortDirection.value = savedSortDirection
-        }
-        if (savedSimpleMode) {
-          isSimpleMode.value = savedSimpleMode === 'true'
-        }
-        
-        // 使用恢复的状态获取剧情
-        fetchStories().then(() => {
+      // 恢复其他状态
+      if (savedPage) {
+        currentPage.value = parseInt(savedPage)
+      }
+      if (savedKeyword) {
+         searchKeyword.value = savedKeyword
+      }
+      if (savedSortDirection) {
+        sortDirection.value = savedSortDirection
+      }
+      if (savedSimpleMode) {
+        isSimpleMode.value = savedSimpleMode === 'true'
+      }
+
+      // 使用恢复的状态获取剧情
+      fetchStories().then(() => {
           // 剧情加载后恢复滚动位置
           const savedScrollPosition = sessionStorage.getItem('storyListScrollPosition')
           if (savedScrollPosition) {
@@ -1026,20 +1029,13 @@ onMounted(() => {
               sessionStorage.removeItem('storyListScrollPosition')
             }, 100)
           }
-        })
-      } else {
+      })
+    } else {
         // 如果没有保存的状态但有合集数据，使用默认行为
         if (storySets.value.length > 0) {
           activeSetId.value = storySets.value[0].id
           fetchStories()
         }
-      }
-    } else {
-      // 如果不是从详情页返回，则使用默认行为
-      if (storySets.value.length > 0) {
-        activeSetId.value = storySets.value[0].id
-        fetchStories()
-      }
     }
   })
 })
