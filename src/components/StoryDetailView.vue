@@ -54,6 +54,12 @@ const editSearchResults = ref([])
 const editLoading = ref(false)
 const editError = ref(null)
 let editSearchTimeout = null
+
+// 添加剧情排序导航相关状态
+const storyOrder = ref(null)
+const orderLoading = ref(false)
+const orderError = ref(null)
+
 const comments = ref([])
 const loadingComments = ref(false)
 const errorComments = ref(null)
@@ -271,6 +277,65 @@ async function fetchRelations() {
   }
 }
 
+// 获取剧情在合集中的排序信息（上一个、下一个）
+async function fetchStoryOrder() {
+  if (!story.value?.id) return
+  
+  orderLoading.value = true
+  orderError.value = null
+  
+  try {
+    // 优先使用从列表页传递的合集ID，如果没有则使用剧情所属的第一个合集
+    let setId
+    if (route.query.setId) {
+      setId = parseInt(route.query.setId)
+    } else if (story.value.sets?.length > 0) {
+      setId = story.value.sets[0].id
+    } else {
+      // 如果没有合集信息，无法获取排序
+      orderError.value = '无法获取合集信息'
+      return
+    }
+    
+    // 获取排序方向，默认为DESC
+    const sortDirection = route.query.sortDirection || 'DESC'
+    
+    const res = await axios.get(`/story-order/${story.value.id}`, {
+      params: { setId, sortDirection }
+    })
+    
+    if (res.data.success) {
+      storyOrder.value = res.data.data
+    } else {
+      orderError.value = res.data.message || '获取排序信息失败'
+    }
+  } catch (e) {
+    orderError.value = '获取排序信息失败'
+  } finally {
+    orderLoading.value = false
+  }
+}
+
+// 获取当前排序使用的合集名称
+const getCurrentSetName = () => {
+  if (!storyOrder.value) return ''
+  
+  // 优先使用从列表页传递的合集ID
+  let setId
+  if (route.query.setId) {
+    setId = parseInt(route.query.setId)
+  } else if (story.value?.sets?.length > 0) {
+    setId = story.value.sets[0].id
+  }
+  
+  if (setId && story.value?.sets) {
+    const currentSet = story.value.sets.find(set => set.id === setId)
+    return currentSet ? currentSet.name : ''
+  }
+  
+  return ''
+}
+
 function formatStoryContent(content) {
   if (!content) return '';
   const paragraphs = content.split('\n').filter(line => line.trim() !== '');
@@ -278,6 +343,14 @@ function formatStoryContent(content) {
     const withLinks = paragraph.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="story-link">$1</a>');
     return `<p>${withLinks}</p>`;
   }).join('');
+}
+
+// 格式化故事标题，使方括号内的内容高亮显示
+const formatStoryTitle = (title) => {
+  if (!title) return '';
+  
+  // 使用正则表达式匹配方括号内的内容
+  return title.replace(/\[(.*?)\]/g, '<span class="highlight-text">[$1]</span>');
 }
 
 function getThumbnailUrl(url, width = 360) {
@@ -583,16 +656,24 @@ const deleteComment = async (commentId) => {
 // 返回前保存当前滚动位置
 const handleBack = () => {
   // 如果是从列表页进入的，返回到列表页并带上 from=detail 参数
-  if (route.query.from === 'list') {
+  //if (route.query.from === 'list') {
     router.push({
       path: '/story',
       query: { from: 'detail' }
     })
-  } else {
+  //} else {
     // 如果是从其他详情页进入的，使用浏览器的后退功能
-    router.back()
-  }
+    //router.back()
+  //}
 }
+
+const navigateToPrevNext = (storyId) => {
+  const currentSetId = route.query.setId ? parseInt(route.query.setId) : story.value?.sets?.[0]?.id;
+  router.push({
+    path: `/story/${storyId}`,
+    query: { setId: currentSetId }
+  });
+};
 
 onMounted(() => {
   fetchStory()
@@ -613,6 +694,11 @@ onMounted(() => {
     () => story.value?.id,
     (id) => { if (id) fetchRelations() }
   )
+  // 等待剧情加载完再查排序信息
+  watch(
+    () => story.value?.id,
+    (id) => { if (id) fetchStoryOrder() }
+  )
   // 获取标签颜色
   fetchTagColors()
 })
@@ -625,7 +711,7 @@ onMounted(() => {
       <div v-else-if="error" class="error">{{ error }}</div>
       <div v-else-if="story" class="story-detail-card">
         <div class="articles-header">
-          <span class="back-link" @click="handleBack()">← 返回</span>
+          <span class="back-link" @click="handleBack()">← 返回列表</span>
           <span v-if="story.isRecommended" class="recommended">推荐</span>
         </div>
         <h1 class="story-title">{{ story.title }}</h1>
@@ -831,6 +917,52 @@ onMounted(() => {
         </div>
       </div>
     </div>
+    
+    <!-- 剧情导航区域 -->
+    <div v-if="storyOrder" class="story-navigation">
+      <div class="nav-header">
+        <h3>剧情导航</h3>
+        <div class="nav-info">
+          <span v-if="getCurrentSetName()" class="nav-set-name">
+            {{ getCurrentSetName() }}合集，
+          </span>
+          <span v-if="storyOrder.current" class="nav-position">
+            第 {{ storyOrder.current.position }} 篇，共 {{ storyOrder.total }} 篇
+          </span>
+        </div>
+      </div>
+      
+      <div class="nav-buttons">
+        <button 
+          v-if="storyOrder.prev" 
+          class="nav-btn nav-prev" 
+          @click="navigateToPrevNext(storyOrder.prev.id)"
+        >
+          <span class="nav-text">
+            <div class="nav-label">上一篇</div>
+            <div class="nav-title" v-html="formatStoryTitle(storyOrder.prev.title)"></div>
+          </span>
+        </button>
+        
+        <button 
+          v-if="storyOrder.next" 
+          class="nav-btn nav-next" 
+          @click="navigateToPrevNext(storyOrder.next.id)"
+        >
+          <span class="nav-text">
+            <div class="nav-label">下一篇</div>
+            <div class="nav-title" v-html="formatStoryTitle(storyOrder.next.title)"></div>
+          </span>
+        </button>
+      </div>
+    </div>
+    
+    <CommentSection
+      :comments="comments"
+      :onCommentSubmit="submitComment"
+      :onCommentDelete="deleteComment"
+    />
+    
     <ImagePreview
       v-if="previewVisible"
       :visible="previewVisible"
@@ -841,11 +973,6 @@ onMounted(() => {
       @close="closePreview"
       @prev="prevImage"
       @next="nextImage"
-    />
-    <CommentSection
-      :comments="comments"
-      :onCommentSubmit="submitComment"
-      :onCommentDelete="deleteComment"
     />
   </main>
 </template>
@@ -1003,6 +1130,11 @@ onMounted(() => {
   line-height: 1.8em;
   margin-bottom: 6px;
   text-align: left;
+}
+
+/* 高亮文本样式（方括号内容） */
+:deep(.highlight-text) {
+  color: #fd964c; /* 高亮颜色，与剧情列表页保持一致 */
 }
 
 :deep(.detail-text ul), 
@@ -1493,6 +1625,131 @@ onMounted(() => {
   border-radius: 4px;
   transition: background 0.2s;
   cursor: pointer;
+}
+
+/* 剧情导航样式 */
+.story-navigation {
+  margin-top: 24px;
+}
+
+.nav-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.nav-header h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0;
+  color: #333;
+}
+
+.nav-info {
+  display: flex;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.nav-position {
+  font-size: 0.85rem;
+  color: #666;
+  padding: 4px 0px;
+}
+
+.nav-set-name {
+  padding: 4px 0px;
+  border-radius: 4px;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 30px;
+  justify-content: space-between;
+}
+
+.nav-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  min-height: 60px;
+}
+
+.nav-btn:hover {
+  border-color: #4a90e2;
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.1);
+}
+
+.nav-btn:active {
+  transform: translateY(1px);
+}
+
+.nav-prev {
+  justify-content: flex-start;
+}
+
+.nav-next {
+  justify-content: flex-end;
+}
+
+.nav-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-label {
+  font-size: 0.75rem;
+  color: #aeaeae;
+  margin-bottom: 4px;
+}
+
+.nav-title {
+  font-size: 0.9rem;
+  color: #333;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-btn .iconfont {
+  font-size: 16px;
+  color: #666;
+  flex-shrink: 0;
+}
+
+.nav-prev .iconfont {
+  order: -1;
+}
+
+.nav-next .iconfont {
+  order: 1;
+}
+
+@media (max-width: 768px) {
+  .nav-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .nav-btn {
+    min-height: 50px;
+    padding: 10px 12px;
+  }
+  
+  .nav-title {
+    font-size: 0.85rem;
+  }
 }
 
 @media (min-width: 1024px) {

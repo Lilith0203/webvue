@@ -1120,7 +1120,9 @@ const navigateToStoryDetail = (storyId) => {
   sessionStorage.setItem('storyIsSimpleMode', isSimpleMode.value.toString())
   sessionStorage.setItem('storyListScrollPosition', window.scrollY.toString())  // 保存滚动位置
   
-  router.push(`/story/${storyId}?from=list`)
+  // 传递当前选中的合集ID和排序方向
+  const currentSetId = activeChildId.value || activeSetId.value
+  router.push(`/story/${storyId}?from=list&setId=${currentSetId}&sortDirection=${sortDirection.value}`)
 }
 
 const showCustomTooltip = (event, content) => {
