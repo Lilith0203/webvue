@@ -66,6 +66,11 @@ const totalItems = ref(0)
 // 添加搜索关键词状态
 const searchKeyword = ref('');
 
+// 添加定制功能相关状态
+const showCustomizePanel = ref(false)
+const customSetIds = ref(new Set()) // 用户选择的合集ID集合
+const isCustomMode = ref(false) // 是否启用定制模式
+
 // 添加跳转页码相关状态和方法
 const targetPage = ref('');
 
@@ -248,30 +253,16 @@ const selectChildSet = async (id) => {
 // 获取剧情合集列表
 const fetchStorySets = async () => {
   try {
-    loading.value = true
-    
-    const response = await axios.get('/story-sets')
-    const data = response.data.data
-    
-    // 确保每个合集都有children属性
-    storySets.value = data.map(set => {
-      if (!set.children) {
-        set.children = []
-      }
-      return set
-    })
-    
-    // 如果没有选中合集且有合集数据，设置ID并获取剧情
-    if (!activeSetId.value && storySets.value.length > 0) {
-      activeSetId.value = storySets.value[0].id
-      // 确保在设置activeSetId后调用fetchStories
-      await fetchStories()
+    const res = await axios.get('/story-sets')
+    if (res.data.success) {
+      storySets.value = res.data.data
+      // 初始化默认选择
+      initDefaultSelection()
+    } else {
+      error.value = res.data.message || '获取剧情合集失败'
     }
-  } catch (err) {
-    console.error('获取剧情合集错误:', err)
+  } catch (e) {
     error.value = '获取剧情合集失败'
-  } finally {
-    loading.value = false
   }
 }
 
@@ -982,25 +973,36 @@ onMounted(() => {
   // 添加键盘事件监听器
   window.addEventListener('keydown', handleKeyDown)
   
+  // 初始化定制功能设置
+  initCustomizeSettings()
+  
   // 检查是否是从详情页返回
   const isFromDetail = route.query.from === 'detail'
   
   // 首先获取所有剧情合集
   fetchStorySets().then(() => {
-    const savedSetId = sessionStorage.getItem('storyActiveSetId')
-    const savedChildId = sessionStorage.getItem('storyActiveChildId')
-    if (savedSetId && storySets.value.length > 0) {
-      activeSetId.value = parseInt(savedSetId)
-      if (savedChildId) {
-        activeChildId.value = parseInt(savedChildId)
-      }
-    }
-    // 只有在从详情页返回时才恢复状态
     if (isFromDetail) {
+      // 从详情页返回，恢复所有状态
+      const savedSetId = sessionStorage.getItem('storyActiveSetId')
+      const savedChildId = sessionStorage.getItem('storyActiveChildId')
       const savedPage = sessionStorage.getItem('storyCurrentPage')
       const savedKeyword = sessionStorage.getItem('storySearchKeyword')
       const savedSortDirection = sessionStorage.getItem('storySortDirection')
       const savedSimpleMode = sessionStorage.getItem('storyIsSimpleMode')
+      
+      // 恢复合集状态
+      if (savedSetId && storySets.value.length > 0) {
+        activeSetId.value = parseInt(savedSetId)
+        if (savedChildId) {
+          activeChildId.value = parseInt(savedChildId)
+        }
+      } else {
+        // 如果读不到已选合集信息，默认选择第一个合集
+        if (storySets.value.length > 0) {
+          activeSetId.value = storySets.value[0].id
+        }
+      }
+      
       // 恢复其他状态
       if (savedPage) {
         currentPage.value = parseInt(savedPage)
@@ -1031,11 +1033,24 @@ onMounted(() => {
           }
       })
     } else {
-        // 如果没有保存的状态但有合集数据，使用默认行为
+      // 正常访问页面，优先恢复上次选择的合集
+      const savedSetId = sessionStorage.getItem('storyActiveSetId')
+      const savedChildId = sessionStorage.getItem('storyActiveChildId')
+      
+      if (savedSetId && storySets.value.length > 0) {
+        // 有保存的合集状态，恢复它
+        activeSetId.value = parseInt(savedSetId)
+        if (savedChildId) {
+          activeChildId.value = parseInt(savedChildId)
+        }
+        fetchStories()
+      } else {
+        // 没有保存的状态，使用默认行为（第一个合集）
         if (storySets.value.length > 0) {
           activeSetId.value = storySets.value[0].id
           fetchStories()
         }
+      }
     }
   })
 })
@@ -1212,6 +1227,79 @@ const openCopyStoryModal = async (story) => {
   }
 }
 
+// 初始化定制功能设置
+const initCustomizeSettings = () => {
+  // 从localStorage加载用户选择的合集
+  const savedCustomSetIds = localStorage.getItem('storyCustomSetIds')
+  if (savedCustomSetIds) {
+    try {
+      const ids = JSON.parse(savedCustomSetIds)
+      customSetIds.value = new Set(ids)
+      isCustomMode.value = true
+    } catch (e) {
+      console.error('解析保存的定制设置失败:', e)
+    }
+  }
+  // 如果没有保存的设置，默认全部选择（在storySets加载后设置）
+}
+
+// 初始化默认选择（在storySets加载完成后调用）
+const initDefaultSelection = () => {
+  if (storySets.value.length > 0 && customSetIds.value.size === 0) {
+    // 默认选择所有合集
+    storySets.value.forEach(set => {
+      customSetIds.value.add(set.id)
+      // 如果有子合集，也选择子合集
+      if (set.children) {
+        set.children.forEach(child => {
+          customSetIds.value.add(child.id)
+        })
+      }
+    })
+  }
+}
+
+// 获取可用的合集列表（考虑定制模式）
+const getAvailableSets = computed(() => {
+  if (!isCustomMode.value || customSetIds.value.size === 0) {
+    return storySets.value
+  }
+  
+  // 定制模式下，只返回用户选择的合集
+  return storySets.value.filter(set => customSetIds.value.has(set.id))
+})
+
+// 切换合集选择
+const toggleSetSelection = (setId) => {
+  if (customSetIds.value.has(setId)) {
+    customSetIds.value.delete(setId)
+  } else {
+    customSetIds.value.add(setId)
+  }
+}
+
+// 检查合集是否被选中
+const isSetSelected = (setId) => {
+  return customSetIds.value.has(setId)
+}
+
+// 保存定制设置
+const saveCustomSettings = () => {
+  if (customSetIds.value.size === 0) {
+    alert('请至少选择一个合集')
+    return
+  }
+  
+  // 保存到localStorage
+  localStorage.setItem('storyCustomSetIds', JSON.stringify([...customSetIds.value]))
+  isCustomMode.value = true
+  showCustomizePanel.value = false
+  
+  // 重新获取剧情
+  currentPage.value = 1
+  fetchStories()
+}
+
 </script>
 
 <template>
@@ -1231,7 +1319,7 @@ const openCopyStoryModal = async (story) => {
     <div class="story-sets-nav">
       <div class="root-sets">
         <div 
-          v-for="rootSet in rootSets" 
+          v-for="rootSet in getAvailableSets" 
           :key="rootSet.id" 
           class="root-set-item"
           :class="{ active: isSetActive(rootSet.id) }"
@@ -1297,8 +1385,13 @@ const openCopyStoryModal = async (story) => {
           </div>
           <div class="stories-header">
             <div class="sort-area">
-                <button class="btn btn-mode" @click="toggleSimpleMode">
+
+                <!----<button class="btn btn-mode" @click="toggleSimpleMode">
                     <i class="iconfont icon-a-jianlvemoshi-fill"></i>
+                </button> -->
+                <button class="btn btn-manage" @click="showCustomizePanel = !showCustomizePanel">
+                    <i class="iconfont icon-shezhi"></i>
+                    定制
                 </button>
                 <button class="btn btn-sort" @click="toggleSortDirection">
                     <i class="iconfont" :class="sortDirection === 'ASC' ? 'icon-zhengxu' : 'icon-daoxu'"></i>
@@ -1326,7 +1419,46 @@ const openCopyStoryModal = async (story) => {
                   </button>
                 </div>
             </div>
+
+            
           </div>
+
+          <!-- 定制面板 -->
+            <div v-if="showCustomizePanel" class="customize-panel">
+              <div class="customize-header">
+                <h4>选择要显示的合集</h4>
+                <p class="customize-tip">勾选您想要显示的剧情合集</p>
+              </div>
+              
+              <div class="sets-selection">
+                <div 
+                  v-for="set in storySets" 
+                  :key="set.id" 
+                  class="set-selection-item"
+                  :class="{ selected: isSetSelected(set.id) }"
+                  @click="toggleSetSelection(set.id)"
+                >
+                  <input 
+                    type="checkbox" 
+                    :checked="isSetSelected(set.id)"
+                    @change="toggleSetSelection(set.id)"
+                    class="set-checkbox"
+                  />
+                  <span class="set-name">{{ set.name }}</span>
+                  <span v-if="set.children?.length" class="set-count">({{ set.children.length }}个子合集)</span>
+                </div>
+              </div>
+              
+              <div class="customize-actions">
+                <button class="btn btn-save" @click="saveCustomSettings">
+                  <i class="iconfont icon-ok"></i>
+                  确定
+                </button>
+                <button class="btn btn-cancel" @click="showCustomizePanel = false">
+                  取消
+                </button>
+              </div>
+            </div>
           
           <!-- 剧情列表 -->
           <div v-if="stories && stories.length > 0" class="story-list">
@@ -1911,6 +2043,7 @@ const openCopyStoryModal = async (story) => {
       @prev="prevImage"
       @next="nextImage"
     />
+
   </div>
 </template>
 
@@ -2648,6 +2781,11 @@ input[type="datetime-local"] {
   padding: 0 6px 0 0;
 }
 
+.btn-manage {
+  background-color: #eb80b4;
+  color: #fff;
+  padding: 3px 8px;
+}
 .btn-sort:hover {
   background-color: #e0e0e0;
 }
@@ -2764,5 +2902,81 @@ input[type="datetime-local"] {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
+}
+
+.customize-panel {
+  background-color: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+}
+
+.customize-header {
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+  color: #333;
+}
+
+.customize-tip {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.sets-selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.set-selection-item {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 5px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.set-selection-item:hover {
+  background-color: #f5f5f5;
+}
+
+.set-checkbox {
+  margin-right: 10px;
+}
+
+.set-name {
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.set-count {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.customize-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-save {
+  background-color: #4a90e2;
+  color: #fff;
+  padding: 5px 10px;
+}
+
+.btn-cancel {
+  background-color: #95a5a6;
+  color: #333;
+  padding: 5px 10px;
+}
+
+.btn-save:hover, .btn-cancel:hover {
+  opacity: 0.9;
 }
 </style>
