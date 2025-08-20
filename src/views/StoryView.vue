@@ -226,6 +226,14 @@ const selectSet = async (id) => {
     return
   }
   
+  // 如果启用了定制模式，检查选择的合集是否在定制选择中
+  if (isCustomMode.value && customSetIds.value.size > 0) {
+    if (!customSetIds.value.has(id)) {
+      console.log('selectSet: selected set is not in custom selection, ignoring')
+      return
+    }
+  }
+  
   activeSetId.value = id
   activeChildId.value = null
   
@@ -236,6 +244,14 @@ const selectSet = async (id) => {
 
 // 选择子合集
 const selectChildSet = async (id) => {
+  // 如果启用了定制模式，检查选择的子合集是否在定制选择中
+  if (isCustomMode.value && customSetIds.value.size > 0) {
+    if (!customSetIds.value.has(id)) {
+      console.log('selectChildSet: selected child set is not in custom selection, ignoring')
+      return
+    }
+  }
+  
   // 先设置activeSetId，这样activeSet计算属性会更新
   activeSetId.value = id
   activeChildId.value = id
@@ -273,6 +289,22 @@ const fetchStories = async () => {
   if (!activeSetId.value) {
     console.log('fetchStories: activeSetId is null, skipping fetch')
     return
+  }
+  
+  // 如果启用了定制模式，检查当前合集是否在定制选择中
+  if (isCustomMode.value && customSetIds.value.size > 0) {
+    if (!customSetIds.value.has(activeSetId.value)) {
+      // 如果当前合集不在定制选择中，切换到第一个可用的合集
+      const firstAvailableSet = storySets.value.find(set => customSetIds.value.has(set.id))
+      if (firstAvailableSet) {
+        activeSetId.value = firstAvailableSet.id
+        activeChildId.value = null // 重置子合集选择
+      } else {
+        // 如果没有可用的合集，不获取数据
+        console.log('fetchStories: no available sets in custom mode, skipping fetch')
+        return
+      }
+    }
   }
   
   loading.value = true
@@ -765,6 +797,14 @@ const deleteStory = async () => {
 
 // 选择合集中的"全部"选项
 const selectAllInSet = async (rootSetId) => {
+  // 如果启用了定制模式，检查选择的合集是否在定制选择中
+  if (isCustomMode.value && customSetIds.value.size > 0) {
+    if (!customSetIds.value.has(rootSetId)) {
+      console.log('selectAllInSet: selected root set is not in custom selection, ignoring')
+      return
+    }
+  }
+  
   activeSetId.value = rootSetId
   activeChildId.value = null
   
@@ -1054,6 +1094,9 @@ onMounted(() => {
         }
       }
     }
+    
+    // 在所有状态恢复后，检查定制设置并确保当前合集是有效的
+    checkAndFixActiveSet()
   })
 })
 
@@ -1313,6 +1356,9 @@ const saveCustomSettings = () => {
   
   // 重新获取剧情
   currentPage.value = 1
+  sessionStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+  sessionStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
+  sessionStorage.setItem('storyCurrentPage', currentPage.value.toString())
   fetchStories()
 }
 
@@ -1335,6 +1381,25 @@ const handleSetSelectionClick = (setId, event) => {
   
   // 点击其他区域时切换选择状态
   toggleSetSelection(setId);
+}
+
+// 在所有状态恢复后，检查定制设置并确保当前合集是有效的
+const checkAndFixActiveSet = () => {
+  // 如果启用了定制模式，检查当前合集是否在定制选择中
+  if (isCustomMode.value && customSetIds.value.size > 0) {
+    if (activeSetId.value && !customSetIds.value.has(activeSetId.value)) {
+      // 如果当前合集不在定制选择中，切换到第一个可用的合集
+      const firstAvailableSet = storySets.value.find(set => customSetIds.value.has(set.id))
+      if (firstAvailableSet) {
+        activeSetId.value = firstAvailableSet.id
+        activeChildId.value = null // 重置子合集选择
+        
+        // 重新获取剧情
+        currentPage.value = 1
+        fetchStories()
+      }
+    }
+  }
 }
 
 </script>
@@ -1486,10 +1551,7 @@ const handleSetSelectionClick = (setId, event) => {
               
               <div class="customize-actions">
                 <button class="btn btn-save" @click="saveCustomSettings">
-                  确定
-                </button>
-                <button class="btn btn-cancel" @click="showCustomizePanel = false">
-                  取消
+                  应用
                 </button>
               </div>
             </div>
@@ -2934,7 +2996,7 @@ input[type="datetime-local"] {
   border-radius: 8px;
   padding: 15px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  margin-top: 14px;
+  margin: 14px 0;
 }
 
 .customize-header {
@@ -2945,7 +3007,6 @@ input[type="datetime-local"] {
 .sets-selection {
   display: flex;
   flex-wrap: wrap;
-  margin-bottom: 5px;
 }
 
 .set-selection-item {
