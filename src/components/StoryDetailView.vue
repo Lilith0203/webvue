@@ -669,9 +669,14 @@ const handleBack = () => {
 
 const navigateToPrevNext = (storyId) => {
   const currentSetId = route.query.setId ? parseInt(route.query.setId) : story.value?.sets?.[0]?.id;
+  const currentSortDirection = route.query.sortDirection || 'DESC'; // 获取当前排序方向，默认DESC
+  
   router.push({
     path: `/story/${storyId}`,
-    query: { setId: currentSetId }
+    query: { 
+      setId: currentSetId,
+      sortDirection: currentSortDirection // 传递排序方向
+    }
   });
 };
 
