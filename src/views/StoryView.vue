@@ -1294,6 +1294,20 @@ const saveCustomSettings = () => {
   localStorage.setItem('storyCustomSetIds', JSON.stringify([...customSetIds.value]))
   isCustomMode.value = true
   showCustomizePanel.value = false
+
+  // 检查当前选中的合集是否还在定制选择中
+  const currentSetId = activeSetId.value
+  const currentChildId = activeChildId.value
+
+  // 如果当前选中的合集不在定制选择中，切换到第一个可用的合集
+  if (currentSetId && !customSetIds.value.has(currentSetId)) {
+    // 找到第一个可用的合集
+    const firstAvailableSet = storySets.value.find(set => customSetIds.value.has(set.id))
+    if (firstAvailableSet) {
+      activeSetId.value = firstAvailableSet.id
+      activeChildId.value = null // 重置子合集选择
+    }
+  }
   
   // 重新获取剧情
   currentPage.value = 1
