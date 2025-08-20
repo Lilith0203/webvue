@@ -96,6 +96,8 @@ const toggleSimpleMode = () => {
 const toggleSortDirection = () => {
   sortDirection.value = sortDirection.value === 'ASC' ? 'DESC' : 'ASC'
   currentPage.value = 1
+  sessionStorage.setItem('storySortDirection', sortDirection.value)
+  sessionStorage.setItem('storyCurrentPage', currentPage.value.toString())
   fetchStories() // 切换排序后重新获取数据
 }
 
@@ -926,7 +928,6 @@ const uploadFiles = async (files, mode) => {
     }
   } catch (error) {
     console.error('上传图片失败:', error)
-    this.error = '上传图片失败'
   }
 }
 
@@ -959,6 +960,7 @@ const removeEditPicture = (index) => {
 // 切换页码
 const changePage = (page) => {
   currentPage.value = page
+  sessionStorage.setItem('storyCurrentPage', currentPage.value.toString())
   fetchStories()
 }
 
@@ -1325,6 +1327,16 @@ const toggleCustomizePanel = () => {
   }
 }
 
+const handleSetSelectionClick = (setId, event) => {
+  // 如果点击的是input元素，不处理（让input的change事件处理）
+  if (event.target.tagName === 'INPUT') {
+    return;
+  }
+  
+  // 点击其他区域时切换选择状态
+  toggleSetSelection(setId);
+}
+
 </script>
 
 <template>
@@ -1452,7 +1464,6 @@ const toggleCustomizePanel = () => {
             <div v-if="showCustomizePanel" class="customize-panel">
               <div class="customize-header">
                 <h4>选择要显示的合集</h4>
-                <p class="customize-tip">勾选您想要显示的剧情合集</p>
               </div>
               
               <div class="sets-selection">
@@ -1461,7 +1472,7 @@ const toggleCustomizePanel = () => {
                   :key="set.id" 
                   class="set-selection-item"
                   :class="{ selected: isSetSelected(set.id) }"
-                  @click="toggleSetSelection(set.id)"
+                  @click="handleSetSelectionClick(set.id, $event)"
                 >
                   <input 
                     type="checkbox" 
@@ -1470,13 +1481,11 @@ const toggleCustomizePanel = () => {
                     class="set-checkbox"
                   />
                   <span class="set-name">{{ set.name }}</span>
-                  <span v-if="set.children?.length" class="set-count">({{ set.children.length }}个子合集)</span>
                 </div>
               </div>
               
               <div class="customize-actions">
                 <button class="btn btn-save" @click="saveCustomSettings">
-                  <i class="iconfont icon-ok"></i>
                   确定
                 </button>
                 <button class="btn btn-cancel" @click="showCustomizePanel = false">
@@ -2281,15 +2290,6 @@ const toggleCustomizePanel = () => {
   color: white;
 }
 
-.btn-cancel {
-  background-color: #95a5a6;
-  color: white;
-}
-
-.btn-cancel:hover {
-  background-color: #7f8c8d;
-}
-
 .btn-confirm {
   background-color: #499e8d;
   color: white;
@@ -2932,27 +2932,20 @@ input[type="datetime-local"] {
 .customize-panel {
   background-color: #fff;
   border-radius: 8px;
-  padding: 20px;
+  padding: 15px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-  margin-top: 20px;
+  margin-top: 14px;
 }
 
 .customize-header {
-  margin-bottom: 15px;
-  font-size: 1.2rem;
+  margin-bottom: 6px;
   color: #333;
-}
-
-.customize-tip {
-  font-size: 0.9rem;
-  color: #666;
 }
 
 .sets-selection {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 5px;
 }
 
 .set-selection-item {
@@ -2960,8 +2953,6 @@ input[type="datetime-local"] {
   align-items: center;
   cursor: pointer;
   padding: 5px 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
   transition: background-color 0.3s;
 }
 
@@ -2992,13 +2983,13 @@ input[type="datetime-local"] {
 .btn-save {
   background-color: #4a90e2;
   color: #fff;
-  padding: 5px 10px;
+  padding: 3px 6px;
 }
 
 .btn-cancel {
-  background-color: #95a5a6;
-  color: #333;
-  padding: 5px 10px;
+  background-color: #a2a2a2;
+  color: white;
+  padding: 3px 6px;
 }
 
 .btn-save:hover, .btn-cancel:hover {
