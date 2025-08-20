@@ -1314,6 +1314,17 @@ const saveCustomSettings = () => {
   fetchStories()
 }
 
+// 切换定制面板
+const toggleCustomizePanel = () => {
+  if (showCustomizePanel.value) {
+    // 如果面板已展开，等同于确认，保存设置
+    saveCustomSettings()
+  } else {
+    // 如果面板未展开，展开面板
+    showCustomizePanel.value = true
+  }
+}
+
 </script>
 
 <template>
@@ -1403,7 +1414,7 @@ const saveCustomSettings = () => {
                 <!----<button class="btn btn-mode" @click="toggleSimpleMode">
                     <i class="iconfont icon-a-jianlvemoshi-fill"></i>
                 </button> -->
-                <button class="btn btn-manage" @click="showCustomizePanel = !showCustomizePanel">
+                <button class="btn btn-manage" @click="toggleCustomizePanel">
                     <i class="iconfont icon-shezhi"></i>
                     定制
                 </button>
