@@ -1090,23 +1090,30 @@ onMounted(() => {
       // 正常访问页面，优先恢复上次选择的合集
       const savedSetId = localStorage.getItem('storyActiveSetId')
       const savedChildId = localStorage.getItem('storyActiveChildId')
+      const savedPage = localStorage.getItem('storyCurrentPage')
+      const savedSortDirection = localStorage.getItem('storySortDirection')
       
       if (savedSetId && storySets.value.length > 0) {
-        // 有保存的合集状态，恢复它
         activeSetId.value = parseInt(savedSetId)
         if (savedChildId) {
           activeChildId.value = parseInt(savedChildId)
         }
-        fetchStories()
       } else {
         // 没有保存的状态，使用默认行为（第一个合集）
         if (storySets.value.length > 0) {
           activeSetId.value = storySets.value[0].id
-          fetchStories()
         }
       }
+      if (savedPage) {
+        currentPage.value = parseInt(savedPage)
+      }
+      if (savedSortDirection) {
+        sortDirection.value = savedSortDirection
+      }
+
       localStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
       localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
+      fetchStories()
     }
     
     // 在所有状态恢复后，检查定制设置并确保当前合集是有效的
