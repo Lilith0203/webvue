@@ -1074,7 +1074,7 @@ onMounted(() => {
       // 使用恢复的状态获取剧情
       fetchStories().then(() => {
           // 剧情加载后恢复滚动位置
-          const savedScrollPosition = localStorage.getItem('storyListScrollPosition')
+          const savedScrollPosition = sessionStorage.getItem('storyListScrollPosition')
           if (savedScrollPosition) {
             setTimeout(() => {
               window.scrollTo({
@@ -1082,7 +1082,7 @@ onMounted(() => {
                 behavior: 'instant'
               })
               // 恢复后清除保存的滚动位置
-              localStorage.removeItem('storyListScrollPosition')
+              sessionStorage.removeItem('storyListScrollPosition')
             }, 100)
           }
       })
@@ -1194,7 +1194,7 @@ const navigateToStoryDetail = (storyId) => {
   localStorage.setItem('storySearchKeyword', searchKeyword.value || '')
   localStorage.setItem('storySortDirection', sortDirection.value)
   localStorage.setItem('storyIsSimpleMode', isSimpleMode.value.toString())
-  localStorage.setItem('storyListScrollPosition', window.scrollY.toString())  // 保存滚动位置
+  sessionStorage.setItem('storyListScrollPosition', window.scrollY.toString())  // 保存滚动位置
   
   // 传递当前选中的合集ID和排序方向
   const currentSetId = activeChildId.value || activeSetId.value
