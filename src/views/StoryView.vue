@@ -231,6 +231,8 @@ const selectSet = async (id) => {
   // 如果启用了定制模式，检查选择的合集是否在定制选择中
   if (isCustomMode.value && customSetIds.value.size > 0) {
     if (!customSetIds.value.has(id)) {
+      // 提示用户该合集不在定制选择中
+      message.alert('该合集不在当前定制选择中，请先在定制面板中选择该合集')
       return
     }
   }
@@ -252,6 +254,8 @@ const selectChildSet = async (id) => {
   if (isCustomMode.value && customSetIds.value.size > 0) {
     if (!customSetIds.value.has(id)) {
       console.log('selectChildSet: selected child set is not in custom selection, ignoring')
+      // 提示用户该子合集不在定制选择中
+      message.alert('该子合集不在当前定制选择中，请先在定制面板中选择对应的根合集')
       return
     }
   }
@@ -808,6 +812,8 @@ const selectAllInSet = async (rootSetId) => {
   if (isCustomMode.value && customSetIds.value.size > 0) {
     if (!customSetIds.value.has(rootSetId)) {
       console.log('selectAllInSet: selected root set is not in custom selection, ignoring')
+      // 提示用户该根合集不在定制选择中
+      message.alert('该根合集不在当前定制选择中，请先在定制面板中选择该合集')
       return
     }
   }
@@ -1314,11 +1320,11 @@ const initCustomizeSettings = () => {
 // 初始化默认选择（在storySets加载完成后调用）
 const initDefaultSelection = () => {
   if (storySets.value.length > 0 && customSetIds.value.size === 0) {
-    // 默认选择所有合集
+    // 默认选择所有合集（包括根合集和子合集）
     storySets.value.forEach(set => {
       customSetIds.value.add(set.id)
-      localStorage.setItem('storyCustomSetIds', JSON.stringify([...customSetIds.value]))
     })
+    localStorage.setItem('storyCustomSetIds', JSON.stringify([...customSetIds.value]))
   }
 }
 
@@ -1335,8 +1341,10 @@ const getAvailableSets = computed(() => {
 // 切换合集选择
 const toggleSetSelection = (setId) => {
   if (customSetIds.value.has(setId)) {
+    // 取消选择时，只标记状态，不实际删除
     customSetIds.value.delete(setId)
   } else {
+    // 选择时，只标记状态，不实际添加
     customSetIds.value.add(setId)
   }
 }
@@ -1352,6 +1360,45 @@ const saveCustomSettings = () => {
     message.alert('请至少选择一个合集')
     return
   }
+  
+  // 应用选择逻辑：处理父合集和子合集的关系
+  const finalCustomSetIds = new Set(customSetIds.value)
+  
+  // 递归函数：添加所有子合集到选择中
+  const addAllChildren = (set) => {
+    if (set.children && set.children.length > 0) {
+      set.children.forEach(child => {
+        finalCustomSetIds.add(child.id)
+        // 递归处理更深层的子合集
+        addAllChildren(child)
+      })
+    }
+  }
+  
+  // 递归函数：移除所有子合集（当父合集被取消选择时）
+  const removeAllChildren = (set) => {
+    if (set.children && set.children.length > 0) {
+      set.children.forEach(child => {
+        finalCustomSetIds.delete(child.id)
+        // 递归处理更深层的子合集
+        removeAllChildren(child)
+      })
+    }
+  }
+  
+  // 遍历所有合集，处理选择状态
+  storySets.value.forEach(set => {
+    if (finalCustomSetIds.has(set.id)) {
+      // 如果这个合集被选中，确保其所有子合集也被选中
+      addAllChildren(set)
+    } else {
+      // 如果这个合集没有被选中，确保其所有子合集也被取消选择
+      removeAllChildren(set)
+    }
+  })
+  
+  // 更新customSetIds为最终的选择结果
+  customSetIds.value = finalCustomSetIds
   
   // 保存到localStorage
   localStorage.setItem('storyCustomSetIds', JSON.stringify([...customSetIds.value]))
@@ -1404,8 +1451,9 @@ const handleSetSelectionClick = (setId, event) => {
 const checkAndFixActiveSet = () => {
   // 如果启用了定制模式，检查当前合集是否在定制选择中
   if (isCustomMode.value && customSetIds.value.size > 0) {
+    // 检查当前选中的合集（可能是根合集或子合集）
     if (activeSetId.value && !customSetIds.value.has(activeSetId.value)) {
-      // 如果当前合集不在定制选择中，切换到第一个可用的合集
+      // 如果当前合集不在定制选择中，尝试找到第一个可用的合集
       const firstAvailableSet = storySets.value.find(set => customSetIds.value.has(set.id))
       if (firstAvailableSet) {
         activeSetId.value = firstAvailableSet.id
@@ -1418,6 +1466,13 @@ const checkAndFixActiveSet = () => {
         localStorage.setItem('storyCurrentPage', currentPage.value.toString())
         fetchStories()
       }
+    }
+    
+    // 检查当前选中的子合集是否在定制选择中
+    if (activeChildId.value && !customSetIds.value.has(activeChildId.value)) {
+      // 如果子合集不在定制选择中，重置子合集选择
+      activeChildId.value = null
+      localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
     }
   }
 }
