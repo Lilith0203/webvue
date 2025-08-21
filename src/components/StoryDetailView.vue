@@ -680,6 +680,89 @@ const navigateToPrevNext = (storyId) => {
   });
 };
 
+const navigateToRelatedStory = async (relatedStoryId) => {
+  try {
+    // 从已有的关联剧情数据中查找目标剧情
+    const targetRelation = relations.value.find(rel => rel.relatedStory?.id === relatedStoryId);
+    
+    if (targetRelation && targetRelation.relatedStory) {
+      const relatedStory = targetRelation.relatedStory;
+      
+      // 获取当前查询的合集ID
+      const currentSetId = route.query.setId ? parseInt(route.query.setId) : story.value?.sets?.[0]?.id
+      
+      // 检查关联剧情是否在当前查询的合集中
+      const isInCurrentSet = relatedStory.sets?.some(set => set.id === currentSetId)
+      
+      let targetSetId = currentSetId
+      let targetSortDirection = route.query.sortDirection || 'DESC'
+      
+      if (!isInCurrentSet && relatedStory.sets?.length > 0) {
+        // 如果关联剧情不在当前合集中，从关联剧情的合集中选一个去查询父合集
+        // 随便选一个合集ID
+        const selectedSetId = relatedStory.sets[0].id
+        
+        try {
+          // 查询该合集的详细信息，获取其父合集
+          const setRes = await axios.get(`/story-sets/${selectedSetId}`)
+          if (setRes.data.success) {
+            // 这里我们只需要知道这个合集是否有父合集
+            // 如果有父合集，使用父合集ID；如果没有，使用当前选中的合集ID
+            const selectedSet = relatedStory.sets.find(set => set.id === selectedSetId)
+            if (selectedSet && selectedSet.parentId && selectedSet.parentId !== 0) {
+              // 如果有父合集，使用父合集ID
+              targetSetId = selectedSet.parentId
+            } else {
+              // 如果没有父合集，使用选中的合集ID
+              targetSetId = selectedSetId
+            }
+          } else {
+            // 如果查询失败，使用选中的合集ID
+            targetSetId = selectedSetId
+          }
+        } catch (error) {
+          console.error('查询合集信息失败:', error)
+          // 如果查询失败，使用选中的合集ID
+          targetSetId = selectedSetId
+        }
+        
+        // 保持当前的排序方向
+        targetSortDirection = route.query.sortDirection || 'DESC'
+      }
+      
+      // 跳转到关联剧情，使用合适的合集ID
+      router.push({
+        path: `/story/${relatedStoryId}`,
+        query: {
+          setId: targetSetId,
+          sortDirection: targetSortDirection
+        }
+      })
+    } else {
+      // 如果没有找到关联剧情信息，使用默认跳转
+      const currentSetId = route.query.setId ? parseInt(route.query.setId) : story.value?.sets?.[0]?.id
+      router.push({
+        path: `/story/${relatedStoryId}`,
+        query: {
+          setId: currentSetId,
+          sortDirection: route.query.sortDirection || 'DESC'
+        }
+      })
+    }
+  } catch (error) {
+    console.error('跳转关联剧情失败:', error)
+    // 如果出错，使用默认跳转
+    const currentSetId = route.query.setId ? parseInt(route.query.setId) : story.value?.sets?.[0]?.id
+    router.push({
+      path: `/story/${relatedStoryId}`,
+      query: {
+        setId: currentSetId,
+        sortDirection: route.query.sortDirection || 'DESC'
+      }
+    })
+  }
+};
+
 onMounted(() => {
   fetchStory()
   // 进入详情页面时保存滚动位置
@@ -892,7 +975,7 @@ onMounted(() => {
               <div v-else class="relation-display">
                 <span class="relation-type">{{ relationTypeText(rel.relationType) }}</span>
                 <span class="relation-title" v-if="rel.relatedStory">
-                  <a @click.prevent="router.push(`/story/${rel.relatedStory.id}`)" href="#" class="relation-link">
+                  <a @click.prevent="navigateToRelatedStory(rel.relatedStory.id)" href="#" class="relation-link">
                     {{ rel.relatedStory.title }}
                   </a>
                 </span>
