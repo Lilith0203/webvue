@@ -15,7 +15,7 @@ const canEdit = computed(() => {
 })
 
 const currentPage = ref(1)
-const pageSize = ref(16)
+const pageSize = ref(18)
 const totalPages = ref(1)
 const totalItems = ref(0)
 const targetPage = ref('') // 用于页码跳转输入框

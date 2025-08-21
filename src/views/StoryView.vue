@@ -3,6 +3,8 @@ import axios from '../api'
 import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { useRouter, useRoute } from 'vue-router'
+import { message } from '../utils/message'
+import { confirm } from '../utils/confirm'
 
 import ImagePreview from '../components/ImagePreview.vue'
 import Announcement from '../components/Announcement.vue'
@@ -96,8 +98,8 @@ const toggleSimpleMode = () => {
 const toggleSortDirection = () => {
   sortDirection.value = sortDirection.value === 'ASC' ? 'DESC' : 'ASC'
   currentPage.value = 1
-  sessionStorage.setItem('storySortDirection', sortDirection.value)
-  sessionStorage.setItem('storyCurrentPage', currentPage.value.toString())
+  localStorage.setItem('storySortDirection', sortDirection.value)
+  localStorage.setItem('storyCurrentPage', currentPage.value.toString())
   fetchStories() // 切换排序后重新获取数据
 }
 
@@ -174,7 +176,7 @@ const isSetActive = (setId) => {
 // 添加缩写映射
 const abbreviationMap = {
   '时空中的绘旅人': '绘旅人',
-  '世界之外': '世外',
+  '世界之外': '世界之外',
   '光与夜之恋': '光夜',
   '未定事件簿': '未定',
   '恋与深空': '深空'
@@ -229,16 +231,18 @@ const selectSet = async (id) => {
   // 如果启用了定制模式，检查选择的合集是否在定制选择中
   if (isCustomMode.value && customSetIds.value.size > 0) {
     if (!customSetIds.value.has(id)) {
-      console.log('selectSet: selected set is not in custom selection, ignoring')
       return
     }
   }
   
   activeSetId.value = id
   activeChildId.value = null
+  localStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+  localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
   
   // 手动获取故事
   currentPage.value = 1
+  localStorage.setItem('storyCurrentPage', currentPage.value.toString())
   await fetchStories()
 }
 
@@ -255,6 +259,8 @@ const selectChildSet = async (id) => {
   // 先设置activeSetId，这样activeSet计算属性会更新
   activeSetId.value = id
   activeChildId.value = id
+  localStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+  localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
   
   // 选择子合集后关闭所有菜单
   Object.keys(expandedMenus.value).forEach(key => {
@@ -263,8 +269,7 @@ const selectChildSet = async (id) => {
   
   // 手动获取故事
   currentPage.value = 1
-  sessionStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
-  sessionStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
+  localStorage.setItem('storyCurrentPage', currentPage.value.toString())
   await fetchStories()
 }
 
@@ -299,6 +304,8 @@ const fetchStories = async () => {
       if (firstAvailableSet) {
         activeSetId.value = firstAvailableSet.id
         activeChildId.value = null // 重置子合集选择
+        localStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+        localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
       } else {
         // 如果没有可用的合集，不获取数据
         console.log('fetchStories: no available sets in custom mode, skipping fetch')
@@ -815,8 +822,9 @@ const selectAllInSet = async (rootSetId) => {
   
   // 确保重置页码
   currentPage.value = 1
-  sessionStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
-  sessionStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
+  localStorage.setItem('storyCurrentPage', currentPage.value.toString())
+  localStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+  localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
   await fetchStories()
 }
 
@@ -1000,13 +1008,14 @@ const removeEditPicture = (index) => {
 // 切换页码
 const changePage = (page) => {
   currentPage.value = page
-  sessionStorage.setItem('storyCurrentPage', currentPage.value.toString())
+  localStorage.setItem('storyCurrentPage', currentPage.value.toString())
   fetchStories()
 }
 
 // 处理搜索
 const handleSearch = () => {
   currentPage.value = 1; // 重置到第一页
+  localStorage.setItem('storyCurrentPage', currentPage.value.toString())
   fetchStories();
 }
 
@@ -1025,12 +1034,12 @@ onMounted(() => {
   fetchStorySets().then(() => {
     if (isFromDetail) {
       // 从详情页返回，恢复所有状态
-      const savedSetId = sessionStorage.getItem('storyActiveSetId')
-      const savedChildId = sessionStorage.getItem('storyActiveChildId')
-      const savedPage = sessionStorage.getItem('storyCurrentPage')
-      const savedKeyword = sessionStorage.getItem('storySearchKeyword')
-      const savedSortDirection = sessionStorage.getItem('storySortDirection')
-      const savedSimpleMode = sessionStorage.getItem('storyIsSimpleMode')
+      const savedSetId = localStorage.getItem('storyActiveSetId')
+      const savedChildId = localStorage.getItem('storyActiveChildId')
+      const savedPage = localStorage.getItem('storyCurrentPage')
+      const savedKeyword = localStorage.getItem('storySearchKeyword')
+      const savedSortDirection = localStorage.getItem('storySortDirection')
+      const savedSimpleMode = localStorage.getItem('storyIsSimpleMode')
       
       // 恢复合集状态
       if (savedSetId && storySets.value.length > 0) {
@@ -1044,6 +1053,9 @@ onMounted(() => {
           activeSetId.value = storySets.value[0].id
         }
       }
+
+      localStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+      localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
       
       // 恢复其他状态
       if (savedPage) {
@@ -1062,7 +1074,7 @@ onMounted(() => {
       // 使用恢复的状态获取剧情
       fetchStories().then(() => {
           // 剧情加载后恢复滚动位置
-          const savedScrollPosition = sessionStorage.getItem('storyListScrollPosition')
+          const savedScrollPosition = localStorage.getItem('storyListScrollPosition')
           if (savedScrollPosition) {
             setTimeout(() => {
               window.scrollTo({
@@ -1070,14 +1082,14 @@ onMounted(() => {
                 behavior: 'instant'
               })
               // 恢复后清除保存的滚动位置
-              sessionStorage.removeItem('storyListScrollPosition')
+              localStorage.removeItem('storyListScrollPosition')
             }, 100)
           }
       })
     } else {
       // 正常访问页面，优先恢复上次选择的合集
-      const savedSetId = sessionStorage.getItem('storyActiveSetId')
-      const savedChildId = sessionStorage.getItem('storyActiveChildId')
+      const savedSetId = localStorage.getItem('storyActiveSetId')
+      const savedChildId = localStorage.getItem('storyActiveChildId')
       
       if (savedSetId && storySets.value.length > 0) {
         // 有保存的合集状态，恢复它
@@ -1093,6 +1105,8 @@ onMounted(() => {
           fetchStories()
         }
       }
+      localStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+      localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
     }
     
     // 在所有状态恢复后，检查定制设置并确保当前合集是有效的
@@ -1126,6 +1140,7 @@ const formatStoryContent = (content) => {
 // 添加清除搜索的方法
 const clearSearch = () => {
   searchKeyword.value = '';
+  localStorage.setItem('storySearchKeyword', searchKeyword.value || '')
   fetchStories();
 }
 
@@ -1164,6 +1179,7 @@ const goToPage = () => {
   
   // 跳转到指定页码
   currentPage.value = pageNum;
+  localStorage.setItem('storyCurrentPage', currentPage.value.toString())
   fetchStories();
   // 清空输入框
   targetPage.value = '';
@@ -1172,13 +1188,13 @@ const goToPage = () => {
 // 添加导航到剧情详情的函数
 const navigateToStoryDetail = (storyId) => {
   // 导航前保存当前状态和滚动位置
-  sessionStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
-  sessionStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
-  sessionStorage.setItem('storyCurrentPage', currentPage.value.toString())
-  sessionStorage.setItem('storySearchKeyword', searchKeyword.value || '')
-  sessionStorage.setItem('storySortDirection', sortDirection.value)
-  sessionStorage.setItem('storyIsSimpleMode', isSimpleMode.value.toString())
-  sessionStorage.setItem('storyListScrollPosition', window.scrollY.toString())  // 保存滚动位置
+  localStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+  localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
+  localStorage.setItem('storyCurrentPage', currentPage.value.toString())
+  localStorage.setItem('storySearchKeyword', searchKeyword.value || '')
+  localStorage.setItem('storySortDirection', sortDirection.value)
+  localStorage.setItem('storyIsSimpleMode', isSimpleMode.value.toString())
+  localStorage.setItem('storyListScrollPosition', window.scrollY.toString())  // 保存滚动位置
   
   // 传递当前选中的合集ID和排序方向
   const currentSetId = activeChildId.value || activeSetId.value
@@ -1294,12 +1310,7 @@ const initDefaultSelection = () => {
     // 默认选择所有合集
     storySets.value.forEach(set => {
       customSetIds.value.add(set.id)
-      // 如果有子合集，也选择子合集
-      if (set.children) {
-        set.children.forEach(child => {
-          customSetIds.value.add(child.id)
-        })
-      }
+      localStorage.setItem('storyCustomSetIds', JSON.stringify([...customSetIds.value]))
     })
   }
 }
@@ -1331,7 +1342,7 @@ const isSetSelected = (setId) => {
 // 保存定制设置
 const saveCustomSettings = () => {
   if (customSetIds.value.size === 0) {
-    alert('请至少选择一个合集')
+    message.alert('请至少选择一个合集')
     return
   }
   
@@ -1342,7 +1353,6 @@ const saveCustomSettings = () => {
 
   // 检查当前选中的合集是否还在定制选择中
   const currentSetId = activeSetId.value
-  const currentChildId = activeChildId.value
 
   // 如果当前选中的合集不在定制选择中，切换到第一个可用的合集
   if (currentSetId && !customSetIds.value.has(currentSetId)) {
@@ -1356,9 +1366,9 @@ const saveCustomSettings = () => {
   
   // 重新获取剧情
   currentPage.value = 1
-  sessionStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
-  sessionStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
-  sessionStorage.setItem('storyCurrentPage', currentPage.value.toString())
+  localStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+  localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
+  localStorage.setItem('storyCurrentPage', currentPage.value.toString())
   fetchStories()
 }
 
@@ -1396,6 +1406,9 @@ const checkAndFixActiveSet = () => {
         
         // 重新获取剧情
         currentPage.value = 1
+        localStorage.setItem('storyActiveSetId', activeSetId.value?.toString() || '')
+        localStorage.setItem('storyActiveChildId', activeChildId.value?.toString() || '')
+        localStorage.setItem('storyCurrentPage', currentPage.value.toString())
         fetchStories()
       }
     }

@@ -390,7 +390,7 @@ onMounted(async() => {
           </div>
   
           <div class="update-time">
-            更新时间: {{ formatDate(work.updatedAt) }}
+            最后更新时间: {{ formatDate(work.updatedAt) }}
           </div>
         </div>
       </template>
@@ -528,13 +528,14 @@ onMounted(async() => {
 }
   
 .description {
-  line-height: 1.3;
   color: #333;
   margin: 20px 10px;
 }
 
 :deep(.description p) {
+  line-height: 1.5;
   margin-bottom: 8px;
+  font-size: 0.9rem;
 }
 
 .tags {
