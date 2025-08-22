@@ -2542,7 +2542,7 @@ const checkAndFixActiveSet = () => {
 }
 
 .story-link .iconfont {
-    font-size: 20px;
+    font-size: 22px;
 }
 
 .story-image-area {
