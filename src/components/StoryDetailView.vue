@@ -846,7 +846,13 @@ onMounted(() => {
             ><i class="iconfont icon-edit"></i></button>
           </div>
           <div v-if="editing" class="edit-area">
-            <textarea v-model="detailDraft" rows="20" class="detail-textarea"></textarea>
+            <label for="detail-textarea" class="sr-only">编辑笔记内容</label>
+            <textarea 
+              v-model="detailDraft" 
+              rows="20" 
+              class="detail-textarea"
+              id="detail-textarea"
+            ></textarea>
             
             <!-- 详情图片上传区域 -->
             <div class="detail-images-upload">
@@ -880,10 +886,10 @@ onMounted(() => {
             </div>
             
             <div class="edit-actions">
-              <button class="btn btn-confirm" @click="saveDetail" :disabled="loading">
+              <button class="btn btn-confirm" @click="saveDetail" :disabled="loading" type="button">
                 <i class="iconfont icon-ok"></i>
               </button>
-              <button class="btn btn-cancel" @click="editing=false">
+              <button class="btn btn-cancel" @click="editing=false" type="button">
                 <i class="iconfont icon-cancel-test"></i>
               </button>
             </div>
@@ -895,18 +901,21 @@ onMounted(() => {
         <div class="relation-section">
           <div class="relation-header">
             <h3>关联剧情</h3>
-            <button v-if="authStore.isAuthenticated" class="btn btn-edit" @click="openAddRelationForm">
+            <button v-if="authStore.isAuthenticated" class="btn btn-edit" @click="openAddRelationForm" type="button">
               <i class="iconfont icon-tianjia"></i>
             </button>
           </div>
           <div v-if="showAddRelation" class="add-relation-form">
-            <select v-model="addRelationType" class="add-relation-type">
+            <label for="add-relation-type" class="sr-only">选择关联类型</label>
+            <select v-model="addRelationType" class="add-relation-type" id="add-relation-type">
               <option v-for="opt in relationTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
             <div class="add-relation-search">
+              <label for="add-relation-search-input" class="sr-only">搜索剧情标题</label>
               <input
                 v-model="searchQuery"
                 class="add-relation-search-input"
+                id="add-relation-search-input"
                 placeholder="搜索剧情标题"
                 @input="onSearchInput"
                 autocomplete="off"
@@ -920,10 +929,10 @@ onMounted(() => {
                 >{{ item.title }}</div>
               </div>
             </div>
-            <button class="btn btn-confirm" :disabled="addLoading || !addRelatedId" @click="handleAddRelation">
+            <button class="btn btn-confirm" :disabled="addLoading || !addRelatedId" @click="handleAddRelation" type="button">
               <i class="iconfont icon-ok"></i>
             </button>
-            <button class="btn btn-cancel" @click="onCancelAddRelation">
+            <button class="btn btn-cancel" @click="onCancelAddRelation" type="button">
               <i class="iconfont icon-cancel-test"></i>
             </button>
             <span v-if="addError" class="add-relation-error">{{ addError }}</span>
@@ -935,15 +944,18 @@ onMounted(() => {
             <div v-for="rel in relations" :key="rel.id" class="relation-item">
               <!-- 编辑模式 -->
               <div v-if="editingRelation?.id === rel.id" class="relation-edit-form">
-                <select v-model="editRelationType" class="edit-relation-type">
+                <label for="edit-relation-type" class="sr-only">选择关联类型</label>
+                <select v-model="editRelationType" class="edit-relation-type" id="edit-relation-type">
                   <option v-for="opt in relationTypeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
                 </select>
                 
                 <!-- 关联对象搜索 -->
                 <div class="edit-relation-search">
+                  <label for="edit-relation-search-input" class="sr-only">搜索剧情标题</label>
                   <input
                     v-model="editSearchQuery"
                     class="edit-relation-search-input"
+                    id="edit-relation-search-input"
                     placeholder="搜索剧情标题"
                     @input="onEditSearchInput"
                     autocomplete="off"
@@ -962,10 +974,11 @@ onMounted(() => {
                   class="btn btn-confirm"
                   :disabled="editLoading || !editRelatedId"
                   @click="saveEditRelation"
+                  type="button"
                 >
                   <i class="iconfont icon-ok"></i>
                 </button>
-                <button class="btn btn-cancel" @click="cancelEditRelation">
+                <button class="btn btn-cancel" @click="cancelEditRelation" type="button">
                   <i class="iconfont icon-cancel-test"></i>
                 </button>
                 <span v-if="editError" class="edit-relation-error">{{ editError }}</span>
@@ -988,6 +1001,7 @@ onMounted(() => {
                     class="btn btn-edit btn-edit-relation"
                     @click="startEditRelation(rel)"
                     title="编辑关联"
+                    type="button"
                   >
                     <i class="iconfont icon-edit"></i>
                   </button>
@@ -997,6 +1011,7 @@ onMounted(() => {
                     :disabled="delLoading[rel.id]"
                     @click="handleDeleteRelation(rel.id)"
                     title="删除关联"
+                    type="button"
                   >×</button>
                 </div>
               </div>
@@ -1025,6 +1040,7 @@ onMounted(() => {
           v-if="storyOrder.prev" 
           class="nav-btn nav-prev" 
           @click="navigateToPrevNext(storyOrder.prev.id)"
+          type="button"
         >
           <span class="nav-text">
             <div class="nav-label">上一篇</div>
@@ -1036,6 +1052,7 @@ onMounted(() => {
           v-if="storyOrder.next" 
           class="nav-btn nav-next" 
           @click="navigateToPrevNext(storyOrder.next.id)"
+          type="button"
         >
           <span class="nav-text">
             <div class="nav-label">下一篇</div>
@@ -1844,5 +1861,18 @@ onMounted(() => {
   :deep(.detail-text img) {
     max-width: 650px;
   }
+}
+
+/* 屏幕阅读器专用样式 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>

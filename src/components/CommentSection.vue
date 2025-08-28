@@ -193,6 +193,7 @@ const handleCommentClick = (event, commentId) => {
                 v-if="comment.content.length > COMMENT_TRUNCATE_LENGTH"
                 class="expand-btn" 
                 @click.stop="toggleExpand(comment.id)"
+                type="button"
               >
                 展开
               </button>
@@ -204,16 +205,17 @@ const handleCommentClick = (event, commentId) => {
                 v-if="comment.content.length > COMMENT_TRUNCATE_LENGTH"
                 class="collapse-btn" 
                 @click.stop="toggleExpand(comment.id)"
+                type="button"
               >
                 收起
               </button>
             </span>
           </div>
           <div class="op">
-            <a v-if="authStore.isAuthenticated" href="#" class="reply-link" @click.prevent="startReply(comment.id)">回复</a>
+            <a v-if="authStore.isAuthenticated" href="#" class="reply-link" @click.prevent="startReply(comment.id)" role="button" tabindex="0">回复</a>
             <a v-if="authStore.isAuthenticated" 
               href="#" class="delete-link"
-              @click.prevent="commentDelete(comment.id)">删除</a>
+              @click.prevent="commentDelete(comment.id)" role="button" tabindex="0">删除</a>
           </div>
         </div>
         
@@ -222,8 +224,9 @@ const handleCommentClick = (event, commentId) => {
           <h4>回复 {{ comment.name }}：</h4>
           <form @submit.prevent="submitReply">
             <label for="reply-name">Name：</label>
-            <input v-model="replyForm.name" type="text" placeholder="昵称请不要多于10个字" required>
-            <textarea v-model="replyForm.content" placeholder="添加回复..." rows="3" required></textarea>
+            <input v-model="replyForm.name" type="text" id="reply-name" placeholder="昵称请不要多于10个字" required>
+            <label for="reply-content" class="sr-only">回复内容：</label>
+            <textarea v-model="replyForm.content" id="reply-content" placeholder="添加回复..." rows="3" required></textarea>
             <div class="reply-actions">
               <button type="submit" class="reply-submit">发表回复</button>
               <button type="button" class="reply-cancel" @click="cancelReply">取消</button>
@@ -242,7 +245,7 @@ const handleCommentClick = (event, commentId) => {
               <div class="reply-op">
                 <a v-if="authStore.isAuthenticated" 
                   href="#" class="delete-link"
-                  @click.prevent="commentDelete(reply.id)">删除</a>
+                  @click.prevent="commentDelete(reply.id)" role="button" tabindex="0">删除</a>
               </div>
               
               <!-- 回复的回复表单 -->
@@ -250,8 +253,9 @@ const handleCommentClick = (event, commentId) => {
                 <h5>回复 {{ reply.name }}：</h5>
                 <form @submit.prevent="submitReply">
                   <label for="nested-reply-name">Name：</label>
-                  <input v-model="replyForm.name" type="text" placeholder="昵称请不要多于10个字" required>
-                  <textarea v-model="replyForm.content" placeholder="添加回复..." rows="2" required></textarea>
+                  <input v-model="replyForm.name" type="text" id="nested-reply-name" placeholder="昵称请不要多于10个字" required>
+                  <label for="nested-reply-content" class="sr-only">回复内容：</label>
+                  <textarea v-model="replyForm.content" id="nested-reply-content" placeholder="添加回复..." rows="2" required></textarea>
                   <div class="reply-actions">
                     <button type="submit" class="reply-submit">发表回复</button>
                     <button type="button" class="reply-cancel" @click="cancelReply">取消</button>
@@ -264,9 +268,10 @@ const handleCommentClick = (event, commentId) => {
       </div>
     </div>
     <form class="comment-form" @submit.prevent="submitComment">
-      <label for="revname">Name：</label>
-      <input v-model="newComment.name" type="text" placeholder="昵称请不要多于10个字" required>
-      <textarea v-model="newComment.content" placeholder="添加评论..." rows="4" required></textarea>
+      <label for="comment-name">Name：</label>
+      <input v-model="newComment.name" type="text" id="comment-name" placeholder="昵称请不要多于10个字" required>
+      <label for="comment-content" class="sr-only">评论内容：</label>
+      <textarea v-model="newComment.content" id="comment-content" placeholder="添加评论..." rows="4" required></textarea>
       <button type="submit" class="comment-submit">发表评论</button>
     </form>
   </div>
@@ -629,5 +634,17 @@ const handleCommentClick = (event, commentId) => {
   padding: 3px 8px;
   cursor: pointer;
   font-size: 0.8rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>

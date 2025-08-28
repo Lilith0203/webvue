@@ -1576,8 +1576,10 @@ const checkAndFixActiveSet = () => {
                 </button>
                 <div class="search-area">
                   <div class="search-input-wrapper">
+                    <label for="search-input" class="sr-only">搜索剧情</label>
                     <input 
                       type="text" 
+                      id="search-input"
                       v-model="searchKeyword" 
                       placeholder="搜索" 
                       @keyup.enter="handleSearch"
@@ -1587,11 +1589,12 @@ const checkAndFixActiveSet = () => {
                       class="btn-clear-search" 
                       @click="clearSearch" 
                       title="清除搜索"
+                      type="button"
                     >
                       X
                     </button>
                   </div>
-                  <button class="btn btn-search" @click="handleSearch">
+                  <button class="btn btn-search" @click="handleSearch" type="button">
                     <i class="iconfont icon-sousuo"></i>
                   </button>
                 </div>
@@ -1729,8 +1732,10 @@ const checkAndFixActiveSet = () => {
               
               <!-- 添加跳转输入框和按钮 -->
               <div class="page-jump">
+                <label for="page-jump-input" class="sr-only">跳转页码</label>
                 <input 
                   type="number" 
+                  id="page-jump-input"
                   v-model="targetPage" 
                   min="1" 
                   :max="totalPages"
@@ -1741,6 +1746,7 @@ const checkAndFixActiveSet = () => {
                 <button 
                   class="jump-btn"
                   @click="goToPage"
+                  type="button"
                 >
                   跳转
                 </button>
@@ -1775,6 +1781,7 @@ const checkAndFixActiveSet = () => {
             id="new-set-name" 
             v-model="newSet.name" 
             placeholder="请输入合集名称"
+            required
           >
         </div>
         
@@ -1944,6 +1951,7 @@ const checkAndFixActiveSet = () => {
             id="add-story-title" 
             v-model="newStory.title" 
             placeholder="请输入剧情标题"
+            required
           >
         </div>
         <div class="form-group">
@@ -1964,10 +1972,11 @@ const checkAndFixActiveSet = () => {
         </div>
         
         <div class="form-group">
-          <label>图片</label>
+          <label for="add-story-images">图片</label>
           <div class="image-uploader">
             <input 
               type="file" 
+              id="add-story-images"
               multiple
               accept="image/*"
               @change="handleImageUpload"
@@ -2072,6 +2081,7 @@ const checkAndFixActiveSet = () => {
             id="edit-story-title" 
             v-model="editingStory.title" 
             placeholder="请输入剧情标题"
+            required
           >
         </div>
         <div class="form-group">
@@ -2092,10 +2102,11 @@ const checkAndFixActiveSet = () => {
         </div>
         
         <div class="form-group">
-          <label>图片</label>
+          <label for="edit-story-images">图片</label>
           <div class="image-uploader">
             <input 
               type="file" 
+              id="edit-story-images"
               multiple
               accept="image/*"
               @change="handleEditImageUpload"
@@ -3130,5 +3141,18 @@ input[type="datetime-local"] {
 
 .btn-save:hover, .btn-cancel:hover {
   opacity: 0.9;
+}
+
+/* 屏幕阅读器专用样式 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 </style>
