@@ -800,9 +800,13 @@ onMounted(() => {
       <div v-else-if="story" class="story-detail-card">
         <div class="articles-header">
           <span class="back-link" @click="handleBack()">← 返回列表</span>
-          <span v-if="story.isRecommended" class="recommended">推荐</span>
         </div>
-        <h1 class="story-title">{{ story.title }}</h1>
+        <div class="story-header">
+          <h1 class="story-title">
+            {{ story.title }}
+            <i v-if="story.isRecommended" class="iconfont icon-tuijian recommended-icon"></i>
+          </h1>
+        </div>
         <div class="meta meta-time">
           <span v-if="story.onlineAt" class="online-time">上线时间：{{ story.onlineAt }}</span>
           <span v-if="story.onlineAt && story.link" class="meta-sep">|</span>
@@ -1103,19 +1107,35 @@ onMounted(() => {
 .back-link:hover {
   color: #fd964c;
 }
-.recommended {
-  color: #fd964c;
-  font-size: 0.8rem;
-  background: #fff7e6;
-  border-radius: 4px;
-  padding: 2px 8px;
-  margin-left: 8px;
-}
+
 .story-title {
   font-size: 1.1rem;
   font-weight: 600;
   color: #333;
   margin: 0 0 8px 0;
+}
+
+.story-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.story-header .story-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.recommended-icon {
+  color: #fd964c;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-left: 4px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
 }
 .meta {
   color: #888;
