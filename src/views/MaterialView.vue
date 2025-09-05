@@ -143,7 +143,8 @@ const resetSearch = () => {
     substance: '',
     shape: '',
     color: '',
-    shop: ''
+    shop: '',
+    size: ''
   }
   displayLimit.value = 50  // 重置显示数量
   sortBy.value = null      // 重置排序方式
@@ -162,7 +163,8 @@ const displayedMaterials = computed(() => {
       (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
       (!searchForm.value.shape || item.shape.toLowerCase().includes(searchForm.value.shape.toLowerCase())) &&
       (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase())) &&
-      (!searchForm.value.shop || item.shop.toLowerCase().includes(searchForm.value.shop.toLowerCase()))
+      (!searchForm.value.shop || item.shop.toLowerCase().includes(searchForm.value.shop.toLowerCase())) &&
+      (!searchForm.value.size || item.size.toLowerCase().includes(searchForm.value.size.toLowerCase()))
     )
   })
   
@@ -370,7 +372,8 @@ const searchForm = ref({
   substance: '',
   shape: '',
   color: '',
-  shop: ''
+  shop: '',
+  size: ''
 })
 
 // 类型选择相关状态
@@ -678,7 +681,7 @@ const removeImage = (rowId) => {
       <div class="column-settings">
         <button 
           class="settings-btn"
-          @click="isColumnSettingsVisible = !isColumnSettingsVisible">
+            @click="saveColumnSettings(); isColumnSettingsVisible = !isColumnSettingsVisible">
           列设置
         </button>
         <RouterLink 
@@ -890,6 +893,13 @@ const removeImage = (rowId) => {
           v-model="searchForm.shop"
           type="text"
           placeholder="请输入店铺">
+      </div>
+      <div class="search-item">
+        <label>尺寸：</label>
+        <input 
+          v-model="searchForm.size"
+          type="text"
+          placeholder="请输入尺寸">
       </div>
       
       <div class="search-actions">
