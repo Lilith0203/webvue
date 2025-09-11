@@ -118,20 +118,21 @@ const extractFirstNumber = (str) => {
   return match ? parseFloat(match[0]) : NaN
 }
 
-// 切换按尺寸排序
+// 提取所有数字
+const extractNumbers = (str) => {
+  if (!str) return [];
+  // 匹配所有数字（整数或小数）
+  return (str.match(/\d+(\.\d+)?/g) || []).map(Number);
+}
+
+// 优化尺寸排序
 const toggleSortBySize = () => {
   if (sortBy.value === 'size') {
-    if (sortDirection.value === 'asc') {
-      // 如果当前是升序，切换为降序
-      sortDirection.value = 'desc'
-    } else {
-      // 如果当前是降序，取消排序
-      sortBy.value = null
-    }
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    if (sortDirection.value === 'asc') sortBy.value = null;
   } else {
-    // 如果当前没有排序，设置为升序
-    sortBy.value = 'size'
-    sortDirection.value = 'asc'
+    sortBy.value = 'size';
+    sortDirection.value = 'asc';
   }
 }
 
@@ -172,17 +173,26 @@ const displayedMaterials = computed(() => {
   let result = [...filtered]
   if (sortBy.value === 'size') {
     result.sort((a, b) => {
-      const sizeA = extractFirstNumber(a.size || '')
-      const sizeB = extractFirstNumber(b.size || '')
-      
-      // 如果无法提取数字，则放到最后
-      if (isNaN(sizeA) && isNaN(sizeB)) return 0
-      if (isNaN(sizeA)) return 1
-      if (isNaN(sizeB)) return -1
-      
-      // 按照排序方向排序
-      return sortDirection.value === 'asc' ? sizeA - sizeB : sizeB - sizeA
-    })
+      const parseSize = (str) => {
+        if (!str) return [Infinity, Infinity];
+        // 支持“*”或“×”，允许空格，第二个数字后可有单位
+        const match = str.match(/^\s*(\d+(?:\.\d+)?)\s*[\*×]\s*(\d+(?:\.\d+)?)(?:\s*mm)?/i);
+        if (match) {
+          return [parseFloat(match[1]), parseFloat(match[2])];
+        }
+        const num = str.match(/\d+(?:\.\d+)?/);
+        return num ? [parseFloat(num[0]), -1] : [Infinity, Infinity];
+      };
+      const [a1, a2] = parseSize(a.size || '');
+      const [b1, b2] = parseSize(b.size || '');
+
+      if (a1 !== b1) return sortDirection.value === 'asc' ? a1 - b1 : b1 - a1;
+      if (a2 !== b2) return sortDirection.value === 'asc' ? a2 - b2 : b2 - a2;
+      // 如果数字都相同，比较去空格、小写后的原始字符串
+      const sa = (a.size || '').replace(/\s/g, '').toLowerCase();
+      const sb = (b.size || '').replace(/\s/g, '').toLowerCase();
+      return sa.localeCompare(sb);
+    });
   }
 
   // 然后限制显示数量
@@ -788,7 +798,7 @@ const removeImage = (rowId) => {
               <template v-else-if="key == 'color'">
                 <input
                   v-model="newMaterialForm[key]"
-                  :type="text"
+                  type="text"
                   class="form-input"
                   required 
                   :class="{ 'error': formErrors.color }"  
