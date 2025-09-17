@@ -1,8 +1,9 @@
 <!-- components/WorkEditor.vue -->
 <script setup>
-import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from '../api'
 import { message } from '../utils/message'
+import { marked } from 'marked'
 
 const dragIndex = ref(null)
 const dragTarget = ref(null)
@@ -48,7 +49,7 @@ const form = ref({
 
 // 材料列表
 const materials = ref([])
-// 选中的材料
+// 选中的材料（包含数量信息）
 const selectedMaterials = ref([])
 // 材料搜索关键词
 const materialSearchQuery = ref({
@@ -64,6 +65,14 @@ const showMaterialSelector = ref(false)
 const materialsLoaded = ref(false)
 // 搜索结果数量限制
 const maxSearchResults = 100
+// 当前编辑的材料
+const editingMaterial = ref(null)
+// 材料数量输入
+const materialQuantity = ref(1)
+// 是否正在编辑已添加的材料
+const isEditingExisting = ref(false)
+// 是否显示Markdown预览
+const showPreview = ref(false)
 
 const initFormData = () => {
   return {
@@ -203,15 +212,80 @@ const searchHint = computed(() => {
 // 选择材料
 const selectMaterial = (material) => {
   if (!selectedMaterials.value.some(m => m.id === material.id)) {
-    selectedMaterials.value.push(material)
-    formData.materials.push(material.id)
+    editingMaterial.value = material
+    materialQuantity.value = 1
+    isEditingExisting.value = false
   }
+}
+
+// 编辑已添加的材料
+const editMaterialQuantity = (material) => {
+  editingMaterial.value = material
+  materialQuantity.value = material.quantity
+  isEditingExisting.value = true
+}
+
+// 确认添加/编辑材料
+const confirmAddMaterial = () => {
+  if (editingMaterial.value && materialQuantity.value > 0) {
+    if (isEditingExisting.value) {
+      // 编辑已存在的材料
+      const materialIndex = selectedMaterials.value.findIndex(m => m.id === editingMaterial.value.id)
+      if (materialIndex >= 0) {
+        selectedMaterials.value[materialIndex].quantity = parseInt(materialQuantity.value)
+      }
+      
+      // 更新formData.materials
+      const formDataIndex = formData.materials.findIndex(m => 
+        typeof m === 'object' ? m.id === editingMaterial.value.id : m === editingMaterial.value.id
+      )
+      if (formDataIndex >= 0) {
+        formData.materials[formDataIndex] = { 
+          id: editingMaterial.value.id, 
+          quantity: parseInt(materialQuantity.value) 
+        }
+      }
+    } else {
+      // 添加新材料
+      const materialWithQuantity = {
+        ...editingMaterial.value,
+        quantity: parseInt(materialQuantity.value)
+      }
+      selectedMaterials.value.push(materialWithQuantity)
+      
+      // 更新formData.materials为新格式
+      formData.materials.push({ 
+        id: editingMaterial.value.id, 
+        quantity: parseInt(materialQuantity.value) 
+      })
+    }
+    
+    // 重置状态
+    editingMaterial.value = null
+    materialQuantity.value = 1
+    isEditingExisting.value = false
+    
+    // 恢复页面滚动
+    document.body.style.overflow = ''
+  }
+}
+
+// 取消添加/编辑材料
+const cancelAddMaterial = () => {
+  editingMaterial.value = null
+  materialQuantity.value = 1
+  isEditingExisting.value = false
+  
+  // 恢复页面滚动
+  document.body.style.overflow = ''
 }
 
 // 移除材料
 const removeMaterial = (material) => {
   selectedMaterials.value = selectedMaterials.value.filter(m => m.id !== material.id)
-  formData.materials = formData.materials.filter(id => id !== material.id)
+  formData.materials = formData.materials.filter(m => 
+    typeof m === 'object' ? m.id !== material.id : m !== material.id
+  )
 }
 
 // 切换材料选择器
@@ -225,17 +299,27 @@ const toggleMaterialSelector = () => {
 // 初始化表单
 const initForm = () => {
   if (props.work) {
+    // 处理materials字段，兼容旧数据格式
+    let materials = props.work.materials || []
+    if (materials.length > 0 && typeof materials[0] === 'number') {
+      // 旧格式：转换为新格式
+      materials = materials.map(id => ({ id, quantity: 1 }))
+    }
+    
     form.value = {
       name: props.work.name || '',
       description: props.work.description || '',
       tags: props.work.tags || [],
       pictures: props.work.pictures || [],
-      materials: props.work.materials || [],
+      materials: materials,
       price: props.work.price || ''
     }
     
+    // 更新formData
+    Object.assign(formData, form.value)
+    
     // 加载已选材料信息
-    if (props.work.materials && props.work.materials.length > 0) {
+    if (materials.length > 0) {
       loadSelectedMaterials()
     }
   }
@@ -244,10 +328,25 @@ const initForm = () => {
 // 加载已选材料信息
 const loadSelectedMaterials = async () => {
   try {
+    // 提取材料ID列表
+    const materialIds = formData.materials.map(m => 
+      typeof m === 'object' ? m.id : m
+    )
+    
     const response = await axios.post('/material', {
-      ids: form.value.materials
+      ids: materialIds
     })
-    selectedMaterials.value = response.data.materials
+    
+    // 合并材料信息和数量
+    selectedMaterials.value = response.data.materials.map(material => {
+      const materialData = formData.materials.find(m => 
+        (typeof m === 'object' ? m.id : m) === material.id
+      )
+      return {
+        ...material,
+        quantity: typeof materialData === 'object' ? materialData.quantity : 1
+      }
+    })
   } catch (error) {
     console.error('获取已选材料失败:', error)
   }
@@ -275,6 +374,36 @@ const handlePriceInput = (event) => {
     event.target.value = formData.price
   }
 }
+
+// 格式化价格
+const formatPrice = (price) => {
+  return parseFloat(price).toLocaleString('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  })
+}
+
+// 计算材料总成本
+const calculateMaterialCost = computed(() => {
+  if (!selectedMaterials.value || selectedMaterials.value.length === 0) {
+    return 0
+  }
+  
+  let totalCost = 0
+  selectedMaterials.value.forEach(material => {
+    const price = parseFloat(material.price) || 0
+    const quantity = parseInt(material.quantity) || 1
+    totalCost += price * quantity
+  })
+  
+  return totalCost
+})
+
+// 渲染Markdown内容
+const renderedDescription = computed(() => {
+  if (!formData.description) return ''
+  return marked(formData.description)
+})
 
 // 提交表单
 const handleSubmit = async () => {
@@ -435,12 +564,33 @@ const insertMarkdown = (prefix, suffix = '') => {
 
 onMounted(() => {
   initForm()
+  document.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+  // 确保组件销毁时恢复页面滚动
+  document.body.style.overflow = ''
 })
 
 // 监听 work 变化
 watch(() => props.work, () => {
   initForm()
 }, { deep: true })
+
+// 点击背景关闭模态框
+const closeModalOnBackground = (event) => {
+  if (event.target.classList.contains('quantity-input-modal')) {
+    cancelAddMaterial()
+  }
+}
+
+// 键盘事件处理
+const handleKeydown = (event) => {
+  if (event.key === 'Escape' && editingMaterial.value) {
+    cancelAddMaterial()
+  }
+}
 </script>
 
 <template>
@@ -461,12 +611,25 @@ watch(() => props.work, () => {
               <button type="button" @click="insertMarkdown('> ')">引用</button>
               <button type="button" @click="insertMarkdown('- ')">列表</button>
               <button type="button" @click="insertMarkdown('[]() ')">链接</button>
+              <button type="button" @click="showPreview = !showPreview" class="preview-btn">
+                {{ showPreview ? '编辑' : '预览' }}
+              </button>
             </div>
-            <textarea v-model="formData.description" 
-              rows="18"
-              placeholder="请输入作品描述（支持Markdown）"
-              ref="contentEditor"
-            ></textarea>
+            
+            <!-- 编辑模式 -->
+            <div v-if="!showPreview" class="editor-content">
+              <textarea v-model="formData.description" 
+                rows="18"
+                placeholder="请输入作品描述（支持Markdown）"
+                ref="contentEditor"
+              ></textarea>
+            </div>
+            
+            <!-- 预览模式 -->
+            <div v-else class="preview-content">
+              <div class="preview-header">预览</div>
+              <div class="preview-body" v-html="renderedDescription"></div>
+            </div>
           </div>
   
           <div class="form-item">
@@ -532,25 +695,56 @@ watch(() => props.work, () => {
                 class="price-field">
             </div>
             <div class="price-hint">留空表示价格待定</div>
+            
+            <!-- 材料成本显示 -->
+            <div v-if="calculateMaterialCost > 0" class="cost-info">
+              <span class="cost-label">材料成本:</span>
+              <span class="cost-value">¥{{ formatPrice(calculateMaterialCost) }}</span>
+            </div>
           </div>
   
           <div class="form-item">
             <label>材料信息</label>
             <div class="selected-materials">
               <div v-for="material in selectedMaterials" :key="material.id" class="material-tag">
-                <span class="material-name">{{ material.name }}</span>
-                <div class="material-details">
-                  <span v-if="material.substance" class="detail-item substance">{{ material.substance }}</span>
-                  <span v-if="material.color" class="detail-item color">{{ material.color }}</span>
-                  <span v-if="material.size" class="detail-item size">{{ material.size }}</span>
-                  <span v-if="material.shape" class="detail-item shape">{{ material.shape }}</span>
-                  <span v-if="material.price" class="detail-item price">{{ material.price }}</span>
+                <div class="material-content" @click="editMaterialQuantity(material)">
+                  <div class="material-header">
+                    <span class="material-name">{{ material.name }}</span>
+                    <span class="material-quantity">×{{ material.quantity }}</span>
+                  </div>
+                  <div class="material-details">
+                    <span v-if="material.substance" class="detail-item substance">{{ material.substance }}</span>
+                    <span v-if="material.color" class="detail-item color">{{ material.color }}</span>
+                    <span v-if="material.size" class="detail-item size">{{ material.size }}</span>
+                    <span v-if="material.shape" class="detail-item shape">{{ material.shape }}</span>
+                    <span v-if="material.price" class="detail-item price">{{ material.price }}</span>
+                  </div>
                 </div>
-                <button type="button" @click="removeMaterial(material)" class="remove-btn">×</button>
+                <button type="button" @click.stop="removeMaterial(material)" class="remove-btn">×</button>
               </div>
               <button type="button" @click="toggleMaterialSelector" class="add-material-btn">
                  添加材料
               </button>
+            </div>
+            
+            <!-- 数量输入界面 -->
+            <div v-if="editingMaterial" class="quantity-input-modal" @click="closeModalOnBackground">
+              <div class="quantity-input-content" @click.stop>
+                <h4>{{ isEditingExisting ? '编辑材料数量' : '添加材料' }}：{{ editingMaterial.name }}</h4>
+                <div class="quantity-input-group">
+                  <label>数量：</label>
+                  <input 
+                    v-model.number="materialQuantity" 
+                    type="number" 
+                    min="1" 
+                    class="quantity-input"
+                  >
+                </div>
+                <div class="quantity-actions">
+                  <button type="button" @click="confirmAddMaterial" class="btn primary">{{ isEditingExisting ? '更新' : '确认' }}</button>
+                  <button type="button" @click="cancelAddMaterial" class="btn secondary">取消</button>
+                </div>
+              </div>
             </div>
             
             <!-- 材料选择器 -->
@@ -570,7 +764,7 @@ watch(() => props.work, () => {
                   <div class="search-field">
                     <input 
                       v-model="materialSearchQuery.substance" 
-                      placeholder="搜索材质"
+                      placeholder="材质"
                       class="search-input"
                     >
                   </div>
@@ -579,7 +773,7 @@ watch(() => props.work, () => {
                   <div class="search-field">
                     <input 
                       v-model="materialSearchQuery.color" 
-                      placeholder="搜索颜色"
+                      placeholder="颜色"
                       class="search-input"
                     >
                   </div>
@@ -588,7 +782,7 @@ watch(() => props.work, () => {
                   <div class="search-field">
                     <input 
                       v-model="materialSearchQuery.shape" 
-                      placeholder="搜索形状"
+                      placeholder="形状"
                       class="search-input"
                     >
                   </div>
@@ -597,7 +791,7 @@ watch(() => props.work, () => {
                   <div class="search-field">
                     <input 
                       v-model="materialSearchQuery.size" 
-                      placeholder="搜索尺寸"
+                      placeholder="尺寸"
                       class="search-input"
                     >
                   </div>
@@ -751,7 +945,6 @@ watch(() => props.work, () => {
   justify-content: center;
   gap: 20px;
   margin-top: 30px;
-  padding-top: 20px;
   border-top: 1px solid var(--color-border-soft);
 }
 
@@ -770,18 +963,60 @@ watch(() => props.work, () => {
   border-radius: 4px;
   font-size: 0.9em;
   position: relative;
-  min-width: 120px;
+  min-width: 100px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.material-tag:hover {
+  background-color: var(--color-background);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.edit-hint {
+  position: absolute;
+  bottom: 2px;
+  left: 8px;
+  font-size: 0.7em;
+  color: var(--color-text-light);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.material-tag:hover .edit-hint {
+  opacity: 1;
+}
+
+.material-content {
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.material-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
 }
 
 .material-name {
   font-weight: bold;
-  margin-right: 10px;
+}
+
+.material-quantity {
+  font-weight: bold;
+  color: var(--color-blue);
+  background-color: var(--color-background-soft);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 0.9em;
 }
 
 .material-list .material-name {
   float: left;
-  font-size: 0.9rem;
-  width: 120px;
+  font-size: 0.85rem;
+  min-width: 80px;
 }
 
 .material-details {
@@ -854,7 +1089,7 @@ watch(() => props.work, () => {
 }
 
 .search-container {
-  padding: 8px;
+  padding: 8px 8px 0 8px;
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -982,4 +1217,203 @@ watch(() => props.work, () => {
   color: #999;
   margin-top: 4px;
 }
+
+.cost-info {
+  margin-top: 6px;
+  padding: 4px 12px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #28a745;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cost-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.cost-value {
+  color: #28a745;
+  font-weight: bold;
+}
+
+/* 数量输入界面样式 */
+.quantity-input-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  backdrop-filter: blur(2px);
+}
+
+.quantity-input-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 300px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.quantity-input-content h4 {
+  margin: 0 0 15px 0;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.quantity-input-group {
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.quantity-input-group label {
+  font-weight: 500;
+  margin: 0;
+}
+
+.quantity-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  font-size: 1em;
+}
+
+.quantity-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.quantity-actions .btn {
+  padding: 4px 10px;
+  font-size: 0.9em;
+}
+
+/* 预览相关样式 */
+.preview-btn {
+  background-color: var(--color-blue);
+  color: white;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+
+.preview-btn:hover {
+  background-color: var(--color-primary-dark, #2980b9);
+}
+
+.editor-content textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.preview-content {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+}
+
+.preview-header {
+  background: #f5f5f5;
+  padding: 8px 12px;
+  border-bottom: 1px solid #ddd;
+  font-size: 0.9em;
+  font-weight: 500;
+  color: #666;
+}
+
+.preview-body {
+  padding: 12px;
+  min-height: 200px;
+  line-height: 1.6;
+}
+
+.preview-body :deep(p) {
+  margin-bottom: 8px;
+}
+
+.preview-body :deep(h1),
+.preview-body :deep(h2),
+.preview-body :deep(h3) {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.preview-body :deep(h1) {
+  font-size: 1.2em;
+}
+
+.preview-body :deep(h2) {
+  font-size: 1.1em;
+}
+
+.preview-body :deep(h3) {
+  font-size: 1em;
+}
+
+.preview-body :deep(blockquote) {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: #f9f9f9;
+  border-left: 3px solid #ddd;
+  font-style: italic;
+}
+
+.preview-body :deep(ul),
+.preview-body :deep(ol) {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.preview-body :deep(li) {
+  margin-bottom: 4px;
+}
+
+.preview-body :deep(a) {
+  color: var(--color-blue);
+  text-decoration: underline;
+}
+
+.preview-body :deep(strong) {
+  font-weight: bold;
+}
+
+.preview-body :deep(em) {
+  font-style: italic;
+}
+
 </style>

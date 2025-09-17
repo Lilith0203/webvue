@@ -111,11 +111,17 @@ const fetchWorkDetail = async () => {
   try {
     const response = await axios.get(`/works/${route.params.id}`)
     work.value = response.data.works
-    work.value.renderedContent = await marked(work.value.description)
+    
+    if (work.value && work.value.description) {
+      work.value.renderedContent = await marked(work.value.description)
+    } else {
+      work.value.renderedContent = ''
+    }
+    
     currentImageIndex.value = 0
       
     // 如果有材料信息，获取材料详情
-    if (work.value.materials && work.value.materials.length > 0) {
+    if (work.value && work.value.materials && work.value.materials.length > 0) {
       fetchMaterials(work.value.materials)
     }
   } catch (error) {
@@ -124,12 +130,27 @@ const fetchWorkDetail = async () => {
 }
   
 // 获取材料信息
-const fetchMaterials = async (materialIds) => {
+const fetchMaterials = async (materialsData) => {
   try {
+    // 提取材料ID列表
+    const materialIds = materialsData.map(m => 
+      typeof m === 'object' ? m.id : m
+    )
+    
     const response = await axios.post('/material', {
       ids: materialIds
     })
-    materials.value = response.data.materials
+    
+    // 合并材料信息和数量
+    materials.value = response.data.materials.map(material => {
+      const materialData = materialsData.find(m => 
+        (typeof m === 'object' ? m.id : m) === material.id
+      )
+      return {
+        ...material,
+        quantity: typeof materialData === 'object' ? materialData.quantity : 1
+      }
+    })
   } catch (error) {
     console.error('获取材料信息失败:', error)
   }
@@ -280,9 +301,11 @@ const handleBack = () => {
 
 onMounted(async() => {
   await fetchWorkDetail()
-  const itemId = work.value.id
-  await fetchComments(itemId)
-  await fetchInteractions()
+  if (work.value && work.value.id) {
+    const itemId = work.value.id
+    await fetchComments(itemId)
+    await fetchInteractions()
+  }
 })
 </script>
 
@@ -381,6 +404,7 @@ onMounted(async() => {
                 class="material-item">
                 
                 <span class="material-name">{{ material.name }}</span>
+                <span class="material-quantity">×{{ material.quantity }}</span>
                 <span v-if="material.substance" class="material-info">{{ material.substance }}</span>
                 <span v-if="material.size" class="material-info">{{ material.size }}</span>
                 <span v-if="material.color" class="material-info">{{ material.color }}</span>
@@ -530,12 +554,12 @@ onMounted(async() => {
 .description {
   color: #333;
   margin: 20px 10px;
+  font-size: 0.85rem;
 }
 
 :deep(.description p) {
   line-height: 1.5;
   margin-bottom: 8px;
-  font-size: 0.9rem;
 }
 
 .tags {
@@ -559,13 +583,13 @@ onMounted(async() => {
 
 .materials-section {
   margin: 15px 0;
-  padding: 15px 20px;
+  padding: 10px 20px 15px;
   background-color: var(--color-background-soft);
   border-radius: 8px;
 }
 
 .materials-section h3 {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   margin-bottom: 5px;
   color: var(--color-text);
   border-bottom: 1px dashed #d3d3d3;
@@ -579,20 +603,29 @@ onMounted(async() => {
 }
 
 .material-item {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
 }
 
 .material-name {
   font-weight: bold;
-  margin-right: 5px;
+}
+
+.material-quantity {
+  font-weight: bold;
+  color: var(--color-blue);
+  background-color: var(--color-background-soft);
+  padding: 2px 6px 2px 0;
+  border-radius: 3px;
+  font-size: 0.9em;
+  margin-right: 8px;
 }
 
 .material-info {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   white-space: nowrap;
 }
 
