@@ -365,15 +365,14 @@ onMounted(async() => {
 
         <!-- 交互区域 -->
         <div class="interaction-area">
-            <div class="interaction-btn" @click="toggleLike">
-              <i :class="['iconfont', hasLiked ? 'icon-dianzan' : 'icon-dianzan-0']"></i>
-              <span>{{ interactions.like }}</span>
-            </div>
-            
             <div v-if="canEdit" class="interaction-btn" @click="toggleRecommend">
               <i :class="['iconfont', interactions.weight > 0 ? 'icon-xingxingtuijian1' : 'icon--xingxingtuijian']"></i>
               <span v-if="interactions.weight > 0">已推荐</span>
               <span v-else>推荐</span>
+            </div>
+            <div class="interaction-btn" @click="toggleLike">
+              <i :class="['iconfont', hasLiked ? 'icon-dianzan' : 'icon-dianzan-0']"></i>
+              <span>{{ interactions.like }}</span>
             </div>
           </div>
         
@@ -712,8 +711,8 @@ onMounted(async() => {
 .interaction-area {
   display: flex;
   align-items: center;
-  gap: 20px;
-  margin: 0px 10px;
+  gap: 0px;
+  font-size: 0.9rem;
 }
 
 .interaction-btn {

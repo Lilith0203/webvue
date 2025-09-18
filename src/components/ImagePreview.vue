@@ -1,5 +1,9 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useAuthStore } from '../stores/auth'
+import { refreshImageUrl } from '../utils/image'
+
+const authStore = useAuthStore()
 
 const imageLoaded = ref(false)
 const touchStartX = ref(0)
@@ -31,6 +35,42 @@ const hasDetailListener = computed(() => {
   // 在Vue 3中，我们可以通过检查emit函数是否包含'detail'来判断
   return emit.includes('detail')
 })
+
+// 检查是否有编辑权限（登录状态）
+const canEdit = computed(() => {
+  return authStore.isAuthenticated
+})
+
+// 下载当前图片
+const downloadCurrentImage = async () => {
+  if (!props.imageUrl) return
+  
+  try {
+    // 获取带签名的图片URL
+    const signedUrl = await refreshImageUrl(props.imageUrl)
+    
+    // 检测是否为移动设备
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    
+    if (isMobile) {
+      // 移动端：直接跳转到图片URL
+      location.href = signedUrl
+    } else {
+      // 桌面端：使用下载链接方式
+      const link = document.createElement('a')
+      link.href = signedUrl
+      link.download = `${props.title || 'image'}_${props.current}.jpg`
+      link.target = '_blank'
+      
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  } catch (error) {
+    console.error('下载图片失败:', error)
+    alert('下载图片失败，请稍后重试')
+  }
+}
 
 // 键盘事件处理
 const handleKeyDown = (e) => {
@@ -92,6 +132,14 @@ onUnmounted(() => {
       <div class="image-preview-content" @click.stop>
         <!-- 关闭按钮 -->
         <div class="close-btn" @click="$emit('close')">×</div>
+        <!-- 下载按钮 -->
+        <div 
+          v-if="canEdit" 
+          class="download-btn" 
+          @click="downloadCurrentImage"
+          title="下载图片">
+          <i class="iconfont icon-xiazai"></i>
+        </div>
         <!-- 标题 -->
         <div class="preview-header">
           <h3>{{ title }}</h3>
@@ -220,6 +268,26 @@ onUnmounted(() => {
   z-index: 1000;
 }
 
+.download-btn {
+  position: absolute;
+  top: 0;
+  left: 10px;
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 4px;
+  z-index: 1000;
+}
+
+.download-btn i {
+  font-size: 1.4rem;
+}
+
 .nav-btn {
   position: absolute;
   top: 50%;
@@ -283,6 +351,20 @@ onUnmounted(() => {
 
   .next-btn {
     right: -40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .download-btn {
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+  }
+  
+  .download-btn i {
+    font-size: 1.4rem;
   }
 }
 </style>
