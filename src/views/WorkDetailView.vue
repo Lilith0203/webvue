@@ -312,10 +312,10 @@ const downloadCurrentImage = async () => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     
     if (isMobile) {
-      // 移动端：直接打开图片URL，让用户长按保存
-      window.open(signedUrl, '_blank')
+      // 移动端：直接跳转到图片URL
+      location.href = signedUrl
     } else {
-      // 桌面端：使用下载链接
+      // 桌面端：使用下载链接方式
       const link = document.createElement('a')
       link.href = signedUrl
       link.download = `${work.value.name || 'work'}_${currentImageIndex.value + 1}.jpg`
