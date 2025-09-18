@@ -354,17 +354,4 @@ onUnmounted(() => {
   }
 }
 
-@media (max-width: 768px) {
-  .download-btn {
-    padding: 8px;
-    min-width: 44px;
-    min-height: 44px;
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 8px;
-  }
-  
-  .download-btn i {
-    font-size: 1.4rem;
-  }
-}
 </style>
