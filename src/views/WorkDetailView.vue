@@ -301,41 +301,34 @@ const handleBack = () => {
 }
 
 // 下载当前图片
-let downloadTimeout = null
-
-const downloadCurrentImage = async (event) => {
+const downloadCurrentImage = async () => {
   if (!currentImage.value) return
   
-  // 防止移动端重复触发
-  if (event && event.type === 'touchstart') {
-    event.preventDefault()
-  }
-  
-  // 防抖处理
-  if (downloadTimeout) {
-    clearTimeout(downloadTimeout)
-  }
-  
-  downloadTimeout = setTimeout(async () => {
-    try {
-      // 获取带签名的图片URL
-      const signedUrl = await refreshImageUrl(currentImage.value)
-      
-      // 创建下载链接
+  try {
+    // 获取带签名的图片URL
+    const signedUrl = await refreshImageUrl(currentImage.value)
+    
+    // 检测是否为移动设备
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    
+    if (isMobile) {
+      // 移动端：直接打开图片URL，让用户长按保存
+      window.open(signedUrl, '_blank')
+    } else {
+      // 桌面端：使用下载链接
       const link = document.createElement('a')
       link.href = signedUrl
       link.download = `${work.value.name || 'work'}_${currentImageIndex.value + 1}.jpg`
       link.target = '_blank'
       
-      // 触发下载
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-    } catch (error) {
-      console.error('下载图片失败:', error)
-      alert('下载图片失败，请稍后重试')
     }
-  }, 100)
+  } catch (error) {
+    console.error('下载图片失败:', error)
+    alert('下载图片失败，请稍后重试')
+  }
 }
 
 onMounted(async() => {
@@ -405,7 +398,6 @@ onMounted(async() => {
               v-if="canEdit" 
               class="download-btn" 
               @click="downloadCurrentImage"
-              @touchstart="downloadCurrentImage"
               title="下载当前图片">
               <i class="iconfont icon-xiazai"></i>
             </button>
