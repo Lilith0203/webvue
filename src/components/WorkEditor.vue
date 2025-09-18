@@ -1141,10 +1141,9 @@ const handleKeydown = (event) => {
 }
 
 .btn {
-  padding: 4px 15px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s ease;
   border: none;
@@ -1176,13 +1175,8 @@ const handleKeydown = (event) => {
 }
 
 .btn.secondary {
-  background-color: white;
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-}
-
-.btn.secondary:hover {
-  background-color: var(--color-background-soft);
+  background-color: #b4b4b4;
+  color: #fff;
 }
   
 @media (max-width: 768px) {

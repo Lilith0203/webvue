@@ -276,6 +276,18 @@ watch(searchKeyword, (newVal, oldVal) => {
   }
 })
 
+// 监听路由变化，处理tag参数
+watch(() => route.query.tag, (newTag) => {
+  if (newTag && !selectedTags.value.includes(newTag)) {
+    selectedTags.value.push(newTag)
+    // 重新获取数据
+    works.value = []
+    currentPage.value = 1
+    hasMore.value = true
+    fetchWorks()
+  }
+})
+
 // 切换页码
 const changePage = (page) => {
   currentPage.value = page
@@ -446,6 +458,9 @@ onMounted(async () => {
   // 检查是否是从详情页返回
   const isFromDetail = route.query.from === 'detail'
   
+  // 检查URL中是否有tag参数
+  const tagFromUrl = route.query.tag
+  
   // 首先获取标签数据
   await fetchTags()
   
@@ -480,6 +495,11 @@ onMounted(async () => {
     selectedTags.value = []
     searchKeyword.value = ''
     showRecommended.value = false
+  }
+  
+  // 如果URL中有tag参数，添加到选中标签中
+  if (tagFromUrl && !selectedTags.value.includes(tagFromUrl)) {
+    selectedTags.value.push(tagFromUrl)
   }
   
   // 获取作品数据
@@ -707,12 +727,13 @@ onUnmounted(() => {
 }
 
 .add-btn {
-  padding: 4px 6px;
+  padding: 3px 6px;
   background-color: var(--color-blue);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 0.8rem;
 }
 
 .work-grid {

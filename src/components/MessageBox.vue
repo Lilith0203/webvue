@@ -89,15 +89,15 @@ const cancel = () => emit('cancel')
 }
   
 .btn {
-  padding: 3px 8px;
+  padding: 2px 8px;
   border-radius: 4px;
   text-decoration: none;
-  font-size: 14px;
+  font-size: 13px;
   transition: all 0.3s ease;
 }
   
 .confirm {
-  background: var(--color-primary, #42b883);
+  background: var(--color-green);
   color: white;
 }
   

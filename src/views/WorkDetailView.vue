@@ -8,6 +8,7 @@ import { marked } from 'marked'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
 import { refreshImageUrl } from '../utils/image'
+import { getTagColor, getTextColor } from '../utils/tags'
 
 // 修改 marked 渲染器配置
 const renderer = new marked.Renderer()
@@ -300,6 +301,28 @@ const handleBack = () => {
   }
 }
 
+// 获取标签样式
+const getTagStyle = (tag) => {
+  const bgColor = getTagColor(tag)
+  const textColor = getTextColor(bgColor)
+  return {
+    backgroundColor: bgColor,
+    color: textColor
+  }
+}
+
+// 点击标签跳转到列表页并筛选
+const clickTag = (tag) => {
+  router.push({
+    path: '/works',
+    query: { 
+      tag: tag,
+      page: 1,
+      from: 'detail'
+    }
+  })
+}
+
 // 下载当前图片
 const downloadCurrentImage = async () => {
   if (!currentImage.value) return
@@ -420,8 +443,11 @@ onMounted(async() => {
             <span 
               v-for="tag in work.tags" 
               :key="tag" 
-              class="tag">
-              <a>{{ tag }}</a>
+              class="tag"
+              :style="getTagStyle(tag)"
+              @click="clickTag(tag)"
+              title="点击查看相关作品">
+              {{ tag }}
             </span>
           </div>
           
@@ -628,10 +654,14 @@ onMounted(async() => {
 }
   
 .tag {
-  padding: 2px 6px;
-  background-color: #f0f0f0;
+  padding: 1px 8px;
   border-radius: 4px;
   font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
 }
   
 .update-time {
