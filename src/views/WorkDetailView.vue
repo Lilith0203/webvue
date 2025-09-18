@@ -7,6 +7,7 @@ import WorkEditor from '../components/WorkEditor.vue'
 import { marked } from 'marked'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
+import { refreshImageUrl } from '../utils/image'
 
 // 修改 marked 渲染器配置
 const renderer = new marked.Renderer()
@@ -299,6 +300,30 @@ const handleBack = () => {
   }
 }
 
+// 下载当前图片
+const downloadCurrentImage = async () => {
+  if (!currentImage.value) return
+  
+  try {
+    // 获取带签名的图片URL
+    const signedUrl = await refreshImageUrl(currentImage.value)
+    
+    // 创建下载链接
+    const link = document.createElement('a')
+    link.href = signedUrl
+    link.download = `${work.value.name || 'work'}_${currentImageIndex.value + 1}.jpg`
+    link.target = '_blank'
+    
+    // 触发下载
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  } catch (error) {
+    console.error('下载图片失败:', error)
+    alert('下载图片失败，请稍后重试')
+  }
+}
+
 onMounted(async() => {
   await fetchWorkDetail()
   if (work.value && work.value.id) {
@@ -360,6 +385,14 @@ onMounted(async() => {
               @click="nextImage"
               v-show="currentImageIndex < work.pictures.length - 1">
               <i class="iconfont icon-youjiantou"></i>
+            </button>
+            <!-- 下载按钮 -->
+            <button 
+              v-if="canEdit" 
+              class="download-btn" 
+              @click="downloadCurrentImage"
+              title="下载当前图片">
+              <i class="iconfont icon-xiazai"></i>
             </button>
           </div>
             
@@ -519,6 +552,25 @@ onMounted(async() => {
   
 .gallery-nav.next {
   right: 5px;
+}
+
+.download-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 4px;
+  background: transparent;
+}
+
+.download-btn i {
+  font-size: 1.4rem;
 }
   
 .gallery-thumbs {
