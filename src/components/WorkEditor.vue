@@ -297,7 +297,7 @@ const toggleMaterialSelector = () => {
 }
 
 // 初始化表单
-const initForm = () => {
+const initForm = async () => {
   if (props.work) {
     // 处理materials字段，兼容旧数据格式
     let materials = props.work.materials || []
@@ -306,21 +306,29 @@ const initForm = () => {
       materials = materials.map(id => ({ id, quantity: 1 }))
     }
     
-    form.value = {
-      name: props.work.name || '',
-      description: props.work.description || '',
-      tags: props.work.tags || [],
-      pictures: props.work.pictures || [],
-      materials: materials,
-      price: props.work.price || ''
-    }
+    // 直接更新formData，确保响应式更新
+    formData.id = props.work.id || null
+    formData.name = props.work.name || ''
+    formData.description = props.work.description || ''
+    formData.tags = [...(props.work.tags || [])]
+    formData.pictures = [...(props.work.pictures || [])]
+    formData.materials = [...materials]
+    formData.price = props.work.price || ''
     
-    // 更新formData
-    Object.assign(formData, form.value)
+    // 同时更新form.value以保持一致性
+    form.value = {
+      id: formData.id,
+      name: formData.name,
+      description: formData.description,
+      tags: formData.tags,
+      pictures: formData.pictures,
+      materials: formData.materials,
+      price: formData.price
+    }
     
     // 加载已选材料信息
     if (materials.length > 0) {
-      loadSelectedMaterials()
+      await loadSelectedMaterials()
     }
   }
 }
@@ -434,6 +442,7 @@ const handleSubmit = async () => {
     message.success(props.mode === 'create' ? '创建成功' : '更新成功')
     emit('success', response.data.work)
   } catch (error) {
+    console.error('保存失败:', error)
     message.error(error.message)
   } finally {
     submitting.value = false
@@ -562,8 +571,8 @@ const insertMarkdown = (prefix, suffix = '') => {
   })
 }
 
-onMounted(() => {
-  initForm()
+onMounted(async () => {
+  await initForm()
   document.addEventListener('keydown', handleKeydown)
 })
 
@@ -574,8 +583,8 @@ onUnmounted(() => {
 })
 
 // 监听 work 变化
-watch(() => props.work, () => {
-  initForm()
+watch(() => props.work, async () => {
+  await initForm()
 }, { deep: true })
 
 // 点击背景关闭模态框

@@ -38,6 +38,7 @@ const recommendedWorks = ref([])
 const loadingRecommended = ref(false)
 const recommendedPage = ref(1)
 const recommendedHasMore = ref(true)
+const recommendedTotalPages = ref(1)
 
 // 切换标签
 const toggleTag = (tag) => {
@@ -380,7 +381,7 @@ const toggleRecommendedView = async () => {
 
 // 获取推荐作品
 const fetchRecommendedWorks = async () => {
-  if (loadingRecommended.value || !recommendedHasMore.value) return
+  if (loadingRecommended.value) return
   
   loadingRecommended.value = true
   try {
@@ -414,14 +415,12 @@ const fetchRecommendedWorks = async () => {
         })
       )
       
-      if (recommendedPage.value === 1) {
-        recommendedWorks.value = worksWithInteraction
-      } else {
-        recommendedWorks.value = [...recommendedWorks.value, ...worksWithInteraction]
-      }
+      // 直接替换数据，使用真正的分页
+      recommendedWorks.value = worksWithInteraction
       
-      recommendedHasMore.value = items.length === pageSize.value
-      recommendedPage.value++
+      // 计算总页数
+      recommendedTotalPages.value = Math.ceil(response.data.data.count / pageSize.value)
+      recommendedHasMore.value = recommendedPage.value < recommendedTotalPages.value
     }
   } catch (error) {
     console.error('获取推荐作品失败:', error)
@@ -430,8 +429,9 @@ const fetchRecommendedWorks = async () => {
   }
 }
 
-// 加载更多推荐作品
-const loadMoreRecommended = () => {
+// 推荐作品分页
+const changeRecommendedPage = (page) => {
+  recommendedPage.value = page
   fetchRecommendedWorks()
 }
 
@@ -439,6 +439,7 @@ const loadMoreRecommended = () => {
 const resetRecommendedWorks = () => {
   recommendedWorks.value = []
   recommendedPage.value = 1
+  recommendedTotalPages.value = 1
   recommendedHasMore.value = true
 }
 
@@ -475,17 +476,26 @@ onMounted(async () => {
     works.value = []
     hasMore.value = true
     
-    if (savedPage) {
-      currentPage.value = parseInt(savedPage)
-    }
-    if (savedTags) {
-      selectedTags.value = JSON.parse(savedTags)
-    }
-    if (savedKeyword) {
-      searchKeyword.value = savedKeyword
-    }
-    if (savedShowRecommended) {
-      showRecommended.value = savedShowRecommended === 'true'
+    // 如果URL中有tag参数，说明是点击标签返回，应该重置到第1页
+    if (tagFromUrl) {
+      currentPage.value = 1
+      selectedTags.value = []
+      searchKeyword.value = ''
+      showRecommended.value = false
+    } else {
+      // 没有tag参数，恢复之前的状态
+      if (savedPage) {
+        currentPage.value = parseInt(savedPage)
+      }
+      if (savedTags) {
+        selectedTags.value = JSON.parse(savedTags)
+      }
+      if (savedKeyword) {
+        searchKeyword.value = savedKeyword
+      }
+      if (savedShowRecommended) {
+        showRecommended.value = savedShowRecommended === 'true'
+      }
     }
   } else {
     // 如果不是从详情页返回，重置所有状态
@@ -507,14 +517,25 @@ onMounted(async () => {
   
   // 恢复滚动位置
   if (isFromDetail) {
-    const savedScrollPosition = sessionStorage.getItem('workListScrollPosition')
-    if (savedScrollPosition) {
+    if (tagFromUrl) {
+      // 点击标签返回，滚动到顶部
       setTimeout(() => {
         window.scrollTo({
-          top: parseInt(savedScrollPosition),
+          top: 0,
           behavior: 'instant'
         })
       }, 100)
+    } else {
+      // 普通返回，恢复之前的滚动位置
+      const savedScrollPosition = sessionStorage.getItem('workListScrollPosition')
+      if (savedScrollPosition) {
+        setTimeout(() => {
+          window.scrollTo({
+            top: parseInt(savedScrollPosition),
+            behavior: 'instant'
+          })
+        }, 100)
+      }
     }
   }
 })
@@ -644,28 +665,32 @@ onUnmounted(() => {
         </div>
       </div>
       <!-- 替换原来的加载更多按钮 -->
-      <div class="pagination" v-if="totalPages > 1">
+      <div class="pagination" v-if="showRecommended ? recommendedTotalPages > 1 : totalPages > 1">
         <button 
           class="pagination-btn" 
-          :disabled="currentPage === 1"
-          @click="changePage(currentPage - 1)"
+          :disabled="showRecommended ? recommendedPage === 1 : currentPage === 1"
+          @click="showRecommended ? changeRecommendedPage(recommendedPage - 1) : changePage(currentPage - 1)"
         >
           上一页
         </button>
         
-        <div class="pagination-info">
+        <div class="pagination-info" v-if="!showRecommended">
           <span class="cur">{{ currentPage }}</span> / {{ totalPages }} 页
+        </div>
+        
+        <div class="pagination-info" v-else>
+          <span class="cur">{{ recommendedPage }}</span> / {{ recommendedTotalPages }} 页
         </div>
         
         <button 
           class="pagination-btn" 
-          :disabled="currentPage === totalPages"
-          @click="changePage(currentPage + 1)"
+          :disabled="showRecommended ? recommendedPage === recommendedTotalPages : currentPage === totalPages"
+          @click="showRecommended ? changeRecommendedPage(recommendedPage + 1) : changePage(currentPage + 1)"
         >
           下一页
         </button>
         
-        <div class="page-jump">
+        <div class="page-jump" v-if="!showRecommended">
           <input 
             type="number" 
             v-model="targetPage" 
