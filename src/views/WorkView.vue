@@ -642,11 +642,6 @@ onUnmounted(() => {
           <div class="work-info">
             <div class="work-header">
               <h3 @click="goToDetail(work.id)">{{ work.name }}</h3>
-              <!-- 操作按钮 -->
-              <div class="actions" v-if="canEdit">
-                <button @click="openEditEditor(work)"><i class="iconfont icon-bianji"></i></button>
-                <button @click="deleteWork(work.id)"><i class="iconfont icon-shanchu"></i></button>
-              </div>
             </div>
             <!--<p class="description">{{ work.description }}</p>-->
             <div class="tags">
@@ -659,7 +654,12 @@ onUnmounted(() => {
               </span>
             </div>
             <div class="update-time">
-              更新时间: {{ formatDate(work.updatedAt) }}
+              <span>更新时间: {{ formatDate(work.updatedAt) }}</span>
+              <!-- 操作按钮 -->
+              <div class="actions" v-if="canEdit">
+                <button @click="openEditEditor(work)"><i class="iconfont icon-bianji"></i></button>
+                <button @click="deleteWork(work.id)"><i class="iconfont icon-shanchu"></i></button>
+              </div>
             </div>
           </div>
         </div>
@@ -913,11 +913,13 @@ onUnmounted(() => {
 .update-time {
   font-size: 12px;
   color: #999;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .actions {
   display: flex;
-  gap: 10px;
 }
 
 .actions button {

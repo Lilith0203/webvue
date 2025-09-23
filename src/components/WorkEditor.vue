@@ -1026,6 +1026,7 @@ const handleKeydown = (event) => {
   float: left;
   font-size: 0.85rem;
   min-width: 80px;
+  margin-right: 10px;
 }
 
 .material-details {

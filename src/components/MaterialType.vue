@@ -1,6 +1,9 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import axios from '../api'
+
+const router = useRouter()
 
 const typeTree = ref([])
 const loading = ref(false)
@@ -98,6 +101,11 @@ const addType = async () => {
   }
 }
 
+// 返回材料页
+const goBackToMaterials = () => {
+  router.push('/material')
+}
+
 onMounted(() => {
   fetchTypeTree()
 })
@@ -105,6 +113,13 @@ onMounted(() => {
 
 <template>
   <div class="type-manager">
+    <!-- 返回按钮 -->
+    <div class="header-actions">
+      <button class="back-button" @click="goBackToMaterials">
+        ← 返回材料页
+      </button>
+    </div>
+    
     <!-- 错误提示 -->
     <div v-if="error" class="error">{{ error }}</div>
     
@@ -204,10 +219,16 @@ onMounted(() => {
   font-size: 13px;
 }
 
-.a-back {
-  display: block;
-  font-size: 0.8em;
-  line-height: 2em;
+.header-actions {
+  margin-bottom: 15px;
+}
+
+.back-button {
+  background-color: transparent;
+  color: #606266;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
 }
 
 .add-button {
@@ -217,7 +238,6 @@ onMounted(() => {
   color: white;
   border: none;
   border-radius: 4px;
-  font-size: 0.8em;
   cursor: pointer;
 }
 
