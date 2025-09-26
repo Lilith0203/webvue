@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from '../api'
+import { confirm } from '../utils/confirm'
 
 const router = useRouter()
 
@@ -79,7 +80,9 @@ const cancelEdit = () => {
 
 // 删除类型
 const deleteType = async (typeId) => {
-  if (!confirm('确定要删除此类型吗？')) return
+  if (!await confirm('确定要删除此类型吗？')) {
+    return
+  }
   
   try {
     await axios.post(`/deleteMaterialType`, { id: typeId })

@@ -54,6 +54,7 @@ const selectedMaterials = ref([])
 // 材料搜索关键词
 const materialSearchQuery = ref({
   name: '',
+  type: [], // 类型多选
   substance: '',
   color: '',
   shape: '',
@@ -73,6 +74,10 @@ const materialQuantity = ref(1)
 const isEditingExisting = ref(false)
 // 是否显示Markdown预览
 const showPreview = ref(false)
+
+// 类型树数据
+const typeTree = ref([])
+const typeMap = ref(new Map()) // 存储id和typeName的映射
 
 const initFormData = () => {
   return {
@@ -159,10 +164,180 @@ const fetchMaterials = async () => {
   }
 }
 
+// 获取类型树数据
+const fetchTypeTree = async () => {
+  try {
+    const response = await axios.get('/getMaterialType')
+    typeTree.value = response.data.typetree
+    // 构建id和typeName的映射
+    buildTypeMap(typeTree.value)
+  } catch (err) {
+    console.error('获取类型数据失败:', err)
+  }
+}
+
+// 递归构建类型映射
+const buildTypeMap = (types, parentName = '') => {
+  types.forEach(type => {
+    const fullName = parentName ? `${parentName} - ${type.typeName}` : type.typeName
+    typeMap.value.set(type.id, fullName)
+    if (type.children && type.children.length > 0) {
+      buildTypeMap(type.children, fullName)
+    }
+  })
+}
+
+// 修改类型选项的构建方法，添加路径信息
+const buildTypeOptions = (types, parentPath = '', level = 0) => {
+  if (!types) return []
+  
+  return types.flatMap(type => {
+    const currentPath = parentPath ? `${parentPath}/${type.id}` : `${type.id}`
+    const option = {
+      value: type.id,
+      label: type.typeName,
+      level,
+      path: currentPath
+    }
+    
+    if (type.children && type.children.length > 0) {
+      return [option, ...buildTypeOptions(type.children, currentPath, level + 1)]
+    }
+    
+    return [option]
+  })
+}
+
+// 计算属性：类型选项列表
+const typeOptions = computed(() => {
+  return buildTypeOptions(typeTree.value)
+})
+
+// 获取类型名称
+const getTypeName = (typeId) => {
+  return typeMap.value.get(typeId) || typeId
+}
+
+// 类型选择相关状态
+const showTypeDropdown = ref(false)
+const selectedTypes = computed(() => {
+  // 获取所有选中的类型
+  const selectedIds = materialSearchQuery.value.type || []
+  
+  // 过滤出没有选中父类型的选中类型
+  const topLevelSelected = selectedIds.filter(id => {
+    const option = typeOptions.value.find(opt => opt.value === id)
+    if (!option) return false
+    
+    // 如果是一级类型，或者其父类型未被选中，则显示
+    const parentPath = option.path.split('/').slice(0, -1).join('/')
+    const parentOption = typeOptions.value.find(opt => opt.path === parentPath)
+    return !parentOption || !selectedIds.includes(parentOption.value)
+  })
+  
+  // 转换为类型名称
+  return topLevelSelected.map(id => getTypeName(id)).join(', ')
+})
+
+// 跟踪展开的菜单项
+const expandedTypes = ref(new Set())
+
+// 切换展开状态
+const toggleExpand = (typeId) => {
+  if (expandedTypes.value.has(typeId)) {
+    expandedTypes.value.delete(typeId)
+  } else {
+    expandedTypes.value.add(typeId)
+  }
+}
+
+// 判断是否有子项
+const hasChildren = (option) => {
+  return typeOptions.value.some(item => 
+    item.level === option.level + 1 && 
+    item.path.startsWith(option.path + '/')
+  )
+}
+
+// 修改显示条件的判断
+const isVisible = (option) => {
+  if (option.level === 0) return true
+  
+  const parentPath = option.path.split('/').slice(0, -1).join('/')
+  return expandedTypes.value.has(parentPath)
+}
+
+// 获取所有子类型ID
+const getChildTypeIds = (option) => {
+  return typeOptions.value
+    .filter(item => item.path.startsWith(option.path + '/'))
+    .map(item => item.value)
+}
+
+// 获取父类型ID
+const getParentTypeId = (option) => {
+  const parentPath = option.path.split('/').slice(0, -1).join('/')
+  return typeOptions.value.find(item => item.path === parentPath)?.value
+}
+
+// 修改切换选中状态的逻辑
+const toggleType = (option) => {
+  const typeId = option.value
+  const currentTypes = materialSearchQuery.value.type || []
+  const index = currentTypes.indexOf(typeId)
+  
+  if (index === -1) {
+    // 选中当前类型
+    const typesToAdd = [typeId]
+    
+    // 如果是一级类型，添加所有子类型
+    if (option.level === 0) {
+      typesToAdd.push(...getChildTypeIds(option))
+      // 自动展开
+      expandedTypes.value.add(option.path)
+    } else {
+      // 如果选中所有同级类型，也选中父类型
+      const parentId = getParentTypeId(option)
+      const siblings = typeOptions.value.filter(item => {
+      const itemParentPath = item.path.split('/').slice(0, -1).join('/')
+      return itemParentPath === option.path.split('/').slice(0, -1).join('/')
+    })
+      
+    const allSiblingsSelected = siblings.every(sibling => 
+      currentTypes.includes(sibling.value) || sibling.value === typeId
+    )
+      
+    if (allSiblingsSelected && parentId) {
+      typesToAdd.push(parentId)
+    }
+  }
+    
+  materialSearchQuery.value.type = [...new Set([...currentTypes, ...typesToAdd])]
+  } else {
+    // 取消选中当前类型
+    const typesToRemove = [typeId]
+    
+    // 如果是一级类型，移除所有子类型
+    if (option.level === 0) {
+      typesToRemove.push(...getChildTypeIds(option))
+    } else {
+      // 如果取消选中子类型，也取消选中父类型
+      const parentId = getParentTypeId(option)
+      if (parentId) {
+        typesToRemove.push(parentId)
+      }
+    }
+    
+    materialSearchQuery.value.type = currentTypes.filter(id => !typesToRemove.includes(id))
+  }
+}
+
 // 过滤材料
 const filteredMaterials = computed(() => {
   // 检查是否有任何搜索条件
-  const hasQuery = Object.values(materialSearchQuery.value).some(value => value.trim() !== '')
+  const hasQuery = Object.values(materialSearchQuery.value).some(value => 
+    Array.isArray(value) ? value.length > 0 : value.trim() !== ''
+  )
   
   if (!hasQuery) {
     return []
@@ -173,6 +348,9 @@ const filteredMaterials = computed(() => {
       // 检查每个搜索条件
       const nameMatch = !materialSearchQuery.value.name || 
         (material.name && material.name.toLowerCase().includes(materialSearchQuery.value.name.toLowerCase()))
+      
+      const typeMatch = !materialSearchQuery.value.type.length || 
+        materialSearchQuery.value.type.includes(material.type)
       
       const substanceMatch = !materialSearchQuery.value.substance || 
         (material.substance && material.substance.toLowerCase().includes(materialSearchQuery.value.substance.toLowerCase()))
@@ -187,14 +365,14 @@ const filteredMaterials = computed(() => {
         (material.size && material.size.toLowerCase().includes(materialSearchQuery.value.size.toLowerCase()))
       
       // 所有条件都必须匹配（取交集）
-      return nameMatch && substanceMatch && colorMatch && shapeMatch && sizeMatch
+      return nameMatch && typeMatch && substanceMatch && colorMatch && shapeMatch && sizeMatch
     })
     .slice(0, maxSearchResults)
 })
 
 // 搜索提示信息
 const searchHint = computed(() => {  
-  if (!materialSearchQuery.value.name && !materialSearchQuery.value.substance && !materialSearchQuery.value.color && !materialSearchQuery.value.shape && !materialSearchQuery.value.size) {
+  if (!materialSearchQuery.value.name && !materialSearchQuery.value.type.length && !materialSearchQuery.value.substance && !materialSearchQuery.value.color && !materialSearchQuery.value.shape && !materialSearchQuery.value.size) {
     return '请输入关键词搜索材料'
   }
   
@@ -293,6 +471,7 @@ const toggleMaterialSelector = () => {
   showMaterialSelector.value = !showMaterialSelector.value
   if (showMaterialSelector.value && !materialsLoaded.value) {
     fetchMaterials()
+    fetchTypeTree()
   }
 }
 
@@ -574,6 +753,13 @@ const insertMarkdown = (prefix, suffix = '') => {
 onMounted(async () => {
   await initForm()
   document.addEventListener('keydown', handleKeydown)
+  
+  // 点击外部关闭类型下拉框
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.type-selector')) {
+      showTypeDropdown.value = false
+    }
+  })
 })
 
 onUnmounted(() => {
@@ -760,6 +946,46 @@ const handleKeydown = (event) => {
             <div v-if="showMaterialSelector" class="material-selector">
               <div class="search-container">
                 <div class="search-fields">
+                  <!-- 类型搜索 -->
+                  <div class="search-field">
+                    <div class="type-selector">
+                      <div 
+                        class="type-input" 
+                        @click="showTypeDropdown = !showTypeDropdown">
+                        <span v-if="materialSearchQuery.type.length">{{ selectedTypes }}</span>
+                        <span v-else class="placeholder">请选择类型</span>
+                        <span class="arrow">▼</span>
+                      </div>
+
+                      <!-- 类型下拉菜单 -->
+                      <div 
+                        v-show="showTypeDropdown" 
+                        class="type-dropdown">
+                        <div 
+                          v-for="option in typeOptions" 
+                          :key="option.value"
+                          v-show="option.level === 0 || isVisible(option)"
+                            class="type-option"
+                            :class="{ 
+                              'selected': materialSearchQuery.type.includes(option.value),
+                              [`level-${option.level}`]: true
+                            }"
+                            :style="{ paddingLeft: `${option.level * 20 + 10}px` }">
+                          <!-- 展开/收起箭头 -->
+                          <span 
+                            v-if="hasChildren(option)"
+                            class="expand-arrow"
+                            @click.stop="toggleExpand(option.path)">
+                              {{ expandedTypes.has(option.path) ? '▼' : '▶' }}
+                          </span>
+                          <!-- 复选框和标签 -->
+                          <div class="type-content" @click.stop="toggleType(option)">
+                            <span>{{ option.label }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <!-- 名称搜索 -->
                   <div class="search-field">
                     <input 
@@ -768,6 +994,7 @@ const handleKeydown = (event) => {
                       class="search-input"
                     >
                   </div>
+                  
                   
                   <!-- 材质搜索 -->
                   <div class="search-field">
@@ -852,7 +1079,7 @@ const handleKeydown = (event) => {
 .form-item label {
   display: block;
   margin-bottom: 8px;
-  font-weight: 500;
+  font-size: 0.9rem;
 }
   
 .form-item input,
@@ -1024,7 +1251,7 @@ const handleKeydown = (event) => {
 
 .material-list .material-name {
   float: left;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   min-width: 80px;
   margin-right: 10px;
 }
@@ -1033,7 +1260,7 @@ const handleKeydown = (event) => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 0.85em;
+  font-size: 0.75rem;
 }
 
 .detail-item {
@@ -1107,17 +1334,113 @@ const handleKeydown = (event) => {
   display: flex;
   gap: 10px;
   font-size: 0.8rem;
-}
-
-.search-field {
-  flex: 1;
+  flex-wrap: wrap;
 }
 
 .search-field input {
-  width: 100%;
+  max-width: 100px;
   padding: 5px;
   border: 1px solid var(--color-border);
   border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+/* 类型选择器样式 */
+.type-selector {
+  position: relative;
+  min-width: 120px;
+}
+
+.type-input {
+  padding: 4px 5px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  line-height: normal;
+}
+
+.placeholder {
+  color: #999;
+}
+
+.arrow {
+  font-size: 9px;
+  color: #666;
+}
+
+.type-dropdown {
+  font-size: 12px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  margin-top: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,.1);
+  z-index: 1000;
+}
+
+.type-option {
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+}
+
+.expand-arrow {
+  width: 20px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 10px;
+  color: #666;
+  transition: transform 0.2s ease;
+}
+
+.selected .expand-arrow {
+  color: #409EFF;
+}
+
+.expand-placeholder {
+  width: 20px;
+}
+
+.type-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+/* 不同层级的样式 */
+.type-option.level-0 {
+  font-weight: bold;
+}
+
+.type-option.level-1 {
+  background-color: #fafafa;
+}
+
+.type-option:hover {
+  background-color: #f5f7fa;
+}
+
+.type-option.selected {
+  background-color: #ecf5ff;
+  color: #409EFF;
+  font-weight: 500;
+  border-left-color: #409EFF;
 }
 
 .search-hint {
@@ -1136,7 +1459,7 @@ const handleKeydown = (event) => {
 }
 
 .material-item {
-  padding: 10px;
+  padding: 8px 10px;
   border-bottom: 1px solid #eee;
   cursor: pointer;
   transition: background-color 0.2s ease;
@@ -1190,9 +1513,6 @@ const handleKeydown = (event) => {
 }
   
 @media (max-width: 768px) {
-  .work-editor {
-    padding: 10px;
-  }
     
   .image-uploader {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
@@ -1261,7 +1581,7 @@ const handleKeydown = (event) => {
 
 .quantity-input-content {
   background: white;
-  padding: 20px;
+  padding: 14px 20px;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   min-width: 300px;

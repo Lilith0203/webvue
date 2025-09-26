@@ -111,20 +111,6 @@ const openImageViewer = (url) => {
 const sortBy = ref(null)
 const sortDirection = ref('asc')
 
-// 提取字符串中的第一个数字
-const extractFirstNumber = (str) => {
-  if (!str) return NaN
-  const match = str.match(/\d+(\.\d+)?/)
-  return match ? parseFloat(match[0]) : NaN
-}
-
-// 提取所有数字
-const extractNumbers = (str) => {
-  if (!str) return [];
-  // 匹配所有数字（整数或小数）
-  return (str.match(/\d+(\.\d+)?/g) || []).map(Number);
-}
-
 // 优化尺寸排序
 const toggleSortBySize = () => {
   if (sortBy.value === 'size') {
