@@ -4,8 +4,10 @@ import ImagePreview from '../components/ImagePreview.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { confirm } from '../utils/confirm'
+import { useRoute } from 'vue-router'
 
 const authStore = useAuthStore()
+const route = useRoute()
 
 const materialData = ref(null)
 const loading = ref(false)
@@ -125,6 +127,7 @@ const toggleSortBySize = () => {
 // 修改重置搜索方法，也重置排序
 const resetSearch = () => {
   searchForm.value = {
+    id: '',
     name: '',
     type: [],
     substance: '',
@@ -145,6 +148,7 @@ const displayedMaterials = computed(() => {
   // 先应用搜索过滤
   const filtered = materialData.value.filter(item => {
     return (
+      (!searchForm.value.id || item.id.toString() === searchForm.value.id) &&
       (!searchForm.value.name || item.name.toLowerCase().includes(searchForm.value.name.toLowerCase())) &&
       (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
       (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
@@ -191,6 +195,7 @@ const hasMore = computed(() => {
   
   const filteredCount = materialData.value.filter(item => {
     return (
+      (!searchForm.value.id || item.id.toString() === searchForm.value.id) &&
       (!searchForm.value.name || item.name.toLowerCase().includes(searchForm.value.name.toLowerCase())) &&
       (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
       (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
@@ -363,6 +368,7 @@ const loadColumnSettings = () => {
 
 //搜索条件
 const searchForm = ref({
+  id: '', // 添加ID搜索
   name: '',
   type: [], // 类型多选
   substance: '',
@@ -654,6 +660,11 @@ onMounted(async() => {
   loadColumnSettings()
   await fetchTypeTree()
   await fetchMaterialData()
+  
+  // 检查URL查询参数中的ID
+  if (route.query.id) {
+    searchForm.value.id = route.query.id.toString()
+  }
 })
 
 // 修改表格显示逻辑，显示类型名称而不是ID
@@ -666,6 +677,22 @@ const removeImage = (rowId) => {
   if (editingRow.value === rowId) {
     editForm.value.pic = '';
   }
+}
+
+// 跳转到材料详情页（通过ID搜索）
+const goToMaterialById = (materialId) => {
+  // 设置ID搜索条件
+  searchForm.value.id = materialId.toString()
+  searchForm.value.name = ''
+  searchForm.value.type = []
+  searchForm.value.substance = ''
+  searchForm.value.shape = ''
+  searchForm.value.color = ''
+  searchForm.value.shop = ''
+  searchForm.value.size = ''
+  
+  // 重置显示限制
+  displayLimit.value = 50
 }
 
 </script>
@@ -811,6 +838,15 @@ const removeImage = (rowId) => {
 
     <!-- 搜索表单 -->
     <div class="search-form">
+      <div class="search-item">
+        <label>ID：</label>
+        <input 
+          v-model="searchForm.id"
+          type="text"
+          class="id-search"
+          placeholder="编号">
+      </div>
+      
       <div class="search-item">
         <label>名称：</label>
         <input 
@@ -1506,7 +1542,7 @@ td:last-child {
 .search-item {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0px;
 }
 
 .search-item label {
@@ -1520,6 +1556,10 @@ td:last-child {
   border-radius: 4px;
   font-size: 12px;
   width: 120px;
+}
+
+.search-item input.id-search {
+  width: 60px;
 }
 
 .search-actions {
@@ -1601,7 +1641,7 @@ td .type-input {
   top: 100%;
   left: 0;
   right: 0;
-  max-height: 300px;
+  max-height: 400px;
   overflow-y: auto;
   background: white;
   border: 1px solid #dcdfe6;

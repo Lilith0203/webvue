@@ -350,6 +350,14 @@ const clickTag = (tag) => {
   })
 }
 
+// 跳转到材料详情页
+const goToMaterial = (materialId) => {
+  router.push({
+    path: '/material',
+    query: { id: materialId }
+  })
+}
+
 // 下载当前媒体文件
 const downloadCurrentMedia = async () => {
   if (!currentMedia.value.url) return
@@ -536,7 +544,7 @@ onMounted(async() => {
                 :key="material.id"
                 class="material-item">
                 
-                <span class="material-name">{{ material.name }}</span>
+                <span class="material-name" @click="goToMaterial(material.id)" title="点击查看材料详情">{{ material.name }}</span>
                 <span class="material-quantity">×{{ material.quantity }}</span>
                 <span v-if="material.substance" class="material-info">{{ material.substance }}</span>
                 <span v-if="material.size" class="material-info">{{ material.size }}</span>
@@ -833,6 +841,7 @@ onMounted(async() => {
 
 .material-name {
   font-weight: bold;
+  cursor: pointer;
 }
 
 .material-quantity {
