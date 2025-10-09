@@ -114,6 +114,12 @@ const handleVideoUpload = async (event) => {
     return
   }
 
+  // 检查文件大小（限制200MB）
+  if (file.size > 200 * 1024 * 1024) {
+    message.alert('视频文件大小不能超过200MB')
+    return
+  }
+
   try {
     const upload = new FormData()
     upload.append('file', file)
@@ -122,7 +128,8 @@ const handleVideoUpload = async (event) => {
     const response = await axios.post('/upload', upload, {
       headers: {
         'Content-Type': 'multipart/form-data'
-      }
+      },
+      timeout: 300000 // 5分钟超时
     })
     
     // 解析 URL
@@ -134,7 +141,11 @@ const handleVideoUpload = async (event) => {
     formData.video = urlObj.toString()
   } catch (error) {
     console.error('上传视频失败:', error)
-    message.alert('上传视频失败，请重试')
+    if (error.code === 'ECONNABORTED') {
+      message.alert('上传超时，请检查网络连接后重试')
+    } else {
+      message.alert('上传视频失败，请重试')
+    }
   }
 }
 
@@ -1624,7 +1635,7 @@ const handleKeydown = (event) => {
 
 /* 视频上传样式 */
 .video-uploader {
-  padding-top: 10px;
+  padding: 10px;
   border: 2px dashed #ddd;
   border-radius: 8px;
   text-align: center;

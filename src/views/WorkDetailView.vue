@@ -8,7 +8,7 @@ import { marked } from 'marked'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
 import { refreshImageUrl, refreshVideoUrl } from '../utils/image'
-import { getTagColor, getTextColor } from '../utils/tags'
+import { getTagColor, getTextColor, initTagColors } from '../utils/tags'
 
 // 修改 marked 渲染器配置
 const renderer = new marked.Renderer()
@@ -221,6 +221,7 @@ const formatPrice = (price) => {
   })
 }
 
+
   // 自定义链接渲染
 renderer.link = (link) => {
   // 确保 href 是字符串
@@ -395,6 +396,7 @@ const downloadCurrentMedia = async () => {
 }
 
 onMounted(async() => {
+  await initTagColors() // 初始化标签颜色
   await fetchWorkDetail()
   if (work.value && work.value.id) {
     const itemId = work.value.id
@@ -494,11 +496,11 @@ onMounted(async() => {
               class="thumb video-thumb"
               :class="{ active: currentMedia.type === 'video' }"
               @click="selectMedia(0, 'video')">
-              <video v-video="work.video" :alt="`视频`">
+              <div class="video-thumbnail-placeholder">
                 <div class="video-play-icon">
-                  <i class="iconfont icon-bofang"></i>
+                  <i class="iconfont icon-shipin"></i>
                 </div>
-              </video>
+              </div>
             </div>
           </div>
         </div>
@@ -732,21 +734,29 @@ onMounted(async() => {
   position: relative;
 }
 
+.video-thumbnail-placeholder {
+  width: 100%;
+  height: 100%;
+  background: #f2f2f2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
 .video-play-icon {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
 }
+
+.video-play-icon .icon-shipin {
+  font-size: 24px;
+}
+
 
 .gallery-video {
   width: 100%;
@@ -794,7 +804,7 @@ onMounted(async() => {
 
 .materials-section {
   margin: 15px 0;
-  padding: 10px 20px 15px;
+  padding: 10px 10px 15px;
   background-color: var(--color-background-soft);
   border-radius: 8px;
 }
@@ -832,7 +842,6 @@ onMounted(async() => {
   padding: 2px 6px 2px 0;
   border-radius: 3px;
   font-size: 0.9em;
-  margin-right: 8px;
 }
 
 .material-info {
