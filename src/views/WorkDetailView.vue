@@ -352,10 +352,11 @@ const clickTag = (tag) => {
 
 // 跳转到材料详情页
 const goToMaterial = (materialId) => {
-  router.push({
+  const url = router.resolve({
     path: '/material',
     query: { id: materialId }
-  })
+  }).href
+  window.open(url, '_blank')
 }
 
 // 下载当前媒体文件
