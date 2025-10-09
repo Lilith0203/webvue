@@ -51,6 +51,35 @@ const getImageSignature = async (url) => {
   });
 }
 
+// 获取视频签名（不添加图片处理参数）
+const getVideoSignature = async (url) => {
+  // 检查缓存是否存在且未过期
+  const cached = signatureCache.get(url)
+  if (cached && cached.expireTime > Date.now()) {
+    return cached.signature
+  }
+  
+  return withRetry(async () => {
+    const response = await axios.post('/oss-refresh', { url })
+    const signature = response.data.url
+    
+    // 存入缓存
+    const cacheData = {
+      signature,
+      expireTime: Date.now() + SIGNATURE_EXPIRE_TIME
+    }
+    signatureCache.set(url, cacheData)
+
+    // 更新 localStorage
+    localStorage.setItem(
+      SIGNATURE_CACHE_KEY, 
+      JSON.stringify(Array.from(signatureCache.entries()))
+    )
+    
+    return signature
+  });
+}
+
 // 图片加载错误处理函数
 const handleImageError = async (el, url, retryCount = 0) => {
   if (retryCount >= MAX_RETRIES) {
@@ -149,12 +178,86 @@ export const preloadImage = (url) => {
   });
 };
 
+// 视频加载错误处理函数
+const handleVideoError = async (el, url, retryCount = 0) => {
+  if (retryCount >= MAX_RETRIES) {
+    console.error(`视频加载失败，已达最大重试次数: ${url}`);
+    return;
+  }
+  
+  // 清除该URL的缓存
+  signatureCache.delete(url);
+  
+  try {
+    // 强制刷新签名
+    const signature = await getVideoSignature(url);
+    if (signature) {
+      el.src = signature;
+    }
+  } catch (error) {
+    console.error('重试加载视频失败:', error);
+    // 递归重试，增加重试计数
+    setTimeout(() => handleVideoError(el, url, retryCount + 1), 1000);
+  }
+};
+
+export const vVideo = {
+  mounted: async (el, binding) => {
+    const url = binding.value
+    if (!url) return
+    
+    try {
+      const signature = await getVideoSignature(url)
+      if (signature) {
+        el.src = signature
+        // 添加错误处理
+        el.onerror = () => handleVideoError(el, url)
+      } else {
+        el.src = url
+      }
+    } catch (error) {
+      console.error('加载视频失败:', error)
+      el.src = url
+    }
+  },
+  updated: async (el, binding) => {
+    if (binding.value !== binding.oldValue) {
+      const url = binding.value
+      if (!url) return
+      
+      try {
+        const signature = await getVideoSignature(url)
+        if (signature) {
+          el.src = signature
+          // 添加错误处理
+          el.onerror = () => handleVideoError(el, url)
+        } else {
+          el.src = url
+        }
+      } catch (error) {
+        console.error('更新视频失败:', error)
+        el.src = url
+      }
+    }
+  }
+}
+
+// 刷新单个视频URL
+export const refreshVideoUrl = async (url) => {
+  return withRetry(async () => {
+    const response = await axios.post('/oss-refresh', { url })
+    return response.data.url
+  });
+}
+
 // 添加全局图片错误处理
 export const setupGlobalImageErrorHandler = () => {
   document.addEventListener('DOMContentLoaded', () => {
     document.body.addEventListener('error', (event) => {
       if (event.target.tagName === 'IMG' && event.target.src.includes('static.lilithu.com')) {
         handleImageError(event.target, event.target.dataset.originalSrc || event.target.src);
+      } else if (event.target.tagName === 'VIDEO' && event.target.src.includes('static.lilithu.com')) {
+        handleVideoError(event.target, event.target.dataset.originalSrc || event.target.src);
       }
     }, true); // 使用捕获阶段
   });

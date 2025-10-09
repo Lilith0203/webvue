@@ -7,7 +7,7 @@ import WorkEditor from '../components/WorkEditor.vue'
 import { marked } from 'marked'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
-import { refreshImageUrl } from '../utils/image'
+import { refreshImageUrl, refreshVideoUrl } from '../utils/image'
 import { getTagColor, getTextColor } from '../utils/tags'
 
 // 修改 marked 渲染器配置
@@ -103,9 +103,30 @@ const closeEditor = () => {
   showEditor.value = false
 }
   
-// 当前显示的图片
-const currentImage = computed(() => {
-  return work.value?.pictures[currentImageIndex.value]
+// 所有媒体文件（图片+视频）
+const allMedia = computed(() => {
+  if (!work.value) return []
+  
+  const media = []
+  
+  // 添加所有图片
+  if (work.value.pictures && work.value.pictures.length > 0) {
+    work.value.pictures.forEach((img, index) => {
+      media.push({ type: 'image', url: img, index })
+    })
+  }
+  
+  // 添加视频（如果有）
+  if (work.value.video) {
+    media.push({ type: 'video', url: work.value.video, index: media.length })
+  }
+  
+  return media
+})
+
+// 当前显示的媒体
+const currentMedia = computed(() => {
+  return allMedia.value[currentImageIndex.value] || { type: 'image', url: '', index: 0 }
 })
   
 // 获取作品详情
@@ -165,21 +186,26 @@ const startEdit = (work) => {
   showEditor.value = true
 }
   
-// 图片相关操作
-const prevImage = () => {
+// 媒体相关操作
+const prevMedia = () => {
   if (currentImageIndex.value > 0) {
     currentImageIndex.value--
   }
 }
   
-const nextImage = () => {
-  if (currentImageIndex.value < work.value.pictures.length - 1) {
+const nextMedia = () => {
+  if (currentImageIndex.value < allMedia.value.length - 1) {
     currentImageIndex.value++
   }
 }
   
-const selectImage = (index) => {
-  currentImageIndex.value = index
+const selectMedia = (index, type) => {
+  if (type === 'image') {
+    currentImageIndex.value = index
+  } else if (type === 'video') {
+    // 视频总是放在最后
+    currentImageIndex.value = allMedia.value.length - 1
+  }
 }
   
 // 格式化日期
@@ -323,25 +349,39 @@ const clickTag = (tag) => {
   })
 }
 
-// 下载当前图片
-const downloadCurrentImage = async () => {
-  if (!currentImage.value) return
+// 下载当前媒体文件
+const downloadCurrentMedia = async () => {
+  if (!currentMedia.value.url) return
   
   try {
-    // 获取带签名的图片URL
-    const signedUrl = await refreshImageUrl(currentImage.value)
+    let signedUrl
+    let fileName
+    
+    if (currentMedia.value.type === 'image') {
+      // 获取带签名的图片URL
+      signedUrl = await refreshImageUrl(currentMedia.value.url)
+      fileName = `${work.value.name || 'work'}_${currentImageIndex.value + 1}.jpg`
+    } else if (currentMedia.value.type === 'video') {
+      // 获取带签名的视频URL
+      signedUrl = await refreshVideoUrl(currentMedia.value.url)
+      // 从URL中提取文件扩展名
+      const urlObj = new URL(currentMedia.value.url)
+      const pathParts = urlObj.pathname.split('.')
+      const ext = pathParts.length > 1 ? pathParts[pathParts.length - 1] : 'mp4'
+      fileName = `${work.value.name || 'work'}_video.${ext}`
+    }
     
     // 检测是否为移动设备
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     
     if (isMobile) {
-      // 移动端：直接跳转到图片URL
+      // 移动端：直接跳转到文件URL
       location.href = signedUrl
     } else {
       // 桌面端：使用下载链接方式
       const link = document.createElement('a')
       link.href = signedUrl
-      link.download = `${work.value.name || 'work'}_${currentImageIndex.value + 1}.jpg`
+      link.download = fileName
       link.target = '_blank'
       
       document.body.appendChild(link)
@@ -349,8 +389,8 @@ const downloadCurrentImage = async () => {
       document.body.removeChild(link)
     }
   } catch (error) {
-    console.error('下载图片失败:', error)
-    alert('下载图片失败，请稍后重试')
+    console.error('下载文件失败:', error)
+    alert('下载文件失败，请稍后重试')
   }
 }
 
@@ -399,40 +439,66 @@ onMounted(async() => {
             </div>
           </div>
         
-        <!-- 图片画廊 -->
+        <!-- 图片和视频画廊 -->
         <div class="gallery">
           <div class="gallery-main">
-            <img v-image="currentImage" alt="主图">
+            <!-- 显示图片 -->
+            <img 
+              v-if="currentMedia.type === 'image'" 
+              v-image="currentMedia.url" 
+              alt="主图">
+            <!-- 显示视频 -->
+            <video 
+              v-else-if="currentMedia.type === 'video'" 
+              v-video="currentMedia.url" 
+              controls 
+              class="gallery-video">
+              您的浏览器不支持视频播放
+            </video>
+            
             <button 
               class="gallery-nav prev" 
-              @click="prevImage"
+              @click="prevMedia"
               v-show="currentImageIndex > 0">
               <i class="iconfont icon-zuojiantou"></i>
             </button>
             <button 
               class="gallery-nav next" 
-              @click="nextImage"
-              v-show="currentImageIndex < work.pictures.length - 1">
+              @click="nextMedia"
+              v-show="currentImageIndex < allMedia.length - 1">
               <i class="iconfont icon-youjiantou"></i>
             </button>
             <!-- 下载按钮 -->
             <button 
               v-if="canEdit" 
               class="download-btn" 
-              @click="downloadCurrentImage"
-              title="下载当前图片">
+              @click="downloadCurrentMedia"
+              title="下载当前文件">
               <i class="iconfont icon-xiazai"></i>
             </button>
           </div>
             
           <div class="gallery-thumbs">
+            <!-- 图片缩略图 -->
             <div 
               v-for="(img, index) in work.pictures" 
-              :key="index"
+              :key="`img-${index}`"
               class="thumb"
-              :class="{ active: index === currentImageIndex }"
-              @click="selectImage(index)">
+              :class="{ active: index === currentImageIndex && currentMedia.type === 'image' }"
+              @click="selectMedia(index, 'image')">
               <img v-image="img" :alt="`缩略图 ${index + 1}`">
+            </div>
+            <!-- 视频缩略图 -->
+            <div 
+              v-if="work.video"
+              class="thumb video-thumb"
+              :class="{ active: currentMedia.type === 'video' }"
+              @click="selectMedia(0, 'video')">
+              <video v-video="work.video" :alt="`视频`">
+                <div class="video-play-icon">
+                  <i class="iconfont icon-bofang"></i>
+                </div>
+              </video>
             </div>
           </div>
         </div>
@@ -538,6 +604,31 @@ onMounted(async() => {
 .gallery {
   margin-bottom: 30px;
 }
+
+.video-section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.video-section h3 {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.video-container {
+  display: flex;
+  justify-content: center;
+}
+
+.work-video {
+  max-width: 100%;
+  max-height: 500px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
   
 .gallery-main {
   position: relative;
@@ -629,6 +720,38 @@ onMounted(async() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-thumb {
+  position: relative;
+}
+
+.video-play-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.gallery-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
   
 .work-info {

@@ -87,6 +87,7 @@ const initFormData = () => {
     pictures: [...(props.work?.pictures || [])],
     tags: [...(props.work?.tags || [])],
     materials: [...(props.work?.materials || [])],
+    video: props.work?.video || '',
     price: props.work?.price || ''
   }
 }
@@ -100,6 +101,41 @@ const handleImageUpload = async (event) => {
   if (!files.length) return
 
   await uploadFiles(files)
+}
+
+// 视频上传相关操作
+const handleVideoUpload = async (event) => {
+  const file = event.target.files[0]
+  if (!file) return
+
+  // 检查文件类型
+  if (!file.type.startsWith('video/')) {
+    message.alert('请选择视频文件')
+    return
+  }
+
+  try {
+    const upload = new FormData()
+    upload.append('file', file)
+    upload.append('folder', 'works')
+    
+    const response = await axios.post('/upload', upload, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
+    
+    // 解析 URL
+    const urlObj = new URL(response.data.url)
+    // 移除签名相关参数
+    const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token', 'x-oss-process']
+    paramsToRemove.forEach(param => urlObj.searchParams.delete(param))
+    
+    formData.video = urlObj.toString()
+  } catch (error) {
+    console.error('上传视频失败:', error)
+    message.alert('上传视频失败，请重试')
+  }
 }
 
 const handleDrop = async (event) => {
@@ -134,6 +170,18 @@ const uploadFiles = async (files) => {
 
 const removePicture = (index) => {
   formData.pictures.splice(index, 1)
+}
+
+// 移除视频
+const removeVideo = () => {
+  formData.video = ''
+}
+
+// 触发视频文件选择
+const triggerVideoUpload = () => {
+  if (!formData.video) {
+    document.querySelector('.video-file-input').click()
+  }
 }
 
 // 处理标签
@@ -492,6 +540,7 @@ const initForm = async () => {
     formData.tags = [...(props.work.tags || [])]
     formData.pictures = [...(props.work.pictures || [])]
     formData.materials = [...materials]
+    formData.video = props.work.video || ''
     formData.price = props.work.price || ''
     
     // 同时更新form.value以保持一致性
@@ -502,6 +551,7 @@ const initForm = async () => {
       tags: formData.tags,
       pictures: formData.pictures,
       materials: formData.materials,
+      video: formData.video,
       price: formData.price
     }
     
@@ -614,6 +664,7 @@ const handleSubmit = async () => {
       pictures: formData.pictures || [],
       tags: formData.tags || [],
       materials: formData.materials || [],
+      video: formData.video || '',
       price: formData.price || 0
     }
     
@@ -875,6 +926,35 @@ const handleKeydown = (event) => {
                   <div class="drag-handle">⋮⋮</div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div class="form-item">
+            <label>视频</label>
+            <div class="video-uploader" @click="triggerVideoUpload">
+              <input 
+                type="file" 
+                accept="video/*"
+                @change="handleVideoUpload"
+                class="video-file-input"
+                ref="videoInput">
+              
+              <!-- 视频预览 -->
+              <div v-if="formData.video" class="video-preview">
+                <video 
+                  v-video="formData.video" 
+                  controls 
+                  class="video-player">
+                  您的浏览器不支持视频播放
+                </video>
+                <button 
+                  type="button" 
+                  @click.stop="removeVideo" 
+                  class="remove-video-btn">
+                  ×
+                </button>
+              </div>
+              
             </div>
           </div>
 
@@ -1540,6 +1620,74 @@ const handleKeydown = (event) => {
   font-size: 12px;
   color: #999;
   margin-top: 4px;
+}
+
+/* 视频上传样式 */
+.video-uploader {
+  padding-top: 10px;
+  border: 2px dashed #ddd;
+  border-radius: 8px;
+  text-align: center;
+  background: #fafafa;
+  transition: all 0.3s ease;
+}
+
+.video-uploader:hover {
+  border-color: #007bff;
+  background: #f0f8ff;
+}
+
+.video-file-input {
+  display: none;
+}
+
+.video-preview {
+  position: relative;
+  display: inline-block;
+}
+
+.video-player {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.remove-video-btn {
+  position: absolute;
+  top: -9px;
+  right: -10px;
+  width: 20px;
+  height: 20px;
+  background: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.video-upload-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: #666;
+  cursor: pointer;
+  pointer-events: none;
+}
+
+.video-upload-hint i {
+  font-size: 48px;
+  color: #ccc;
+}
+
+.video-upload-hint span {
+  font-size: 14px;
 }
 
 .cost-info {
