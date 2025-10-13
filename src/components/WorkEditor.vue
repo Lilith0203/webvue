@@ -650,7 +650,9 @@ const calculateMaterialCost = computed(() => {
 // 渲染Markdown内容
 const renderedDescription = computed(() => {
   if (!formData.description) return ''
-  return marked(formData.description)
+  // 转义星号，防止被Markdown解析为斜体
+  const escapedDescription = formData.description.replace(/\*/g, '\\*')
+  return marked(escapedDescription)
 })
 
 // 提交表单

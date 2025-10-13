@@ -39,7 +39,9 @@ const processMarkdownContent = (content) => {
   if (!content) return ''
   
   // 使用marked渲染Markdown
-  let rendered = marked(content)
+  // 转义星号，防止被Markdown解析为斜体
+  const escapedContent = content.replace(/\*/g, '\\*')
+  let rendered = marked(escapedContent)
   
   // 为所有标签颜色添加内联样式
   tagColors.value.forEach(color => {

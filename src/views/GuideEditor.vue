@@ -150,7 +150,10 @@ onMounted(fetchGuide)
   
 // Markdown 预览
 const renderedContent = computed(() => {
-  return marked(guideForm.value.content)
+  if (!guideForm.value.content) return ''
+  // 转义星号，防止被Markdown解析为斜体
+  const escapedContent = guideForm.value.content.replace(/\*/g, '\\*')
+  return marked(escapedContent)
 })
   
 // 添加标签

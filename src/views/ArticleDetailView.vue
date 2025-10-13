@@ -70,7 +70,9 @@ const fetchArticle = async () => {
     if (article.value.content) {
         // 处理文章内容中的所有图片链接
       const processedContent = await processContent(article.value.content)
-      article.value.renderedContent = await marked(processedContent)
+      // 转义星号，防止被Markdown解析为斜体
+      const escapedContent = processedContent.replace(/\*/g, '\\*')
+      article.value.renderedContent = await marked(escapedContent)
     }
   } catch (err) {
     error.value = "获取文章失败：" + err.message

@@ -136,7 +136,9 @@ const fetchWorkDetail = async () => {
     work.value = response.data.works
     
     if (work.value && work.value.description) {
-      work.value.renderedContent = await marked(work.value.description)
+      // 转义星号，防止被Markdown解析为斜体
+      const escapedDescription = work.value.description.replace(/\*/g, '\\*')
+      work.value.renderedContent = await marked(escapedDescription)
     } else {
       work.value.renderedContent = ''
     }

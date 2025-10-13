@@ -159,7 +159,10 @@ onMounted(fetchArticle)
   
 // Markdown 预览
 const renderedContent = computed(() => {
-  return marked(articleForm.value.content)
+  if (!articleForm.value.content) return ''
+  // 转义星号，防止被Markdown解析为斜体
+  const escapedContent = articleForm.value.content.replace(/\*/g, '\\*')
+  return marked(escapedContent)
 })
   
 // 添加标签
