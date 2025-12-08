@@ -88,7 +88,8 @@ const initFormData = () => {
     tags: [...(props.work?.tags || [])],
     materials: [...(props.work?.materials || [])],
     video: props.work?.video || '',
-    price: props.work?.price || ''
+    price: props.work?.price || '',
+    status: props.work?.status !== undefined ? props.work.status : 0 // 0: 未完成, 1: 已完成
   }
 }
 
@@ -553,6 +554,7 @@ const initForm = async () => {
     formData.materials = [...materials]
     formData.video = props.work.video || ''
     formData.price = props.work.price || ''
+    formData.status = props.work.status !== undefined ? props.work.status : 0
     
     // 同时更新form.value以保持一致性
     form.value = {
@@ -563,7 +565,8 @@ const initForm = async () => {
       pictures: formData.pictures,
       materials: formData.materials,
       video: formData.video,
-      price: formData.price
+      price: formData.price,
+      status: formData.status
     }
     
     // 加载已选材料信息
@@ -678,7 +681,8 @@ const handleSubmit = async () => {
       tags: formData.tags || [],
       materials: formData.materials || [],
       video: formData.video || '',
-      price: formData.price || 0
+      price: formData.price || 0,
+      status: formData.status !== undefined ? parseInt(formData.status) : 0
     }
     
     const response = await axios[method](url, submitData)
@@ -1148,6 +1152,28 @@ const handleKeydown = (event) => {
                   没有找到匹配的材料
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div class="form-item">
+            <label>完成状态</label>
+            <div class="status-selector">
+              <label class="status-option">
+                <input 
+                  type="radio" 
+                  :value="0" 
+                  v-model="formData.status"
+                  name="status">
+                <span>未完成</span>
+              </label>
+              <label class="status-option">
+                <input 
+                  type="radio" 
+                  :value="1" 
+                  v-model="formData.status"
+                  name="status">
+                <span>已完成</span>
+              </label>
             </div>
           </div>
   
@@ -1723,6 +1749,39 @@ const handleKeydown = (event) => {
 .cost-value {
   color: #28a745;
   font-weight: bold;
+}
+
+/* 状态选择器样式 */
+.status-selector {
+  display: flex;
+  gap: 20px;
+  margin-top: 8px;
+}
+
+.status-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.status-option input[type="radio"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.status-option span {
+  user-select: none;
+  padding-left: 5px;
+  font-size: 0.8rem;
+  line-height: normal;
+  white-space: nowrap;
 }
 
 /* 数量输入界面样式 */

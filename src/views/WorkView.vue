@@ -25,7 +25,9 @@ const allTags = ref([])
 const selectedTags = ref([])
 const router = useRouter()
 const route = useRoute()
-const works = ref([])
+const works = ref([]) // 已完成的作品列表（分页）
+const incompleteWorks = ref([]) // 未完成的作品列表（不分页）
+const loadingIncomplete = ref(false) // 加载未完成作品的状态
 // 拖拽相关状态
 const showEditor = ref(false)
 const editorMode = ref('create')
@@ -53,6 +55,7 @@ const toggleTag = (tag) => {
   currentPage.value = 1
   hasMore.value = true
   fetchWorks()
+  fetchIncompleteWorks() // 同时更新未完成作品列表
 }
 
 // 打开新建编辑器
@@ -78,6 +81,7 @@ const handleEditorSuccess = async () => {
   works.value = []
   currentPage.value = 1
   await fetchWorks()
+  await fetchIncompleteWorks() // 同时更新未完成作品列表
   await fetchTags()
 }
 
@@ -212,7 +216,7 @@ const updateWorkRecommendStatus = (workId, hasRecommended, weight) => {
   }
 }
 
-// 获取作品列表
+// 获取已完成的作品列表（分页）
 const fetchWorks = async () => {
   if (loading.value) return
 
@@ -222,6 +226,7 @@ const fetchWorks = async () => {
       params: {
         page: currentPage.value,
         size: pageSize.value,
+        status: 1, // 只获取已完成的作品
         tags: selectedTags.value.length > 0 ? selectedTags.value.join(',') : undefined,
         keyword: searchKeyword.value || undefined
       }
@@ -258,12 +263,54 @@ const fetchWorks = async () => {
   }
 }
 
+// 获取所有未完成的作品列表（不分页）
+const fetchIncompleteWorks = async () => {
+  if (loadingIncomplete.value) return
+
+  loadingIncomplete.value = true
+  try {
+    const response = await axios.get('/works', {
+      params: {
+        page: 1,
+        size: 1000, // 获取足够多的未完成作品
+        status: 0 // 只获取未完成的作品，不受标签和搜索关键词筛选
+      }
+    })
+    
+    // 获取每个作品的交互数据
+    const worksWithInteraction = await Promise.all(
+      response.data.works.map(async (work) => {
+        try {
+          const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
+          return {
+            ...work,
+            likeCount: interactionResponse.data.data.like,
+            recommendWeight: interactionResponse.data.data.weight,
+            hasLiked: interactionResponse.data.data.hasLiked || false,
+            hasRecommended: interactionResponse.data.data.hasRecommended || false
+          }
+        } catch (error) {
+          console.error(`获取作品 ${work.id} 的交互数据失败:`, error)
+          return work
+        }
+      })
+    )
+    
+    incompleteWorks.value = worksWithInteraction
+  } catch (error) {
+    console.error('获取未完成作品列表失败:', error)
+  } finally {
+    loadingIncomplete.value = false
+  }
+}
+
 // 搜索作品
 const searchWorks = () => {
   works.value = []
   currentPage.value = 1
   hasMore.value = true
   fetchWorks()
+  fetchIncompleteWorks() // 同时搜索未完成作品
 }
 
 // 监听搜索关键词变化
@@ -274,6 +321,7 @@ watch(searchKeyword, (newVal, oldVal) => {
     currentPage.value = 1
     hasMore.value = true
     fetchWorks()
+    fetchIncompleteWorks() // 同时重置未完成作品列表
   }
 })
 
@@ -325,6 +373,7 @@ const deleteWork = async (id) => {
   try {
     await axios.post(`/works/delete`, {id:id})
     await fetchWorks()
+    await fetchIncompleteWorks() // 同时更新未完成作品列表
     await fetchTags()
   } catch (error) {
     console.error('删除作品失败:', error)
@@ -514,8 +563,10 @@ onMounted(async () => {
   
   // 获取作品数据
   await fetchWorks()
+  await fetchIncompleteWorks() // 获取未完成作品列表
   
   // 恢复滚动位置
+  let scrollHandler = null
   if (isFromDetail) {
     if (tagFromUrl) {
       // 点击标签返回，滚动到顶部
@@ -524,6 +575,8 @@ onMounted(async () => {
           top: 0,
           behavior: 'instant'
         })
+        // 清除保存的滚动位置
+        sessionStorage.removeItem('workListScrollPosition')
       }, 100)
     } else {
       // 普通返回，恢复之前的滚动位置
@@ -534,13 +587,33 @@ onMounted(async () => {
             top: parseInt(savedScrollPosition),
             behavior: 'instant'
           })
-        }, 100)
+          
+          // 恢复滚动位置后，添加滚动监听器
+          // 如果用户在列表页滚动，则清除保存的滚动位置
+          scrollHandler = () => {
+            // 用户在列表页滚动，清除保存的滚动位置
+            sessionStorage.removeItem('workListScrollPosition')
+            // 清除后移除监听器，避免重复清除
+            window.removeEventListener('scroll', scrollHandler)
+            scrollHandler = null
+          }
+          // 延迟添加滚动监听器，确保恢复滚动位置后再监听
+          setTimeout(() => {
+            if (scrollHandler) {
+              window.addEventListener('scroll', scrollHandler, { passive: true })
+            }
+          }, 100)
+        }, 150)
       }
     }
   }
-})
-
-onUnmounted(() => {
+  
+  // 在组件卸载时移除监听器
+  onUnmounted(() => {
+    if (scrollHandler) {
+      window.removeEventListener('scroll', scrollHandler)
+    }
+  })
 })
 </script>
 
@@ -713,6 +786,68 @@ onUnmounted(() => {
       <div v-if="showRecommended && recommendedWorks.length === 0 && !loadingRecommended" class="no-recommended">
         <i class="iconfont icon-xingxingtuijian1"></i>
         <p>暂无推荐作品</p>
+      </div>
+      
+      <!-- 未完成作品列表（只在非推荐视图下显示） -->
+      <div v-if="!showRecommended && incompleteWorks.length > 0" class="incomplete-works-section">
+        <h3 class="incomplete-title">未完成拍照</h3>
+        <div class="work-grid">
+          <div 
+            v-for="work in incompleteWorks" 
+            :key="work.id" 
+            class="work-card incomplete-work">
+            <!-- 封面图 -->
+            <div class="work-cover" @click="goToDetail(work.id)">
+              <img
+                v-if="work.pictures && work.pictures.length > 0" 
+                v-image="getThumbUrl(work.pictures[0])" alt="封面">
+              <div v-else class="no-image">
+                暂无图片
+              </div>
+              
+              <!-- 在售标记 (仅图标) -->
+              <div v-if="work.price && work.price > 0" class="for-sale-badge">
+                <i class="iconfont icon-zaishou"></i>
+              </div>
+              
+              <!-- 交互按钮 -->
+              <div class="interaction-overlay">
+                <div class="interaction-btn" @click="toggleLike($event, work.id)">
+                  <i :class="['iconfont', work.hasLiked ? 'icon-dianzan' : 'icon-dianzan-0']"></i>
+                  <span>{{ work.likeCount || 0 }}</span>
+                </div>
+                
+                <div v-if="canEdit" class="interaction-btn" @click="toggleRecommend($event, work.id)">
+                  <i :class="['iconfont', work.recommendWeight > 0 ? 'icon-xingxingtuijian1' : 'icon--xingxingtuijian']"></i>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 作品信息 -->
+            <div class="work-info">
+              <div class="work-header">
+                <h3 @click="goToDetail(work.id)">{{ work.name }}</h3>
+              </div>
+              <div class="tags">
+                <span 
+                  v-for="tag in work.tags" 
+                  :key="tag" 
+                  class="tag"
+                  @click.prevent="toggleTag(tag)">
+                  {{ tag }}
+                </span>
+              </div>
+              <div class="update-time">
+                <span>更新时间: {{ formatDate(work.updatedAt) }}</span>
+                <!-- 操作按钮 -->
+                <div class="actions" v-if="canEdit">
+                  <button @click="openEditEditor(work)"><i class="iconfont icon-bianji"></i></button>
+                  <button @click="deleteWork(work.id)"><i class="iconfont icon-shanchu"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 </template>
@@ -1096,6 +1231,21 @@ onUnmounted(() => {
 .for-sale-badge i {
   margin-right: 2px;
   font-size: 50px;
+}
+
+/* 未完成作品区域样式 */
+.incomplete-works-section {
+  margin-top: 40px;
+  padding-top: 10px;
+  border-top: 2px dashed #ddd;
+}
+
+.incomplete-title {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 20px;
+  color: #666;
+  padding-left: 10px;
 }
 
 @media (max-width: 768px) {

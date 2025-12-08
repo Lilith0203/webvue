@@ -70,8 +70,12 @@ const fetchArticle = async () => {
     if (article.value.content) {
         // 处理文章内容中的所有图片链接
       const processedContent = await processContent(article.value.content)
-      // 转义星号，防止被Markdown解析为斜体
-      const escapedContent = processedContent.replace(/\*/g, '\\*')
+      // 只转义单个星号（用于斜体），保留双星号（用于粗体）
+      // 先保护双星号，转义单个星号，再恢复双星号
+      const placeholder = '___DOUBLESTAR___'
+      let escapedContent = processedContent.replace(/\*\*/g, placeholder)
+      escapedContent = escapedContent.replace(/\*/g, '\\*')
+      escapedContent = escapedContent.replace(new RegExp(placeholder, 'g'), '**')
       article.value.renderedContent = await marked(escapedContent)
     }
   } catch (err) {
