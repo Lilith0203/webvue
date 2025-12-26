@@ -2,10 +2,11 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
+import { message } from '../utils/message'
 
 const authStore = useAuthStore()
   
-const gridStyle = ref('normal')  // 'normal' 或 'brick'
+const gridStyle = ref('brick')  // 'normal' 或 'brick'
 const gridSize = ref(32)  // 默认32x32
 const currentColor = ref('#000000')  // 当前选择的颜色
 const customColor = ref('#000000')
@@ -96,7 +97,7 @@ const saveCurrentGrid = async() => {
     gridId.value = response.data.id;
     console.log(gridData.id)
     await fetchSavedGrids() // 重新加载暂存列表
-    alert('保存成功')
+    message.alert('保存成功')
   } catch (error) {
     console.error('保存失败:', error)
   }
@@ -370,6 +371,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 20px;
+  overflow-x: hidden;  /* 隐藏墙砖式模式下左边的灰色区域 */
 }
   
 .grid-controls {
@@ -401,14 +403,21 @@ onUnmounted(() => {
   gap: 1px;
   background-color: #ccc;
   border: 1px solid #999;
-  width: 500px;
+  width: 600px;  /* 增加宽度以适应1.2倍宽度的格子 */
   height: 500px;
+}
+
+/* 墙砖式模式下增加宽度以适应更宽的格子和偏移 */
+.grid-container.brick-style {
+  width: 600px;  /* 增加宽度以适应1.2倍宽度的格子和50%偏移 */
+  margin-left: -25px;  /* 向左偏移，隐藏左边因错位导致的灰色区域 */
 }
   
 .grid-cell {
   background-color: white;
   cursor: pointer;
   transition: background-color 0.1s;
+  aspect-ratio: 1.2 / 1;  /* 宽度比高度长20% */
 }
   
 .grid-cell:hover {
@@ -445,7 +454,7 @@ onUnmounted(() => {
 }
   
 .color-item:hover {
-  transform: scale(1.1);
+  transform: scale(1.2);
 }
 
 .color-item.active {
