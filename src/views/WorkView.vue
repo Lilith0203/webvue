@@ -714,7 +714,18 @@ onMounted(async () => {
           <!-- 作品信息 -->
           <div class="work-info">
             <div class="work-header">
-              <h3 @click="goToDetail(work.id)">{{ work.name }}</h3>
+              <h3 @click="goToDetail(work.id)">
+                {{ work.name }}
+                <a 
+                  v-if="work.link && work.link.trim()" 
+                  :href="work.link" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  class="shop-link"
+                  @click.stop>
+                  <i class="iconfont icon-gouwu1"></i>
+                </a>
+              </h3>
             </div>
             <!--<p class="description">{{ work.description }}</p>-->
             <div class="tags">
@@ -826,7 +837,18 @@ onMounted(async () => {
             <!-- 作品信息 -->
             <div class="work-info">
               <div class="work-header">
-                <h3 @click="goToDetail(work.id)">{{ work.name }}</h3>
+                <h3 @click="goToDetail(work.id)">
+                  {{ work.name }}
+                  <a 
+                    v-if="work.link && work.link.trim()" 
+                    :href="work.link" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="shop-link"
+                    @click.stop>
+                    <i class="iconfont icon-gouwu1"></i>
+                  </a>
+                </h3>
               </div>
               <div class="tags">
                 <span 
@@ -941,6 +963,29 @@ onMounted(async () => {
 .work-info h3 {
   font-size: 1rem;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.shop-link {
+  color: #499e8d;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: transform 0.2s ease, color 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 4px;
+  padding: 0;
+}
+
+.shop-link:hover {
+  transform: scale(1.2);
+  color: #ff6b6b;
+}
+
+.shop-link .iconfont {
+  font-size: 1.2rem;
 }
 
 .description {

@@ -534,7 +534,17 @@ onMounted(async() => {
 
           <!-- 价格信息 -->
           <div v-if="work.price" class="price-info">
-            <span class="price-label">价格:</span>
+            <a 
+              v-if="work.link && work.link.trim()" 
+              :href="work.link" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="shop-link"
+              title="点击跳转到购买链接">
+              <i class="iconfont icon-shoumai"></i>
+              <span>（点击购买）</span>
+            </a>
+            <!--<span class="price-label">价格:</span>-->
             <span class="price-value">¥{{ formatPrice(work.price) }}</span>
           </div>
 
@@ -875,6 +885,26 @@ onMounted(async() => {
   font-size: 0.85rem;
   display: flex;
   align-items: center;
+  gap: 0px;
+}
+
+.shop-link {
+  color: #499e8d;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: transform 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+  padding: 0;
+}
+
+.shop-link .iconfont {
+  font-size: 1.2rem;
+}
+
+.shop-link span {
+  font-size: 0.75rem;
+  color: #999;
 }
 
 .price-label {

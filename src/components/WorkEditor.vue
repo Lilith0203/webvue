@@ -88,6 +88,7 @@ const initFormData = () => {
     tags: [...(props.work?.tags || [])],
     materials: [...(props.work?.materials || [])],
     video: props.work?.video || '',
+    link: props.work?.link || '',
     price: props.work?.price || '',
     status: props.work?.status !== undefined ? props.work.status : 0 // 0: 未完成, 1: 已完成
   }
@@ -553,6 +554,7 @@ const initForm = async () => {
     formData.pictures = [...(props.work.pictures || [])]
     formData.materials = [...materials]
     formData.video = props.work.video || ''
+    formData.link = props.work.link || ''
     formData.price = props.work.price || ''
     formData.status = props.work.status !== undefined ? props.work.status : 0
     
@@ -565,6 +567,7 @@ const initForm = async () => {
       pictures: formData.pictures,
       materials: formData.materials,
       video: formData.video,
+      link: formData.link,
       price: formData.price,
       status: formData.status
     }
@@ -681,6 +684,7 @@ const handleSubmit = async () => {
       tags: formData.tags || [],
       materials: formData.materials || [],
       video: formData.video || '',
+      link: formData.link || '',
       price: formData.price || 0,
       status: formData.status !== undefined ? parseInt(formData.status) : 0
     }
@@ -973,6 +977,15 @@ const handleKeydown = (event) => {
               </div>
               
             </div>
+          </div>
+
+          <div class="form-item">
+            <label>链接</label>
+            <input 
+              v-model="formData.link" 
+              type="url" 
+              placeholder="请输入购买链接（可选）"
+              class="link-input">
           </div>
 
           <div class="form-item">
@@ -1656,6 +1669,20 @@ const handleKeydown = (event) => {
 }
 
 .price-hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 4px;
+}
+
+.link-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.link-hint {
   font-size: 12px;
   color: #999;
   margin-top: 4px;
