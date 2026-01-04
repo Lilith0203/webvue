@@ -542,10 +542,10 @@ onMounted(async() => {
               class="shop-link"
               title="点击跳转到购买链接">
               <i class="iconfont icon-shoumai"></i>
+              <span class="price-value">¥{{ formatPrice(work.price) }}</span>
               <span>（点击购买）</span>
             </a>
             <!--<span class="price-label">价格:</span>-->
-            <span class="price-value">¥{{ formatPrice(work.price) }}</span>
           </div>
 
           <!-- 材料信息 -->
@@ -905,6 +905,12 @@ onMounted(async() => {
 .shop-link span {
   font-size: 0.75rem;
   color: #999;
+}
+
+.shop-link .price-value {
+  font-size: 0.8rem;
+  color: #333;
+  padding-left: 7px;
 }
 
 .price-label {

@@ -216,12 +216,136 @@ const updateWorkRecommendStatus = (workId, hasRecommended, weight) => {
   }
 }
 
+// 置顶
+const toggleTop = async (event, workId) => {
+  event.stopPropagation() // 阻止事件冒泡
+  
+  if (!authStore.isAuthenticated) {
+    return
+  }
+  
+  try {
+    // 查找作品，确定当前置顶状态
+    let work = works.value.find(w => w.id === workId)
+    if (!work) {
+      work = recommendedWorks.value.find(w => w.id === workId)
+    }
+    if (!work) {
+      work = incompleteWorks.value.find(w => w.id === workId)
+    }
+    
+    if (!work) return
+    
+    // 根据当前置顶状态决定新的top值
+    // 如果已置顶(top > 0)，则取消置顶(top = 0)
+    // 如果未置顶(top = 0)，则置顶(top = 1)
+    const newTop = work.top > 0 ? 0 : 1
+    
+    const response = await axios.post('/interaction/top', {
+      type: 2,
+      itemId: workId,
+      top: newTop
+    })
+    
+    if (response.data.success) {
+      // 更新作品置顶状态
+      const updatedTop = response.data.data.top
+      
+      // 如果切换了置顶状态，重新获取作品列表
+      await fetchWorks()
+    }
+  } catch (error) {
+    console.error('置顶失败:', error)
+  }
+}
+
+// 更新作品置顶状态
+const updateWorkTopStatus = (workId, top) => {
+  // 更新普通作品列表
+  const workIndex = works.value.findIndex(w => w.id === workId)
+  if (workIndex !== -1) {
+    works.value[workIndex].top = top
+  }
+  
+  // 更新推荐作品列表
+  const recommendedIndex = recommendedWorks.value.findIndex(w => w.id === workId)
+  if (recommendedIndex !== -1) {
+    recommendedWorks.value[recommendedIndex].top = top
+  }
+  
+  // 更新未完成作品列表
+  const incompleteIndex = incompleteWorks.value.findIndex(w => w.id === workId)
+  if (incompleteIndex !== -1) {
+    incompleteWorks.value[incompleteIndex].top = top
+  }
+}
+
+// 获取置顶作品（只获取 top = 1 的作品）
+const fetchTopWorks = async () => {
+  try {
+    const response = await axios.get('/top-items', {
+      params: {
+        type: 2,
+        page: 1,
+        size: 100 // 获取足够多的置顶作品
+      }
+    })
+    
+    if (response.data.success && response.data.data.items.length > 0) {
+      // 只筛选 top = 1 的作品
+      const topItems = response.data.data.items.filter(work => work.top === 1)
+      
+      if (topItems.length === 0) {
+        return []
+      }
+      
+      // 获取每个置顶作品的交互数据
+      const topWorksWithInteraction = await Promise.all(
+        topItems.map(async (work) => {
+          try {
+            const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
+            return {
+              ...work,
+              likeCount: interactionResponse.data.data.like,
+              recommendWeight: interactionResponse.data.data.weight,
+              top: interactionResponse.data.data.top || 0,
+              hasLiked: interactionResponse.data.data.hasLiked || false,
+              hasRecommended: interactionResponse.data.data.hasRecommended || false
+            }
+          } catch (error) {
+            console.error(`获取置顶作品 ${work.id} 的交互数据失败:`, error)
+            return {
+              ...work,
+              top: work.top || 0
+            }
+          }
+        })
+      )
+      
+      return topWorksWithInteraction
+    }
+    return []
+  } catch (error) {
+    console.error('获取置顶作品失败:', error)
+    return []
+  }
+}
+
 // 获取已完成的作品列表（分页）
 const fetchWorks = async () => {
   if (loading.value) return
 
   loading.value = true
   try {
+    // 只在第一页时获取置顶作品
+    let topWorks = []
+    let topWorkIds = new Set()
+    
+    if (currentPage.value === 1) {
+      topWorks = await fetchTopWorks()
+      topWorkIds = new Set(topWorks.map(w => w.id))
+    }
+    
     const response = await axios.get('/works', {
       params: {
         page: currentPage.value,
@@ -232,30 +356,44 @@ const fetchWorks = async () => {
       }
     })
     
-    // 获取每个作品的交互数据
+    // 获取每个作品的交互数据，第一页时过滤掉置顶作品（避免重复）
     const worksWithInteraction = await Promise.all(
-      response.data.works.map(async (work) => {
-        try {
-          const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
-          return {
-            ...work,
-            likeCount: interactionResponse.data.data.like,
-            recommendWeight: interactionResponse.data.data.weight,
-            hasLiked: interactionResponse.data.data.hasLiked || false,
-            hasRecommended: interactionResponse.data.data.hasRecommended || false
+      response.data.works
+        .filter(work => !topWorkIds.has(work.id)) // 第一页时过滤掉已置顶的作品
+        .map(async (work) => {
+          try {
+            const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
+            return {
+              ...work,
+              likeCount: interactionResponse.data.data.like,
+              recommendWeight: interactionResponse.data.data.weight,
+              top: interactionResponse.data.data.top || 0,
+              hasLiked: interactionResponse.data.data.hasLiked || false,
+              hasRecommended: interactionResponse.data.data.hasRecommended || false
+            }
+          } catch (error) {
+            console.error(`获取作品 ${work.id} 的交互数据失败:`, error)
+            return work
           }
-        } catch (error) {
-          console.error(`获取作品 ${work.id} 的交互数据失败:`, error)
-          return work
-        }
-      })
+        })
     )
     
-    // 直接替换数据，不再累加
-    works.value = worksWithInteraction
-    // 计算总页数
-    totalPages.value = Math.ceil(response.data.count / pageSize.value)
-    totalItems.value = response.data.count
+    // 第一页时将置顶作品放在最前面，其他页面直接显示分页结果
+    if (currentPage.value === 1) {
+      works.value = [...topWorks, ...worksWithInteraction]
+    } else {
+      works.value = worksWithInteraction
+    }
+    
+    // 计算总页数（第一页需要考虑置顶作品占用的位置）
+    if (currentPage.value === 1) {
+      const totalCount = response.data.count + topWorks.length
+      totalPages.value = Math.ceil(totalCount / pageSize.value)
+      totalItems.value = totalCount
+    } else {
+      totalPages.value = Math.ceil(response.data.count / pageSize.value)
+      totalItems.value = response.data.count
+    }
   } catch (error) {
     console.error('获取作品列表失败:', error)
   } finally {
@@ -286,6 +424,7 @@ const fetchIncompleteWorks = async () => {
             ...work,
             likeCount: interactionResponse.data.data.like,
             recommendWeight: interactionResponse.data.data.weight,
+            top: interactionResponse.data.data.top || 0,
             hasLiked: interactionResponse.data.data.hasLiked || false,
             hasRecommended: interactionResponse.data.data.hasRecommended || false
           }
@@ -696,6 +835,11 @@ onMounted(async () => {
             <!-- 在售标记 (仅图标) -->
             <div v-if="work.price && work.price > 0" class="for-sale-badge">
               <i class="iconfont icon-zaishou"></i>
+            </div>
+            
+            <!-- 置顶按钮（右上角） -->
+            <div v-if="canEdit" class="top-btn" @click="toggleTop($event, work.id)">
+              <i :class="['iconfont', work.top > 0 ? 'icon-zhiding1' : 'icon-zhiding2']"></i>
             </div>
             
             <!-- 交互按钮 -->
@@ -1276,6 +1420,43 @@ onMounted(async () => {
 .for-sale-badge i {
   margin-right: 2px;
   font-size: 50px;
+}
+
+/* 置顶按钮样式 */
+.top-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  cursor: pointer;
+  z-index: 3;
+  transition: all 0.3s ease;
+}
+
+.top-btn:hover {
+  transform: scale(1.1);
+}
+
+.top-btn i {
+  font-size: 1.2rem;
+  color: white;
+  transition: opacity 0.3s ease;
+}
+
+/* 未置顶时透明度0.5 */
+.top-btn i.icon-zhiding2 {
+  opacity: 0.5;
+}
+
+/* 置顶后透明度1 */
+.top-btn i.icon-zhiding1 {
+  color: #ffc107;
+  opacity: 1;
 }
 
 /* 未完成作品区域样式 */
