@@ -337,15 +337,6 @@ const fetchWorks = async () => {
 
   loading.value = true
   try {
-    // 只在第一页时获取置顶作品
-    let topWorks = []
-    let topWorkIds = new Set()
-    
-    if (currentPage.value === 1) {
-      topWorks = await fetchTopWorks()
-      topWorkIds = new Set(topWorks.map(w => w.id))
-    }
-    
     const response = await axios.get('/works', {
       params: {
         page: currentPage.value,
@@ -356,11 +347,40 @@ const fetchWorks = async () => {
       }
     })
     
-    // 获取每个作品的交互数据，第一页时过滤掉置顶作品（避免重复）
-    const worksWithInteraction = await Promise.all(
-      response.data.works
-        .filter(work => !topWorkIds.has(work.id)) // 第一页时过滤掉已置顶的作品
-        .map(async (work) => {
+    // 只在第一页时处理置顶作品
+    if (currentPage.value === 1) {
+      // 获取置顶作品
+      const topWorks = await fetchTopWorks()
+      const topWorkIds = new Set(topWorks.map(w => w.id))
+      
+      // 获取每个作品的交互数据，并过滤掉置顶作品（避免重复）
+      const worksWithInteraction = await Promise.all(
+        response.data.works
+          .filter(work => !topWorkIds.has(work.id)) // 过滤掉已置顶的作品
+          .map(async (work) => {
+            try {
+              const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
+              return {
+                ...work,
+                likeCount: interactionResponse.data.data.like,
+                recommendWeight: interactionResponse.data.data.weight,
+                top: interactionResponse.data.data.top || 0,
+                hasLiked: interactionResponse.data.data.hasLiked || false,
+                hasRecommended: interactionResponse.data.data.hasRecommended || false
+              }
+            } catch (error) {
+              console.error(`获取作品 ${work.id} 的交互数据失败:`, error)
+              return work
+            }
+          })
+      )
+      
+      // 将置顶作品放在最前面，然后是第一页的其他作品
+      works.value = [...topWorks, ...worksWithInteraction]
+    } else {
+      // 其他页面直接获取作品数据，不受置顶影响
+      const worksWithInteraction = await Promise.all(
+        response.data.works.map(async (work) => {
           try {
             const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
             return {
@@ -376,24 +396,14 @@ const fetchWorks = async () => {
             return work
           }
         })
-    )
-    
-    // 第一页时将置顶作品放在最前面，其他页面直接显示分页结果
-    if (currentPage.value === 1) {
-      works.value = [...topWorks, ...worksWithInteraction]
-    } else {
+      )
+      
       works.value = worksWithInteraction
     }
     
-    // 计算总页数（第一页需要考虑置顶作品占用的位置）
-    if (currentPage.value === 1) {
-      const totalCount = response.data.count + topWorks.length
-      totalPages.value = Math.ceil(totalCount / pageSize.value)
-      totalItems.value = totalCount
-    } else {
-      totalPages.value = Math.ceil(response.data.count / pageSize.value)
-      totalItems.value = response.data.count
-    }
+    // 总页数按原始数据计算，不受置顶影响
+    totalPages.value = Math.ceil(response.data.count / pageSize.value)
+    totalItems.value = response.data.count
   } catch (error) {
     console.error('获取作品列表失败:', error)
   } finally {
@@ -480,6 +490,11 @@ watch(() => route.query.tag, (newTag) => {
 const changePage = (page) => {
   currentPage.value = page
   fetchWorks()
+  // 滚动到顶部
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  })
 }
 
 // 处理跳转页码
@@ -494,6 +509,11 @@ const goToPage = () => {
   currentPage.value = pageNum
   fetchWorks()
   targetPage.value = ''
+  // 滚动到顶部
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  })
 }
 
 // 回到第一页
@@ -621,6 +641,11 @@ const fetchRecommendedWorks = async () => {
 const changeRecommendedPage = (page) => {
   recommendedPage.value = page
   fetchRecommendedWorks()
+  // 滚动到顶部
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  })
 }
 
 // 重置推荐作品列表
@@ -830,11 +855,6 @@ onMounted(async () => {
               v-image="getThumbUrl(work.pictures[0])" alt="封面">
             <div v-else class="no-image">
               暂无图片
-            </div>
-            
-            <!-- 在售标记 (仅图标) -->
-            <div v-if="work.price && work.price > 0" class="for-sale-badge">
-              <i class="iconfont icon-zaishou"></i>
             </div>
             
             <!-- 置顶按钮（右上角） -->
@@ -1129,7 +1149,7 @@ onMounted(async () => {
 }
 
 .shop-link .iconfont {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 }
 
 .description {
@@ -1329,7 +1349,7 @@ onMounted(async () => {
   left: 0;
   right: 0;
   display: flex;
-  justify-content: space-between;
+  /*justify-content: space-between;*/
   padding: 8px 12px;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.5));
 }

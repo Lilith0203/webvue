@@ -545,7 +545,10 @@ onMounted(async() => {
               <span class="price-value">¥{{ formatPrice(work.price) }}</span>
               <span>（点击购买）</span>
             </a>
-            <!--<span class="price-label">价格:</span>-->
+            <div v-else class="price-display">
+              <i class="iconfont icon-shoumai"></i>
+              <span class="price-value">¥{{ formatPrice(work.price) }}</span>
+            </div>
           </div>
 
           <!-- 材料信息 -->
@@ -911,6 +914,21 @@ onMounted(async() => {
   font-size: 0.8rem;
   color: #333;
   padding-left: 7px;
+}
+
+.price-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.price-display i {
+  font-size: 1.2rem;
+}
+
+.price-display .price-value {
+  font-size: 0.8rem;
+  color: #333;
 }
 
 .price-label {

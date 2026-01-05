@@ -1674,14 +1674,6 @@ const handleKeydown = (event) => {
   margin-top: 4px;
 }
 
-.link-input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
 .link-hint {
   font-size: 12px;
   color: #999;
