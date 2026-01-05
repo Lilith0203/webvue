@@ -347,8 +347,10 @@ const fetchWorks = async () => {
       }
     })
     
-    // 只在第一页时处理置顶作品
-    if (currentPage.value === 1) {
+    // 只在第一页且没有标签筛选和搜索关键词时处理置顶作品
+    const hasFilter = selectedTags.value.length > 0 || (searchKeyword.value && searchKeyword.value.trim())
+    
+    if (currentPage.value === 1 && !hasFilter) {
       // 获取置顶作品
       const topWorks = await fetchTopWorks()
       const topWorkIds = new Set(topWorks.map(w => w.id))
@@ -378,7 +380,7 @@ const fetchWorks = async () => {
       // 将置顶作品放在最前面，然后是第一页的其他作品
       works.value = [...topWorks, ...worksWithInteraction]
     } else {
-      // 其他页面直接获取作品数据，不受置顶影响
+      // 其他页面或有筛选条件时，直接获取作品数据，不受置顶影响
       const worksWithInteraction = await Promise.all(
         response.data.works.map(async (work) => {
           try {
@@ -566,13 +568,23 @@ const fetchTags = async () => {
   }
 }
 
-// 获取标签样式
+// 获取标签样式（用于筛选标签）
 const getTagStyle = (tag) => {
   const bgColor = getTagColor(tag)
   const textColor = getTextColor(bgColor)
   return {
     backgroundColor: bgColor,
     color: textColor
+  }
+}
+
+// 获取作品卡片中的标签样式（背景透明，只改变字体颜色）
+const getWorkTagStyle = (tag) => {
+  const bgColor = getTagColor(tag)
+  // 使用背景色的深色版本作为文字颜色，或者直接使用背景色
+  return {
+    backgroundColor: 'transparent',
+    color: bgColor
   }
 }
 
@@ -897,6 +909,7 @@ onMounted(async () => {
                 v-for="tag in work.tags" 
                 :key="tag" 
                 class="tag"
+                :style="getWorkTagStyle(tag)"
                 @click.prevent="toggleTag(tag)">
                 {{ tag }}
               </span>
@@ -1019,6 +1032,7 @@ onMounted(async () => {
                   v-for="tag in work.tags" 
                   :key="tag" 
                   class="tag"
+                  :style="getWorkTagStyle(tag)"
                   @click.prevent="toggleTag(tag)">
                   {{ tag }}
                 </span>
@@ -1166,7 +1180,7 @@ onMounted(async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 8px 0;
+  margin: 4px 0;
 }
 
 .tag {
@@ -1175,7 +1189,6 @@ onMounted(async () => {
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s ease;
-  background-color: #f0f0f0;
   display: inline-flex;
   align-items: center;
   height: 20px;
@@ -1197,8 +1210,9 @@ onMounted(async () => {
 }
 
 .tags .tag {
-  font-size: 0.7rem;
-  color: #499e8d;
+  font-size: 0.75rem;
+  padding: 0 4px 0 0;
+  /* 颜色通过 getTagStyle 函数动态设置 */
 }
 
 /* 添加新样式 */
