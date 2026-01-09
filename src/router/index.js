@@ -7,6 +7,7 @@ import GuideDetailView from '../views/GuideDetailView.vue'
 import GuideEditor from '../views/GuideEditor.vue'
 import WorkView from '../views/WorkView.vue'
 import WorkDetailView from '../views/WorkDetailView.vue'
+import SetDetailView from '../views/SetDetailView.vue'
 import MaterialView from '../views/MaterialView.vue'
 import MaterialType from '../components/MaterialType.vue'
 import GridPainter from '../components/GridPainter.vue'
@@ -58,6 +59,11 @@ const router = createRouter({
       path: '/works/:id',
       name: 'workDetail',
       component: WorkDetailView
+    },
+    {
+      path: '/works-set/:id',
+      name: 'setDetail',
+      component: SetDetailView
     },
     {
       path: '/painter',

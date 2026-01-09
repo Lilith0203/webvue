@@ -7,6 +7,7 @@ import WorkEditor from '../components/WorkEditor.vue'
 import { marked } from 'marked'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
+import { message } from '../utils/message'
 import { refreshImageUrl, refreshVideoUrl } from '../utils/image'
 import { getTagColor, getTextColor, initTagColors } from '../utils/tags'
 
@@ -30,6 +31,12 @@ const comments = ref([])  // 存储评论
 const loadingComments = ref(false)
 const errorComments = ref(null)
 const materials = ref([])  // 存储材料信息
+
+// 合集相关
+const allSets = ref([])  // 所有合集列表
+const workSets = ref([])  // 当前作品所在的合集
+const loadingSets = ref(false)
+const showSetSelector = ref(false)  // 是否显示合集选择器
 
 // 交互数据
 const interactions = ref({
@@ -318,8 +325,11 @@ const toggleRecommend = async () => {
 }
 
 const handleBack = () => {
-  // 如果是从列表页进入的，返回到列表页并带上 from=detail 参数
-  if (route.query.from === 'list') {
+  // 如果是从合集页进入的，返回到合集页
+  if (route.query.from === 'set' && route.query.setId) {
+    router.push(`/works-set/${route.query.setId}`)
+  } else if (route.query.from === 'list') {
+    // 如果是从列表页进入的，返回到列表页并带上 from=detail 参数
     router.push({
       path: '/works',
       query: { from: 'detail' }
@@ -406,6 +416,106 @@ const downloadCurrentMedia = async () => {
   }
 }
 
+// 获取所有合集
+const fetchAllSets = async () => {
+  if (loadingSets.value) return
+  loadingSets.value = true
+  try {
+    const response = await axios.get('/works-set/list')
+    if (response.data.success) {
+      allSets.value = response.data.data.sets
+      // 获取当前作品所在的合集
+      await fetchWorkSets()
+    }
+  } catch (error) {
+    console.error('获取合集列表失败:', error)
+  } finally {
+    loadingSets.value = false
+  }
+}
+
+// 获取当前作品所在的合集
+const fetchWorkSets = async () => {
+  if (!work.value || !work.value.id) return
+  
+  try {
+    // 遍历所有合集，检查作品是否在其中
+    const workId = work.value.id
+    const setsWithWork = []
+    
+    for (const set of allSets.value) {
+      try {
+        const response = await axios.get(`/works-set/${set.id}/works`)
+        if (response.data.success) {
+          const works = response.data.data.works || []
+          if (works.some(w => w.id === workId)) {
+            setsWithWork.push(set)
+          }
+        }
+      } catch (error) {
+        console.error(`检查合集 ${set.id} 失败:`, error)
+      }
+    }
+    
+    workSets.value = setsWithWork
+  } catch (error) {
+    console.error('获取作品所在合集失败:', error)
+  }
+}
+
+// 添加作品到合集
+const addWorkToSet = async (setId) => {
+  if (!work.value || !work.value.id) return
+  
+  try {
+    await axios.post('/works-set/add-work', {
+      setId: setId,
+      worksId: work.value.id,
+      order: 0
+    })
+    message.success('添加到合集成功')
+    await fetchWorkSets()
+    showSetSelector.value = false
+  } catch (error) {
+    console.error('添加到合集失败:', error)
+    if (error.response && error.response.data && error.response.data.message) {
+      message.error(error.response.data.message)
+    } else {
+      message.error('添加到合集失败')
+    }
+  }
+}
+
+// 从合集移出作品
+const removeWorkFromSet = async (setId) => {
+  if (!work.value || !work.value.id) return
+  
+  const confirmed = await confirm('确定要从合集中移出这个作品吗？')
+  if (!confirmed) return
+  
+  try {
+    await axios.post('/works-set/remove-work', {
+      setId: setId,
+      worksId: work.value.id
+    })
+    message.success('从合集移出成功')
+    await fetchWorkSets()
+  } catch (error) {
+    console.error('从合集移出失败:', error)
+    message.error('从合集移出失败')
+  }
+}
+
+// 打开合集选择器
+const openSetSelector = () => {
+  showSetSelector.value = true
+}
+
+// 关闭合集选择器
+const closeSetSelector = () => {
+  showSetSelector.value = false
+}
+
 onMounted(async() => {
   await initTagColors() // 初始化标签颜色
   await fetchWorkDetail()
@@ -413,6 +523,9 @@ onMounted(async() => {
     const itemId = work.value.id
     await fetchComments(itemId)
     await fetchInteractions()
+    if (canEdit.value) {
+      await fetchAllSets() // 只有登录用户才获取合集信息
+    }
   }
 })
 </script>
@@ -451,6 +564,36 @@ onMounted(async() => {
               <span>{{ interactions.like }}</span>
             </div>
           </div>
+
+        <!-- 合集选择器 -->
+        <div v-if="showSetSelector" class="set-selector-overlay" @click="closeSetSelector">
+          <div class="set-selector" @click.stop>
+            <div class="selector-header">
+              <h3>选择合集</h3>
+              <button class="close-btn" @click="closeSetSelector">×</button>
+            </div>
+            <div class="selector-body">
+              <div v-if="loadingSets" class="loading">加载中...</div>
+              <div v-else-if="allSets.length === 0" class="empty">暂无合集</div>
+              <div v-else class="sets-list">
+                <div 
+                  v-for="set in allSets" 
+                  :key="set.id" 
+                  class="set-option"
+                  :class="{ 'in-set': workSets.some(s => s.id === set.id) }">
+                  <span class="set-name">{{ set.name }}</span>
+                  <button 
+                    v-if="!workSets.some(s => s.id === set.id)"
+                    class="add-btn"
+                    @click="addWorkToSet(set.id)">
+                    添加
+                  </button>
+                  <span v-else class="in-set-label">已在合集中</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         
         <!-- 图片和视频画廊 -->
         <div class="gallery">
@@ -569,6 +712,21 @@ onMounted(async() => {
               </div>
             </div>
           </div>
+
+          <!-- 合集管理区域（仅登录用户可见） -->
+        <div class="sets-section">
+          <div class="sets-content">
+            <span class="sets-label">所属合集：</span>
+            <div v-if="workSets.length > 0" class="work-sets-list">
+              <span v-for="set in workSets" :key="set.id" class="set-item">
+                <a :href="`/works-set/${set.id}`" class="set-link">{{ set.name }}</a>
+                <button v-if="canEdit" class="remove-set-btn" @click="removeWorkFromSet(set.id)" title="移出">×</button>
+              </span>
+            </div>
+            <span v-else class="no-sets">无</span>
+            <button v-if="canEdit" class="add-set-btn" @click="openSetSelector">加入</button>
+          </div>
+        </div>
   
           <div class="update-time">
             最后更新时间: {{ formatDate(work.updatedAt) }}
@@ -948,7 +1106,7 @@ onMounted(async() => {
   align-items: center;
   gap: 5px;
   cursor: pointer;
-  padding: 5px 10px;
+  padding: 5px 10px 5px 0;
   border-radius: 20px;
   transition: all 0.3s ease;
 }
@@ -990,5 +1148,195 @@ onMounted(async() => {
   .gallery-nav i {
     font-size: 1.5rem;
   }
+}
+
+/* 合集管理样式 */
+.sets-section {
+  margin: 0px 0 5px;
+  padding: 5px 15px 10px 0;
+  border-radius: 6px;
+}
+
+.sets-content {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sets-label {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.work-sets-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.set-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0px;
+  border-radius: 4px;
+}
+
+.set-link {
+  color: var(--color-green);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.set-link:hover {
+  text-decoration: underline;
+}
+
+.remove-set-btn {
+  background: none;
+  border: none;
+  color: #e53935;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.remove-set-btn:hover {
+  color: #c62828;
+}
+
+.no-sets {
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.add-set-btn {
+  padding: 2px 7px;
+  background-color: #8bb6f7;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin-left: auto;
+}
+
+.add-set-btn:hover {
+  opacity: 0.9;
+}
+
+/* 合集选择器样式 */
+.set-selector-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.set-selector {
+  background: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+}
+
+.selector-header h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.selector-body {
+  padding: 0px 20px 15px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.sets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.set-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: white;
+}
+
+.set-option.in-set {
+  background: #e7f0ff;
+}
+
+.set-name {
+  font-size: 0.85rem;
+}
+
+.add-btn {
+  padding: 4px 12px;
+  background-color: var(--color-blue);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.add-btn:hover {
+  opacity: 0.9;
+}
+
+.in-set-label {
+  color: #b5b5b5;
+  font-size: 0.8rem;
+}
+
+.loading, .empty {
+  text-align: center;
+  padding: 20px;
+  color: #999;
 }
 </style>

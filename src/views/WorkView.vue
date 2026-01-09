@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
 import WorkEditor from '../components/WorkEditor.vue'
+import SetEditor from '../components/SetEditor.vue'
 import { confirm } from '../utils/confirm'
 import { getTagColor, getTextColor, initTagColors } from '../utils/tags'
 import Announcement from '../components/Announcement.vue'
@@ -41,6 +42,13 @@ const loadingRecommended = ref(false)
 const recommendedPage = ref(1)
 const recommendedHasMore = ref(true)
 const recommendedTotalPages = ref(1)
+
+// 合集相关
+const worksSets = ref([])
+const loadingSets = ref(false)
+const showSetEditor = ref(false)
+const setEditorMode = ref('create')
+const currentSet = ref(null)
 
 // 切换标签
 const toggleTag = (tag) => {
@@ -256,27 +264,6 @@ const toggleTop = async (event, workId) => {
     }
   } catch (error) {
     console.error('置顶失败:', error)
-  }
-}
-
-// 更新作品置顶状态
-const updateWorkTopStatus = (workId, top) => {
-  // 更新普通作品列表
-  const workIndex = works.value.findIndex(w => w.id === workId)
-  if (workIndex !== -1) {
-    works.value[workIndex].top = top
-  }
-  
-  // 更新推荐作品列表
-  const recommendedIndex = recommendedWorks.value.findIndex(w => w.id === workId)
-  if (recommendedIndex !== -1) {
-    recommendedWorks.value[recommendedIndex].top = top
-  }
-  
-  // 更新未完成作品列表
-  const incompleteIndex = incompleteWorks.value.findIndex(w => w.id === workId)
-  if (incompleteIndex !== -1) {
-    incompleteWorks.value[incompleteIndex].top = top
   }
 }
 
@@ -568,6 +555,73 @@ const fetchTags = async () => {
   }
 }
 
+// 获取合集列表
+const fetchWorksSets = async () => {
+  if (loadingSets.value) return
+  
+  loadingSets.value = true
+  try {
+    const response = await axios.get('/works-set/list')
+    if (response.data.success) {
+      worksSets.value = response.data.data.sets
+    }
+  } catch (error) {
+    console.error('获取合集列表失败:', error)
+  } finally {
+    loadingSets.value = false
+  }
+}
+
+// 打开新建合集编辑器
+const openCreateSetEditor = () => {
+  if (!canEdit.value) return
+  currentSet.value = null
+  setEditorMode.value = 'create'
+  showSetEditor.value = true
+}
+
+// 打开编辑合集编辑器
+const openEditSetEditor = (set) => {
+  if (!canEdit.value) return
+  currentSet.value = set
+  setEditorMode.value = 'edit'
+  showSetEditor.value = true
+}
+
+// 关闭合集编辑器
+const closeSetEditor = () => {
+  showSetEditor.value = false
+  currentSet.value = null
+}
+
+// 处理合集编辑成功
+const handleSetEditorSuccess = async () => {
+  showSetEditor.value = false
+  await fetchWorksSets()
+}
+
+// 删除合集
+const deleteSet = async (setId) => {
+  if (!canEdit.value) return
+  
+  const confirmed = await confirm('确定要删除这个合集吗？')
+  if (!confirmed) {
+    return
+  }
+  
+  try {
+    await axios.post('/works-set/delete', { id: setId })
+    await fetchWorksSets()
+  } catch (error) {
+    console.error('删除合集失败:', error)
+  }
+}
+
+// 跳转到合集详情页
+const goToSetDetail = (setId) => {
+  router.push(`/works-set/${setId}`)
+}
+
 // 获取标签样式（用于筛选标签）
 const getTagStyle = (tag) => {
   const bgColor = getTagColor(tag)
@@ -678,6 +732,13 @@ const getThumbUrl = (url, width = 800) => {
     + `/resize,w_${width}` // 限制宽度，保持原始比例
 }
 
+// 处理合集封面图URL（小图，用于列表）
+const getSetCoverUrl = (url) => {
+  if (!url) return '';
+  // 合集列表中的封面图较小，使用600px宽度
+  return `${url}?x-oss-process=image/resize,w_600`
+}
+
 onMounted(async () => {
   await initTagColors() // 初始化标签颜色
   
@@ -740,6 +801,7 @@ onMounted(async () => {
   // 获取作品数据
   await fetchWorks()
   await fetchIncompleteWorks() // 获取未完成作品列表
+  await fetchWorksSets() // 获取合集列表
   
   // 恢复滚动位置
   let scrollHandler = null
@@ -811,9 +873,55 @@ onMounted(async () => {
     :work="currentWork"
     @success="handleEditorSuccess"
     @cancel="closeEditor"/><!-- 编辑弹窗 -->
+    
+  <!-- 合集编辑器弹窗 -->
+  <SetEditor
+    v-if="showSetEditor"
+    :visible="showSetEditor"
+    :mode="setEditorMode"
+    :set="currentSet"
+    @success="handleSetEditorSuccess"
+    @cancel="closeSetEditor"
+  />
+    
     <template v-else>
+      <!-- 合集模块（独立模块，放在作品展示标题之上） -->
+      <div v-if="worksSets.length >= 0" class="works-sets-module">
+        <div class="module-header">
+          <h3 class="module-title">作品合集</h3>
+          <button v-if="canEdit" class="add-set-btn" @click="openCreateSetEditor">
+            添加合集
+          </button>
+        </div>
+        <div class="sets-grid">
+          <div 
+            v-for="set in worksSets" 
+            :key="set.id" 
+            class="set-card"
+            @click="goToSetDetail(set.id)">
+            <div class="set-cover">
+              <img 
+                v-if="set.cover" 
+                v-image="getSetCoverUrl(set.cover)" 
+                :alt="set.name">
+              <div v-else class="no-cover">暂无封面</div>
+            </div>
+            <div class="set-name">{{ set.name }}</div>
+            <!-- 编辑和删除按钮（仅管理员可见） -->
+            <div v-if="canEdit" class="set-actions" @click.stop>
+              <button class="set-action-btn" @click="openEditSetEditor(set)" title="编辑">
+                <i class="iconfont icon-bianji"></i>
+              </button>
+              <button class="set-action-btn" @click="deleteSet(set.id)" title="删除">
+                <i class="iconfont icon-shanchu"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="header">
-        <h2>作品展示</h2>
+        <h2>所有作品</h2>
         <div class="header-actions">
           <!-- 搜索框 -->
           <div class="search-container" :class="{ 'is-searching': isSearching }">
@@ -829,7 +937,7 @@ onMounted(async () => {
               <i class="iconfont icon-sousuo"></i>
             </button>
           </div>
-          <button v-if="canEdit" class="add-btn" @click="openCreateEditor">新增 +</button>
+          <button v-if="canEdit" class="add-btn" @click="openCreateEditor">发布</button>
         </div>
       </div>
       <div class="filter-tags">
@@ -1094,6 +1202,121 @@ onMounted(async () => {
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.8rem;
+}
+
+/* 合集模块样式（独立模块，放在所有作品之上） */
+.works-sets-module {
+  margin: 15px 0;
+}
+
+.module-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.module-title {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #333;
+  margin: 0;
+}
+
+.add-set-btn {
+  padding: 3px 6px;
+  background-color: var(--color-blue);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.add-set-btn:hover {
+  opacity: 0.9;
+}
+
+.set-card {
+  position: relative;
+}
+
+.set-actions {
+  position: absolute;
+  top: 8px;
+  right: 5px;
+  display: flex;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.set-card:hover .set-actions {
+  opacity: 1;
+}
+
+.set-action-btn {
+  background: transparent;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.sets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 15px;
+}
+
+.set-card {
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #eee;
+}
+
+.set-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.set-cover {
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.set-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.no-cover {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 0.75rem;
+}
+
+.set-name {
+  padding: 6px;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .work-grid {
