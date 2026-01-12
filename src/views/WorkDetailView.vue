@@ -465,6 +465,7 @@ const fetchWorkSets = async () => {
 
 // 添加作品到合集
 const addWorkToSet = async (setId) => {
+  if (!canEdit.value) return
   if (!work.value || !work.value.id) return
   
   try {
@@ -488,6 +489,7 @@ const addWorkToSet = async (setId) => {
 
 // 从合集移出作品
 const removeWorkFromSet = async (setId) => {
+  if (!canEdit.value) return
   if (!work.value || !work.value.id) return
   
   const confirmed = await confirm('确定要从合集中移出这个作品吗？')
@@ -508,6 +510,7 @@ const removeWorkFromSet = async (setId) => {
 
 // 打开合集选择器
 const openSetSelector = () => {
+  if (!canEdit.value) return
   showSetSelector.value = true
 }
 
@@ -523,9 +526,8 @@ onMounted(async() => {
     const itemId = work.value.id
     await fetchComments(itemId)
     await fetchInteractions()
-    if (canEdit.value) {
-      await fetchAllSets() // 只有登录用户才获取合集信息
-    }
+    // 所有用户都可以查看作品所属的合集
+    await fetchAllSets()
   }
 })
 </script>

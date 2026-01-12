@@ -323,7 +323,6 @@ form {
   position: absolute;
   top: -10px;
   right: -10px;
-  background: #e53935;
   color: white;
   border: none;
   border-radius: 50%;

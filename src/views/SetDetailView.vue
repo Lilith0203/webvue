@@ -418,7 +418,7 @@ onMounted(async () => {
 
 .set-info {
   margin-bottom: 10px;
-  padding: 20px;
+  padding: 20px 12px;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -431,8 +431,8 @@ onMounted(async () => {
 
 .set-cover-large {
   flex-shrink: 0;
-  width: 200px;
-  height: 200px;
+  width: 180px;
+  height: 180px;
   border-radius: 8px;
   overflow: hidden;
   background: #f5f5f5;
@@ -459,7 +459,7 @@ onMounted(async () => {
 }
 
 .set-title {
-  font-size: 1.3rem;
+  font-size: 1.1rem;
   font-weight: bold;
   margin: 0 0 15px 0;
   color: #333;
@@ -469,14 +469,14 @@ onMounted(async () => {
   font-size: 0.9rem;
   color: #666;
   line-height: 1.6;
-  margin: 0 0 15px 0;
+  margin: 0 0 10px 0;
 }
 
 .set-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
 }
 
 .set-tags .tag {
