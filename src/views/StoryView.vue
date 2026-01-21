@@ -285,12 +285,44 @@ const fetchStorySets = async () => {
       storySets.value = res.data.data
       // 初始化默认选择
       initDefaultSelection()
+      // 合集列表更新后，同步定制选择：父合集已选中时，确保其子合集也默认选中
+      syncCustomSelectionAfterSetsUpdate()
     } else {
       error.value = res.data.message || '获取剧情合集失败'
     }
   } catch (e) {
     error.value = '获取剧情合集失败'
   }
+}
+
+// 合集列表更新后，同步定制选择（父合集已选中 => 所有子合集自动选中）
+function syncCustomSelectionAfterSetsUpdate() {
+  // 未启用定制模式，或没有任何定制选择时，不处理
+  if (!isCustomMode.value || customSetIds.value.size === 0) return
+
+  const nextIds = new Set(customSetIds.value)
+
+  const addAllChildren = (set) => {
+    if (set?.children && set.children.length > 0) {
+      set.children.forEach(child => {
+        nextIds.add(child.id)
+        addAllChildren(child)
+      })
+    }
+  }
+
+  // 只做“补齐”：如果父合集在定制选择中，则把它的所有子合集加进去
+  storySets.value.forEach(set => {
+    if (nextIds.has(set.id)) {
+      addAllChildren(set)
+    }
+  })
+
+  // 若无变化，不写localStorage，避免多余刷新
+  if (nextIds.size === customSetIds.value.size) return
+
+  customSetIds.value = nextIds
+  localStorage.setItem('storyCustomSetIds', JSON.stringify([...customSetIds.value]))
 }
 
 // 获取剧情列表
@@ -1558,7 +1590,7 @@ const checkAndFixActiveSet = () => {
               <button class="btn btn-add" @click="openAddStoryModal">添加剧情</button>
               <button class="btn btn-edit" @click="openEditSetModal(activeSet)">编辑</button>
               <button class="btn add-set-btn" @click="openAddSetModal">新建</button>
-              <!--<button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除</button>-->
+              <button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除</button>
           </div>
           <div class="stories-header">
             <div class="sort-area">
