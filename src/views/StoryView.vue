@@ -2151,7 +2151,7 @@ const checkAndFixActiveSet = () => {
             v-model="newStory.link" 
             @input="handleNewStoryLinkChange"
             @paste="handleNewStoryLinkPaste"
-            placeholder="请输入外部链接（可粘贴包含链接的文本，将自动提取）"
+            placeholder="请输入外部链接（自动提取）"
           >
         </div>
         

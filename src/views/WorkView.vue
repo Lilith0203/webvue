@@ -866,17 +866,18 @@ onMounted(async () => {
     />
   </div>
   
+  <!-- 编辑表单 -->
   <WorkEditor 
     v-if="showEditor"
     :visible="showEditor"
     :mode="editorMode"
     :work="currentWork"
     @success="handleEditorSuccess"
-    @cancel="closeEditor"/><!-- 编辑弹窗 -->
+    @cancel="closeEditor"/>
     
   <!-- 合集编辑器弹窗 -->
   <SetEditor
-    v-if="showSetEditor"
+    v-else-if="showSetEditor"
     :visible="showSetEditor"
     :mode="setEditorMode"
     :set="currentSet"
@@ -884,7 +885,8 @@ onMounted(async () => {
     @cancel="closeSetEditor"
   />
     
-    <template v-else>
+  <!-- 列表内容 -->
+  <template v-else>
       <!-- 合集模块（独立模块，放在作品展示标题之上） -->
       <div v-if="worksSets.length >= 0" class="works-sets-module">
         <div class="module-header">
