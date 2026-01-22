@@ -742,6 +742,116 @@ const closeEditStoryModal = () => {
   editingStory.value = null
 }
 
+// 从文本中提取URL链接（只提取纯URL，不考虑Markdown格式）
+const extractUrlFromText = (text) => {
+  if (!text) return null
+  
+  // 提取http或https开头的URL
+  const urlRegex = /(https?:\/\/[^\s\)\]\"]+)/g
+  const urlMatch = urlRegex.exec(text)
+  if (urlMatch && urlMatch[1]) {
+    // 移除URL末尾可能存在的标点符号
+    let url = urlMatch[1].trim()
+    // 移除末尾的常见标点符号
+    url = url.replace(/[.,;:!?]+$/, '')
+    return url
+  }
+  
+  return null
+}
+
+// 处理新建剧情链接输入变化，自动提取链接
+const handleNewStoryLinkChange = () => {
+  // 使用nextTick确保获取到最新的值
+  setTimeout(() => {
+    const inputText = newStory.value.link
+    if (!inputText || inputText.trim() === '') return
+    
+    // 如果输入的内容已经是纯URL格式，不需要处理
+    if (/^https?:\/\/[^\s]+$/.test(inputText.trim())) {
+      return
+    }
+    
+    // 从输入文本中提取URL
+    const extractedUrl = extractUrlFromText(inputText)
+    if (extractedUrl) {
+      newStory.value.link = extractedUrl
+    }
+  }, 0)
+}
+
+// 处理新建剧情链接粘贴事件
+const handleNewStoryLinkPaste = (event) => {
+  // 获取粘贴的文本内容
+  const pastedText = (event.clipboardData || window.clipboardData).getData('text')
+  if (!pastedText || pastedText.trim() === '') return
+  
+  // 延迟处理，等待粘贴内容写入输入框
+  setTimeout(() => {
+    const inputText = newStory.value.link
+    if (!inputText || inputText.trim() === '') return
+    
+    // 如果输入的内容已经是纯URL格式，不需要处理
+    if (/^https?:\/\/[^\s]+$/.test(inputText.trim())) {
+      return
+    }
+    
+    // 从输入文本中提取URL
+    const extractedUrl = extractUrlFromText(inputText)
+    if (extractedUrl) {
+      newStory.value.link = extractedUrl
+    }
+  }, 0)
+}
+
+// 处理编辑剧情链接输入变化，自动提取链接
+const handleEditStoryLinkChange = () => {
+  if (!editingStory.value) return
+  
+  // 使用nextTick确保获取到最新的值
+  setTimeout(() => {
+    const inputText = editingStory.value.link
+    if (!inputText || inputText.trim() === '') return
+    
+    // 如果输入的内容已经是纯URL格式，不需要处理
+    if (/^https?:\/\/[^\s]+$/.test(inputText.trim())) {
+      return
+    }
+    
+    // 从输入文本中提取URL
+    const extractedUrl = extractUrlFromText(inputText)
+    if (extractedUrl) {
+      editingStory.value.link = extractedUrl
+    }
+  }, 0)
+}
+
+// 处理编辑剧情链接粘贴事件
+const handleEditStoryLinkPaste = (event) => {
+  if (!editingStory.value) return
+  
+  // 获取粘贴的文本内容
+  const pastedText = (event.clipboardData || window.clipboardData).getData('text')
+  if (!pastedText || pastedText.trim() === '') return
+  
+  // 延迟处理，等待粘贴内容写入输入框
+  setTimeout(() => {
+    const inputText = editingStory.value.link
+    if (!inputText || inputText.trim() === '') return
+    
+    // 如果输入的内容已经是纯URL格式，不需要处理
+    if (/^https?:\/\/[^\s]+$/.test(inputText.trim())) {
+      return
+    }
+    
+    // 从输入文本中提取URL
+    const extractedUrl = extractUrlFromText(inputText)
+    if (extractedUrl) {
+      editingStory.value.link = extractedUrl
+    }
+  }, 0)
+}
+
 // 更新剧情
 const updateStory = async () => {
   if (!editingStory.value) return
@@ -2039,7 +2149,9 @@ const checkAndFixActiveSet = () => {
             type="text" 
             id="add-story-link" 
             v-model="newStory.link" 
-            placeholder="请输入外部链接"
+            @input="handleNewStoryLinkChange"
+            @paste="handleNewStoryLinkPaste"
+            placeholder="请输入外部链接（可粘贴包含链接的文本，将自动提取）"
           >
         </div>
         
@@ -2169,7 +2281,9 @@ const checkAndFixActiveSet = () => {
             type="text" 
             id="edit-story-link" 
             v-model="editingStory.link" 
-            placeholder="请输入外部链接"
+            @input="handleEditStoryLinkChange"
+            @paste="handleEditStoryLinkPaste"
+            placeholder="请输入外部链接（可粘贴包含链接的文本，将自动提取）"
           >
         </div>
         

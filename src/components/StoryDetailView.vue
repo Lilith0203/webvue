@@ -24,6 +24,9 @@ const loading = ref(false)
 const error = ref(null)
 const editing = ref(false)
 const detailDraft = ref('')
+const lastSavedDetailDraft = ref('')
+const isAutoSaving = ref(false)
+let autoSaveTimer = null
 const previewVisible = ref(false)
 const previewImage = ref('')
 const previewImages = ref([])
@@ -146,6 +149,7 @@ const fetchStory = async () => {
     const res = await axios.get(`/stories/${route.params.id}`)
     story.value = res.data.data
     detailDraft.value = story.value.detail || ''
+    lastSavedDetailDraft.value = detailDraft.value
     // 只有当tagColors已经加载完成时才处理内容
     if (story.value.detail && tagColors.value.length > 0) {
       story.value.renderedDetail = processMarkdownContent(story.value.detail)
@@ -167,6 +171,7 @@ const saveDetail = async () => {
       detail: detailDraft.value
     })
     story.value.detail = detailDraft.value
+    lastSavedDetailDraft.value = detailDraft.value
     // 更新渲染后的内容，确保tagColors已加载
     if (story.value.detail && tagColors.value.length > 0) {
       story.value.renderedDetail = processMarkdownContent(story.value.detail)
@@ -178,6 +183,45 @@ const saveDetail = async () => {
     loading.value = false
   }
 }
+
+// 自动保存：仅在编辑中、内容变化时，每 5 分钟后台保存一次（不退出编辑态）
+const autoSaveDetail = async () => {
+  if (!authStore.isAuthenticated) return
+  if (!editing.value) return
+  if (!story.value?.id) return
+  if (loading.value || isAutoSaving.value) return
+  if (detailDraft.value === lastSavedDetailDraft.value) return
+
+  isAutoSaving.value = true
+  try {
+    await axios.put(`/stories/${story.value.id}`, {
+      ...story.value,
+      detail: detailDraft.value
+    })
+    story.value.detail = detailDraft.value
+    lastSavedDetailDraft.value = detailDraft.value
+    if (story.value.detail && tagColors.value.length > 0) {
+      story.value.renderedDetail = processMarkdownContent(story.value.detail)
+    }
+  } catch (e) {
+    // 自动保存失败不打断用户编辑，仅记录
+    console.error('自动保存失败:', e)
+  } finally {
+    isAutoSaving.value = false
+  }
+}
+
+watch(editing, (isEditing) => {
+  // 进入编辑时，建立基线，启动定时自动保存
+  if (isEditing) {
+    lastSavedDetailDraft.value = detailDraft.value
+    if (autoSaveTimer) clearInterval(autoSaveTimer)
+    autoSaveTimer = setInterval(autoSaveDetail, 5 * 60 * 1000)
+  } else {
+    if (autoSaveTimer) clearInterval(autoSaveTimer)
+    autoSaveTimer = null
+  }
+})
 
 // 图片上传相关方法
 const uploadDetailImage = async (file) => {
@@ -789,6 +833,11 @@ onMounted(() => {
   )
   // 获取标签颜色
   fetchTagColors()
+})
+
+onBeforeUnmount(() => {
+  if (autoSaveTimer) clearInterval(autoSaveTimer)
+  autoSaveTimer = null
 })
 </script>
 
