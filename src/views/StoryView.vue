@@ -1700,7 +1700,7 @@ const checkAndFixActiveSet = () => {
               <button class="btn btn-add" @click="openAddStoryModal">添加剧情</button>
               <button class="btn btn-edit" @click="openEditSetModal(activeSet)">编辑</button>
               <button class="btn add-set-btn" @click="openAddSetModal">新建</button>
-              <button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除</button>
+              <!--<button class="btn btn-delete" @click="openDeleteConfirmModal(activeSet)">删除</button>-->
           </div>
           <div class="stories-header">
             <div class="sort-area">
@@ -2283,7 +2283,7 @@ const checkAndFixActiveSet = () => {
             v-model="editingStory.link" 
             @input="handleEditStoryLinkChange"
             @paste="handleEditStoryLinkPaste"
-            placeholder="请输入外部链接（可粘贴包含链接的文本，将自动提取）"
+            placeholder="请输入外部链接（自动提取）"
           >
         </div>
         
@@ -2517,7 +2517,6 @@ const checkAndFixActiveSet = () => {
 /* 合集说明样式 */
 .set-description {
   padding: 5px 10px;
-  margin-bottom: 10px;
 }
 
 .set-info {
@@ -2541,6 +2540,7 @@ const checkAndFixActiveSet = () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-top: 10px;
   margin-bottom: 10px;
 }
 
