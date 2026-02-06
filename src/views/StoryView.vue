@@ -1158,6 +1158,11 @@ const changePage = (page) => {
   currentPage.value = page
   localStorage.setItem('storyCurrentPage', currentPage.value.toString())
   fetchStories()
+  // 翻页时滚动到顶部
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  })
 }
 
 // 处理搜索
@@ -1221,7 +1226,7 @@ onMounted(() => {
 
       // 使用恢复的状态获取剧情
       fetchStories().then(() => {
-          // 剧情加载后恢复滚动位置
+          // 剧情加载后恢复滚动位置（延迟确保DOM渲染完成）
           const savedScrollPosition = sessionStorage.getItem('storyListScrollPosition')
           if (savedScrollPosition) {
             setTimeout(() => {
@@ -1231,7 +1236,7 @@ onMounted(() => {
               })
               // 恢复后清除保存的滚动位置
               sessionStorage.removeItem('storyListScrollPosition')
-            }, 100)
+            }, 200) // 增加延迟时间，确保数据渲染完成
           }
       })
     } else {
@@ -1336,6 +1341,11 @@ const goToPage = () => {
   currentPage.value = pageNum;
   localStorage.setItem('storyCurrentPage', currentPage.value.toString())
   fetchStories();
+  // 跳转页码时滚动到顶部
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  })
   // 清空输入框
   targetPage.value = '';
 }

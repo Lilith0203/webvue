@@ -808,6 +808,12 @@ const navigateToRelatedStory = async (relatedStoryId) => {
 };
 
 onMounted(() => {
+  // 进入详情页时，滚动到顶部
+  window.scrollTo({
+    top: 0,
+    behavior: 'instant'
+  })
+  
   fetchStory()
   // 进入详情页面时保存滚动位置
   savedScrollPosition.value = window.scrollY

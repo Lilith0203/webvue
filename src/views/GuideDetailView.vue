@@ -297,6 +297,10 @@ onUnmounted(() => {
   text-align: left;
 }
 
+:deep(.guide-content li) {
+  margin-bottom: 5px;
+}
+
 :deep(.guide-content h1) {
   line-height: 2;
   margin-top: 10px;

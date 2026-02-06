@@ -803,7 +803,7 @@ onMounted(async () => {
   await fetchIncompleteWorks() // 获取未完成作品列表
   await fetchWorksSets() // 获取合集列表
   
-  // 恢复滚动位置
+  // 恢复滚动位置（在数据加载完成后）
   let scrollHandler = null
   if (isFromDetail) {
     if (tagFromUrl) {
@@ -820,6 +820,7 @@ onMounted(async () => {
       // 普通返回，恢复之前的滚动位置
       const savedScrollPosition = sessionStorage.getItem('workListScrollPosition')
       if (savedScrollPosition) {
+        // 等待DOM更新和数据渲染完成后再恢复滚动位置
         setTimeout(() => {
           window.scrollTo({
             top: parseInt(savedScrollPosition),
@@ -841,7 +842,7 @@ onMounted(async () => {
               window.addEventListener('scroll', scrollHandler, { passive: true })
             }
           }, 100)
-        }, 150)
+        }, 200) // 增加延迟时间，确保数据渲染完成
       }
     }
   }

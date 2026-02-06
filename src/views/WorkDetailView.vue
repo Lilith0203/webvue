@@ -520,6 +520,12 @@ const closeSetSelector = () => {
 }
 
 onMounted(async() => {
+  // 进入详情页时，滚动到顶部
+  window.scrollTo({
+    top: 0,
+    behavior: 'instant'
+  })
+  
   await initTagColors() // 初始化标签颜色
   await fetchWorkDetail()
   if (work.value && work.value.id) {
