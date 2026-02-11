@@ -45,7 +45,8 @@ const newStory = ref({
   link: '',
   onlineAt: '',
   setIds: [],
-  isRecommended: false
+  isRecommended: false,
+  recReasons: ''
 })
 const editingStory = ref(null)
 const confirmDeleteStoryModal = ref(false)
@@ -607,7 +608,8 @@ const openAddStoryModal = () => {
     link: '',
     onlineAt: '',
     setIds: activeSetId.value ? [activeSetId.value] : [], // 默认选中当前合集
-    isRecommended: false
+    isRecommended: false,
+    recReasons: ''
   }
   
   error.value = null
@@ -624,7 +626,8 @@ const closeAddStoryModal = () => {
     link: '',
     onlineAt: '',
     setIds: [],
-    isRecommended: false
+    isRecommended: false,
+    recReasons: ''
   }
   error.value = null
   
@@ -661,7 +664,8 @@ const addStory = async () => {
       link: newStory.value.link || '',
       onlineAt: newStory.value.onlineAt || '',
       setIds: newStory.value.setIds, // 传递所有关联的合集ID
-      isRecommended: newStory.value.isRecommended ? 1 : 0
+      isRecommended: newStory.value.isRecommended ? 1 : 0,
+      recReasons: newStory.value.isRecommended ? (newStory.value.recReasons || '') : ''
     }
     
     // 发送请求添加剧情
@@ -704,7 +708,8 @@ const openEditStoryModal = async (story) => {
       link: storyDetail.link || '',
       onlineAt: storyDetail.onlineAt || '',
       setIds: storyDetail.sets?.map(set => set.id) || [], // 从 sets 中提取 ID
-      isRecommended: storyDetail.isRecommended === 1 || storyDetail.isRecommended === true
+      isRecommended: storyDetail.isRecommended === 1 || storyDetail.isRecommended === true,
+      recReasons: storyDetail.recReasons || ''
     };
     
     showEditStoryModal.value = true;
@@ -883,7 +888,8 @@ const updateStory = async () => {
       link: editingStory.value.link,
       onlineAt: onlineAt,
       setIds: editingStory.value.setIds,
-      isRecommended: editingStory.value.isRecommended ? 1 : 0
+      isRecommended: editingStory.value.isRecommended ? 1 : 0,
+      recReasons: editingStory.value.isRecommended ? (editingStory.value.recReasons || '') : ''
     })
     
     // 更新剧情列表
@@ -1367,6 +1373,7 @@ const navigateToStoryDetail = (storyId) => {
 }
 
 const showCustomTooltip = (event, content) => {
+  if (!content || !content.trim()) return
   // 检查文本中是否包含链接格式 [文本](链接)
   if (content.includes('[') && content.includes('](') && content.includes(')')) {
     // 如果包含链接，不显示tooltip，让链接正常工作
@@ -1392,13 +1399,14 @@ const showCustomTooltip = (event, content) => {
   tooltip.style.position = 'absolute';
   tooltip.style.background = 'rgba(0,0,0,0.85)';
   tooltip.style.color = '#fff';
-  tooltip.style.padding = '8px 12px';
-  tooltip.style.borderRadius = '4px';
-  tooltip.style.fontSize = '14px';
+  tooltip.style.padding = '4px 12px';
+  tooltip.style.borderRadius = '3px';
+  tooltip.style.fontSize = '0.85rem';
   tooltip.style.lineHeight = '1.5';
   tooltip.style.whiteSpace = 'pre-wrap';
   tooltip.style.zIndex = 9999;
   tooltip.style.maxWidth = '80vw';
+  tooltip.style.opacity = '0.85';
 
   // 定位到点击位置
   const rect = event.target.getBoundingClientRect();
@@ -1421,6 +1429,20 @@ const showCustomTooltip = (event, content) => {
     document.addEventListener('click', removeTooltip, true);
   }, 0);
 };
+
+const hideCustomTooltip = () => {
+  const existingTooltip = document.querySelector('.custom-tooltip')
+  if (existingTooltip) existingTooltip.remove()
+}
+
+// 处理移动端触摸事件显示tooltip
+const handleTooltipTouch = (event, content) => {
+  // 阻止事件冒泡，避免触发标题的点击事件
+  event.stopPropagation()
+  // 显示tooltip
+  showCustomTooltip(event, content)
+  // 触摸后，点击其他地方时关闭（已在showCustomTooltip中实现）
+}
 
 // 打开复制剧情模态框
 const openCopyStoryModal = async (story) => {
@@ -1804,7 +1826,13 @@ const checkAndFixActiveSet = () => {
                         @click="navigateToStoryDetail(story.id)" 
                         style="cursor:pointer"
                       ></div>
-                      <i v-if="story.isRecommended" class="iconfont icon-tuijian recommended-icon"></i>
+                      <i
+                        v-if="story.isRecommended"
+                        class="iconfont icon-tuijian recommended-icon"
+                        @mouseenter="showCustomTooltip($event, story.recReasons || '')"
+                        @mouseleave="hideCustomTooltip()"
+                        @touchstart.prevent="handleTooltipTouch($event, story.recReasons || '')"
+                      ></i>
                     </div>
 
                     <div v-if="story.link" class="story-link">
@@ -2113,6 +2141,16 @@ const checkAndFixActiveSet = () => {
           </div>
         </div>
         
+        <div v-if="newStory.isRecommended" class="form-group">
+          <label for="add-story-rec-reasons">推荐原因</label>
+          <input 
+            type="text" 
+            id="add-story-rec-reasons" 
+            v-model="newStory.recReasons" 
+            placeholder="请输入推荐原因（可选）"
+          >
+        </div>
+        
         <div class="form-group">
           <label for="add-story-content">内容</label>
           <textarea 
@@ -2243,6 +2281,16 @@ const checkAndFixActiveSet = () => {
             <input type="checkbox" id="edit-story-recommended" v-model="editingStory.isRecommended">
             <label for="edit-story-recommended">推荐剧情</label>
           </div>
+        </div>
+        
+        <div v-if="editingStory.isRecommended" class="form-group">
+          <label for="edit-story-rec-reasons">推荐原因</label>
+          <input 
+            type="text" 
+            id="edit-story-rec-reasons" 
+            v-model="editingStory.recReasons" 
+            placeholder="请输入推荐原因（可选）"
+          >
         </div>
         
         <div class="form-group">
@@ -2788,13 +2836,13 @@ const checkAndFixActiveSet = () => {
 }
 
 .form-group {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
-  font-size: 0.9rem;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
 }
 
 .form-group input, .form-group textarea, .form-group select {
