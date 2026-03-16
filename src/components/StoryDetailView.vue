@@ -166,8 +166,8 @@ const saveDetail = async () => {
   loading.value = true
   error.value = null
   try {
+    // 只更新笔记内容，其余字段保持不变
     await axios.put(`/stories/${story.value.id}`, {
-      ...story.value,
       detail: detailDraft.value
     })
     story.value.detail = detailDraft.value
@@ -194,8 +194,8 @@ const autoSaveDetail = async () => {
 
   isAutoSaving.value = true
   try {
+    // 自动保存时同样只更新笔记内容
     await axios.put(`/stories/${story.value.id}`, {
-      ...story.value,
       detail: detailDraft.value
     })
     story.value.detail = detailDraft.value
