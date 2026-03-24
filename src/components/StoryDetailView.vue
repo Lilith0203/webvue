@@ -1308,7 +1308,7 @@ onBeforeUnmount(() => {
 /* 为Markdown内容添加样式 */
 :deep(.detail-text p) {
   line-height: 1.8em;
-  margin-bottom: 6px;
+  margin-bottom: 0px;
   text-align: left;
 }
 
