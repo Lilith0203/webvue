@@ -5,9 +5,56 @@ import { useAuthStore } from './stores/auth'
 import { useRouter } from 'vue-router'
 import { ref, onMounted, onUnmounted, computed, watch} from 'vue'
 import { imageRefreshService } from './services/imageRefresh'
+import axios from './api'
 
 const authStore = useAuthStore()
 const router = useRouter()
+
+/** 有待审核评论时在「管理」旁显示红点 */
+const hasPendingComments = ref(false)
+let pendingCommentsPollTimer = null
+
+const fetchPendingCommentCount = async () => {
+  if (!authStore.isAuthenticated) {
+    hasPendingComments.value = false
+    return
+  }
+  try {
+    const res = await axios.get('/comments', {
+      params: {
+        approval: 'pending',
+        page: 1,
+        pageSize: 1
+      }
+    })
+    const total = res.data?.pagination?.totalCount ?? 0
+    hasPendingComments.value = total > 0
+  } catch {
+    // 角标失败不影响使用
+  }
+}
+
+const startPendingCommentsPolling = () => {
+  if (pendingCommentsPollTimer) clearInterval(pendingCommentsPollTimer)
+  fetchPendingCommentCount()
+  pendingCommentsPollTimer = setInterval(fetchPendingCommentCount, 3 * 60 * 1000)
+}
+
+const stopPendingCommentsPolling = () => {
+  if (pendingCommentsPollTimer) {
+    clearInterval(pendingCommentsPollTimer)
+    pendingCommentsPollTimer = null
+  }
+}
+
+const onVisibilityChange = () => {
+  if (document.visibilityState === 'visible') {
+    fetchPendingCommentCount()
+  }
+}
+
+/** 离开管理页后立即刷新待审核数量，红点可马上消失 */
+let removeRouterAfterEach = null
 const activeMenu = ref('')
 const submenuHeight = ref(0)
 const menuTimeout = ref(null)
@@ -121,6 +168,10 @@ onUnmounted(() => {
   if (menuTimeout.value) {
     clearTimeout(menuTimeout.value)
   }
+  stopPendingCommentsPolling()
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  removeRouterAfterEach?.()
+  removeRouterAfterEach = null
   // 停止自动刷新服务
   imageRefreshService.stopAutoRefresh()
 })
@@ -129,7 +180,28 @@ onMounted(() => {
   isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   // 启动自动刷新服务
   imageRefreshService.startAutoRefresh()
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  if (authStore.isAuthenticated) {
+    startPendingCommentsPolling()
+  }
+  removeRouterAfterEach = router.afterEach((to, from) => {
+    if (from.path === '/admin' && to.path !== '/admin' && authStore.isAuthenticated) {
+      fetchPendingCommentCount()
+    }
+  })
 })
+
+watch(
+  () => authStore.isAuthenticated,
+  (loggedIn) => {
+    if (loggedIn) {
+      startPendingCommentsPolling()
+    } else {
+      hasPendingComments.value = false
+      stopPendingCommentsPolling()
+    }
+  }
+)
 
 // 路由变化时关闭子菜单
 watch(() => router.path, (newPath) => {
@@ -147,7 +219,9 @@ watch(() => router.path, (newPath) => {
     </h3>
     <div v-if="authStore.isAuthenticated" class="logout">
       <button type="button" @click.prevent="handleLogout">退出</button>
-      <button type="button" @click.prevent="handleAdmin" class="admin-button">管理</button>
+      <button type="button" @click.prevent="handleAdmin" class="admin-button">
+        管理<span v-if="hasPendingComments" class="admin-pending-dot" title="有待审核评论" aria-hidden="true" />
+      </button>
     </div>
   </footer>
   <div id="container">
@@ -438,9 +512,21 @@ nav a.router-link-exact-active {
 .logout .admin-button{
   margin-right: 10px;
   background-color: var(--color-blue);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .logout .admin-button:hover {
   background-color: var(--color-blue);
+}
+
+.admin-pending-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e74c3c;
+  flex-shrink: 0;
 }
 
 .about-link {
