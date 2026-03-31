@@ -69,6 +69,101 @@ const totalItems = ref(0)
 // 添加搜索关键词状态
 const searchKeyword = ref('');
 
+// 书签：每个剧情大类（根合集）最多 1 个，未登录可用（本地存储）
+const BOOKMARKS_STORAGE_KEY = 'storyBookmarksByRootSet'
+const storyBookmarks = ref({}) // { [rootSetId: number]: page: number }
+const showBookmarkModal = ref(false)
+
+const activeRootSetId = computed(() => {
+  if (!activeSetId.value) return null
+  if (activeChildId.value) {
+    const root = rootSets.value.find(set => set.children?.some(child => child.id === activeChildId.value))
+    if (root) return root.id
+  }
+  return activeSetId.value
+})
+
+const activeRootSetName = computed(() => {
+  if (!activeRootSetId.value) return ''
+  return rootSets.value.find(s => s.id === activeRootSetId.value)?.name || ''
+})
+
+const bookmarkPageForActiveRoot = computed(() => {
+  if (!activeRootSetId.value) return null
+  const page = storyBookmarks.value?.[activeRootSetId.value]
+  return typeof page === 'number' && Number.isFinite(page) ? page : null
+})
+
+const isOnBookmarkPage = computed(() => {
+  return !!bookmarkPageForActiveRoot.value && currentPage.value === bookmarkPageForActiveRoot.value
+})
+
+const bookmarkIconClass = computed(() => {
+  return isOnBookmarkPage.value ? 'icon-shuqian2' : 'icon-shuqian1'
+})
+
+const loadStoryBookmarks = () => {
+  try {
+    const raw = localStorage.getItem(BOOKMARKS_STORAGE_KEY)
+    if (!raw) {
+      storyBookmarks.value = {}
+      return
+    }
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      storyBookmarks.value = {}
+      return
+    }
+    const cleaned = {}
+    Object.keys(parsed).forEach(k => {
+      const rootId = parseInt(k)
+      const page = parseInt(parsed[k])
+      if (Number.isFinite(rootId) && rootId > 0 && Number.isFinite(page) && page > 0) {
+        cleaned[rootId] = page
+      }
+    })
+    storyBookmarks.value = cleaned
+  } catch (e) {
+    storyBookmarks.value = {}
+  }
+}
+
+const persistStoryBookmarks = () => {
+  localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(storyBookmarks.value || {}))
+}
+
+const openBookmarkModal = () => {
+  if (!activeRootSetId.value) {
+    message.alert('请先选择一个剧情大类')
+    return
+  }
+  showBookmarkModal.value = true
+}
+
+const closeBookmarkModal = () => {
+  showBookmarkModal.value = false
+}
+
+const setBookmarkToCurrentPage = () => {
+  if (!activeRootSetId.value) return
+  storyBookmarks.value = {
+    ...(storyBookmarks.value || {}),
+    [activeRootSetId.value]: currentPage.value
+  }
+  persistStoryBookmarks()
+  message.alert(`已设置「${activeRootSetName.value}」书签：第 ${currentPage.value} 页`)
+  closeBookmarkModal()
+}
+
+const jumpToBookmark = () => {
+  const page = bookmarkPageForActiveRoot.value
+  if (!page) return
+  closeBookmarkModal()
+  if (currentPage.value !== page) {
+    changePage(page)
+  }
+}
+
 // 添加定制功能相关状态
 const showCustomizePanel = ref(false)
 const customSetIds = ref(new Set()) // 用户选择的合集ID集合
@@ -1183,6 +1278,9 @@ onMounted(() => {
   // 添加键盘事件监听器
   window.addEventListener('keydown', handleKeyDown)
   
+  // 初始化书签
+  loadStoryBookmarks()
+
   // 初始化定制功能设置
   initCustomizeSettings()
   
@@ -1771,6 +1869,14 @@ const checkAndFixActiveSet = () => {
                   <button class="btn btn-search" @click="handleSearch" type="button">
                     <i class="iconfont icon-sousuo"></i>
                   </button>
+                  <button
+                    class="btn btn-bookmark"
+                    @click="openBookmarkModal"
+                    type="button"
+                    :title="isOnBookmarkPage ? '书签：已在书签页' : (bookmarkPageForActiveRoot ? `书签：第 ${bookmarkPageForActiveRoot} 页` : '书签：未设置')"
+                  >
+                    <i class="iconfont" :class="bookmarkIconClass"></i>
+                  </button>
                 </div>
             </div>
 
@@ -1947,6 +2053,28 @@ const checkAndFixActiveSet = () => {
           <p>请选择一个合集查看剧情</p>
         </div>
       </template>
+    </div>
+
+    <!-- 书签弹窗 -->
+    <div v-if="showBookmarkModal" class="modal-overlay" @click.self="closeBookmarkModal">
+      <div class="modal-content">
+        <h3>书签</h3>
+        <p v-if="activeRootSetName" class="bookmark-desc">当前：{{ activeRootSetName }}</p>
+        <p v-if="bookmarkPageForActiveRoot" class="bookmark-desc">已设置：第 {{ bookmarkPageForActiveRoot }} 页</p>
+        <p v-else class="bookmark-desc">尚未设置书签</p>
+
+        <div class="modal-actions">
+          <button class="btn btn-save" @click="jumpToBookmark" :disabled="!bookmarkPageForActiveRoot" type="button">
+            跳转书签
+          </button>
+          <button class="btn btn-edit" @click="setBookmarkToCurrentPage" type="button">
+            设为当前页
+          </button>
+          <button class="btn btn-cancel" @click="closeBookmarkModal" type="button">
+            取消
+          </button>
+        </div>
+      </div>
     </div>
     
     <!-- 添加合集模态框 -->
@@ -2816,14 +2944,14 @@ const checkAndFixActiveSet = () => {
 .modal-content {
   background-color: white;
   border-radius: 8px;
-  padding: 10px 25px 25px;
+  padding: 15px 20px 15px;
   width: 400px;
   max-width: 90%;
   max-height: calc(100vh - 140px); /* 调整最大高度 */
   max-height: calc(100dvh - 140px); /* 动态视口高度 */
   overflow-y: auto;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  margin-top: 10px; /* 添加固定的顶部边距 */
+  margin-top: 100px; /* 添加固定的顶部边距 */
   /* 移动端键盘优化 */
   -webkit-overflow-scrolling: touch; /* iOS 滚动优化 */
 }
@@ -2868,7 +2996,7 @@ const checkAndFixActiveSet = () => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 10px;
 }
 
 /* 复选框组样式 */
@@ -3212,6 +3340,27 @@ input[type="datetime-local"] {
   transition: color 0.3s;
 }
 
+.btn-bookmark {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0px;
+  font-size: 16px;
+  color: #666;
+  transition: color 0.3s;
+  margin-left: 6px;
+}
+
+.btn-bookmark .iconfont {
+  font-size: 17px;
+}
+
+.bookmark-desc {
+  margin: 8px 0 4px;
+  color: #666;
+  font-size: 14px;
+}
+
 /* 注意：由于使用了v-html，需要使用:deep()选择器来应用样式 */
 :deep(.highlight-text) {
   color: #fd964c; /* 高亮颜色，可以根据需要调整 */
@@ -3270,8 +3419,6 @@ input[type="datetime-local"] {
     width: 95%;
     max-width: 95%;
     max-height: calc(100dvh - 80px);
-    margin-top: 5px;
-    padding: 15px 20px 20px;
   }
   
   /* 确保模态框内容可以正常滚动 */

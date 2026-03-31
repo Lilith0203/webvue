@@ -1104,11 +1104,6 @@ onMounted(async () => {
                 暂无图片
               </div>
               
-              <!-- 在售标记 (仅图标) -->
-              <div v-if="work.price && work.price > 0" class="for-sale-badge">
-                <i class="iconfont icon-zaishou"></i>
-              </div>
-              
               <!-- 交互按钮 -->
               <div class="interaction-overlay">
                 <div class="interaction-btn" @click="toggleLike($event, work.id)">

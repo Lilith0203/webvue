@@ -1308,7 +1308,7 @@ onBeforeUnmount(() => {
 /* 为Markdown内容添加样式 */
 :deep(.detail-text p) {
   line-height: 1.8em;
-  margin-bottom: 0px;
+  margin-bottom: 2px;
   text-align: left;
 }
 
@@ -1374,8 +1374,8 @@ onBeforeUnmount(() => {
 :deep(.detail-text table) {
   width: 100%;
   border-collapse: collapse;
-  margin: 15px 0;
-  font-size: 12px;
+  margin: 0;
+  font-size: 0.8rem;
   overflow-x: auto;
   min-width: 600px;
 }
