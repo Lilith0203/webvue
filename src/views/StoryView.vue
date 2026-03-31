@@ -69,9 +69,10 @@ const totalItems = ref(0)
 // 添加搜索关键词状态
 const searchKeyword = ref('');
 
-// 书签：每个剧情大类（根合集）最多 1 个，未登录可用（本地存储）
+// 书签：每个剧情大类（根合集）最多 1 个（记录页码 + 正序/倒序），未登录可用（本地存储）
 const BOOKMARKS_STORAGE_KEY = 'storyBookmarksByRootSet'
-const storyBookmarks = ref({}) // { [rootSetId: number]: page: number }
+// 结构：{ [rootSetId]: { page: number, sortDirection: 'ASC' | 'DESC' } }
+const storyBookmarks = ref({})
 const showBookmarkModal = ref(false)
 
 const activeRootSetId = computed(() => {
@@ -88,14 +89,31 @@ const activeRootSetName = computed(() => {
   return rootSets.value.find(s => s.id === activeRootSetId.value)?.name || ''
 })
 
-const bookmarkPageForActiveRoot = computed(() => {
+const bookmarkForActiveRoot = computed(() => {
   if (!activeRootSetId.value) return null
-  const page = storyBookmarks.value?.[activeRootSetId.value]
-  return typeof page === 'number' && Number.isFinite(page) ? page : null
+  const entry = storyBookmarks.value?.[activeRootSetId.value]
+  if (!entry || typeof entry !== 'object') return null
+  const page = parseInt(entry.page)
+  const dir = entry.sortDirection
+  if (!Number.isFinite(page) || page <= 0) return null
+  if (dir !== 'ASC' && dir !== 'DESC') return null
+  return { page, sortDirection: dir }
+})
+
+const bookmarkPageForActiveRoot = computed(() => {
+  return bookmarkForActiveRoot.value?.page || null
+})
+
+const bookmarkSortDirectionForActiveRoot = computed(() => {
+  return bookmarkForActiveRoot.value?.sortDirection || null
 })
 
 const isOnBookmarkPage = computed(() => {
-  return !!bookmarkPageForActiveRoot.value && currentPage.value === bookmarkPageForActiveRoot.value
+  if (!bookmarkForActiveRoot.value) return false
+  return (
+    currentPage.value === bookmarkForActiveRoot.value.page &&
+    sortDirection.value === bookmarkForActiveRoot.value.sortDirection
+  )
 })
 
 const bookmarkIconClass = computed(() => {
@@ -117,9 +135,36 @@ const loadStoryBookmarks = () => {
     const cleaned = {}
     Object.keys(parsed).forEach(k => {
       const rootId = parseInt(k)
-      const page = parseInt(parsed[k])
-      if (Number.isFinite(rootId) && rootId > 0 && Number.isFinite(page) && page > 0) {
-        cleaned[rootId] = page
+      if (!Number.isFinite(rootId) || rootId <= 0) return
+
+      // 兼容旧格式：{ [rootId]: page }
+      if (typeof parsed[k] === 'number' || typeof parsed[k] === 'string') {
+        const page = parseInt(parsed[k])
+        if (Number.isFinite(page) && page > 0) {
+          cleaned[rootId] = { page, sortDirection: sortDirection.value }
+        }
+        return
+      }
+
+      // 兼容上一版新格式：{ [rootId]: { ASC: page, DESC: page } }
+      const entry = parsed[k]
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return
+      const asc = parseInt(entry.ASC)
+      const desc = parseInt(entry.DESC)
+      if (Number.isFinite(desc) && desc > 0) {
+        cleaned[rootId] = { page: desc, sortDirection: 'DESC' }
+        return
+      }
+      if (Number.isFinite(asc) && asc > 0) {
+        cleaned[rootId] = { page: asc, sortDirection: 'ASC' }
+        return
+      }
+
+      // 支持直接存 entry = { page, sortDirection }
+      const page = parseInt(entry.page)
+      const dir = entry.sortDirection
+      if (Number.isFinite(page) && page > 0 && (dir === 'ASC' || dir === 'DESC')) {
+        cleaned[rootId] = { page, sortDirection: dir }
       }
     })
     storyBookmarks.value = cleaned
@@ -148,19 +193,26 @@ const setBookmarkToCurrentPage = () => {
   if (!activeRootSetId.value) return
   storyBookmarks.value = {
     ...(storyBookmarks.value || {}),
-    [activeRootSetId.value]: currentPage.value
+    [activeRootSetId.value]: { page: currentPage.value, sortDirection: sortDirection.value }
   }
   persistStoryBookmarks()
-  message.alert(`已设置「${activeRootSetName.value}」书签：第 ${currentPage.value} 页`)
+  message.alert(`已设置「${activeRootSetName.value}」书签（${sortDirection.value === 'ASC' ? '正序' : '倒序'}）：第 ${currentPage.value} 页`)
   closeBookmarkModal()
 }
 
 const jumpToBookmark = () => {
-  const page = bookmarkPageForActiveRoot.value
-  if (!page) return
+  const bm = bookmarkForActiveRoot.value
+  if (!bm) return
   closeBookmarkModal()
-  if (currentPage.value !== page) {
-    changePage(page)
+  if (sortDirection.value !== bm.sortDirection) {
+    sortDirection.value = bm.sortDirection
+    localStorage.setItem('storySortDirection', sortDirection.value)
+  }
+  if (currentPage.value !== bm.page) {
+    changePage(bm.page)
+  } else {
+    // 页码相同但排序不同的情况已在上面处理；这里确保刷新一次
+    fetchStories()
   }
 }
 
@@ -1873,7 +1925,7 @@ const checkAndFixActiveSet = () => {
                     class="btn btn-bookmark"
                     @click="openBookmarkModal"
                     type="button"
-                    :title="isOnBookmarkPage ? '书签：已在书签页' : (bookmarkPageForActiveRoot ? `书签：第 ${bookmarkPageForActiveRoot} 页` : '书签：未设置')"
+                    :title="isOnBookmarkPage ? '书签：已在书签页' : (bookmarkPageForActiveRoot ? `书签：${bookmarkSortDirectionForActiveRoot === 'ASC' ? '正序' : '倒序'} 第 ${bookmarkPageForActiveRoot} 页` : '书签：未设置')"
                   >
                     <i class="iconfont" :class="bookmarkIconClass"></i>
                   </button>
@@ -2060,7 +2112,7 @@ const checkAndFixActiveSet = () => {
       <div class="modal-content">
         <h3>书签</h3>
         <p v-if="activeRootSetName" class="bookmark-desc">当前：{{ activeRootSetName }}</p>
-        <p v-if="bookmarkPageForActiveRoot" class="bookmark-desc">已设置：第 {{ bookmarkPageForActiveRoot }} 页</p>
+        <p v-if="bookmarkPageForActiveRoot" class="bookmark-desc">已设置：{{ bookmarkSortDirectionForActiveRoot === 'ASC' ? '正序' : '倒序' }} 第 {{ bookmarkPageForActiveRoot }} 页</p>
         <p v-else class="bookmark-desc">尚未设置书签</p>
 
         <div class="modal-actions">
@@ -2951,7 +3003,7 @@ const checkAndFixActiveSet = () => {
   max-height: calc(100dvh - 140px); /* 动态视口高度 */
   overflow-y: auto;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  margin-top: 100px; /* 添加固定的顶部边距 */
+  margin-top: 15px; /* 添加固定的顶部边距 */
   /* 移动端键盘优化 */
   -webkit-overflow-scrolling: touch; /* iOS 滚动优化 */
 }
