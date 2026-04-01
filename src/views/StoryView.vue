@@ -1886,7 +1886,7 @@ const checkAndFixActiveSet = () => {
           </div>
           <div class="stories-header">
             <div class="sort-area">
-
+              <div class="sort-area-start">
                 <!----<button class="btn btn-mode" @click="toggleSimpleMode">
                     <i class="iconfont icon-a-jianlvemoshi-fill"></i>
                 </button> -->
@@ -1921,15 +1921,16 @@ const checkAndFixActiveSet = () => {
                   <button class="btn btn-search" @click="handleSearch" type="button">
                     <i class="iconfont icon-sousuo"></i>
                   </button>
-                  <button
-                    class="btn btn-bookmark"
-                    @click="openBookmarkModal"
-                    type="button"
-                    :title="isOnBookmarkPage ? '书签：已在书签页' : (bookmarkPageForActiveRoot ? `书签：${bookmarkSortDirectionForActiveRoot === 'ASC' ? '正序' : '倒序'} 第 ${bookmarkPageForActiveRoot} 页` : '书签：未设置')"
-                  >
-                    <i class="iconfont" :class="bookmarkIconClass"></i>
-                  </button>
                 </div>
+              </div>
+              <button
+                class="btn btn-bookmark"
+                @click="openBookmarkModal"
+                type="button"
+                :title="isOnBookmarkPage ? '书签：已在书签页' : (bookmarkPageForActiveRoot ? `书签：${bookmarkSortDirectionForActiveRoot === 'ASC' ? '正序' : '倒序'} 第 ${bookmarkPageForActiveRoot} 页` : '书签：未设置')"
+              >
+                <i class="iconfont" :class="bookmarkIconClass"></i>
+              </button>
             </div>
 
             
@@ -2780,6 +2781,7 @@ const checkAndFixActiveSet = () => {
   align-items: center;
   margin-top: 10px;
   margin-bottom: 10px;
+  width: 100%;
 }
 
 .stories-header h2 {
@@ -3326,8 +3328,18 @@ input[type="datetime-local"] {
 
 .sort-area {
   display: flex;
-  gap: 10px;
   align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.sort-area-start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .btn-sort {
@@ -3352,7 +3364,6 @@ input[type="datetime-local"] {
 }
 
 .search-area {
-    margin-right: 10px;
   display: flex;
   align-items: center;
 }
@@ -3400,7 +3411,7 @@ input[type="datetime-local"] {
   font-size: 16px;
   color: #666;
   transition: color 0.3s;
-  margin-left: 6px;
+  flex-shrink: 0;
 }
 
 .btn-bookmark .iconfont {
