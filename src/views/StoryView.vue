@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/auth'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from '../utils/message'
 import { confirm } from '../utils/confirm'
+import { sanitizeExternalStoryLink } from '../utils/sanitizeExternalLink'
 
 import ImagePreview from '../components/ImagePreview.vue'
 import Announcement from '../components/Announcement.vue'
@@ -906,7 +907,7 @@ const extractUrlFromText = (text) => {
     let url = urlMatch[1].trim()
     // 移除末尾的常见标点符号
     url = url.replace(/[.,;:!?]+$/, '')
-    return url
+    return sanitizeExternalStoryLink(url)
   }
   
   return null
@@ -920,7 +921,9 @@ const handleNewStoryLinkChange = () => {
     if (!inputText || inputText.trim() === '') return
     
     // 如果输入的内容已经是纯URL格式，不需要处理
-    if (/^https?:\/\/[^\s]+$/.test(inputText.trim())) {
+    const t = inputText.trim()
+    if (/^https?:\/\/[^\s]+$/.test(t)) {
+      newStory.value.link = sanitizeExternalStoryLink(t)
       return
     }
     
@@ -944,7 +947,9 @@ const handleNewStoryLinkPaste = (event) => {
     if (!inputText || inputText.trim() === '') return
     
     // 如果输入的内容已经是纯URL格式，不需要处理
-    if (/^https?:\/\/[^\s]+$/.test(inputText.trim())) {
+    const t = inputText.trim()
+    if (/^https?:\/\/[^\s]+$/.test(t)) {
+      newStory.value.link = sanitizeExternalStoryLink(t)
       return
     }
     
@@ -966,7 +971,9 @@ const handleEditStoryLinkChange = () => {
     if (!inputText || inputText.trim() === '') return
     
     // 如果输入的内容已经是纯URL格式，不需要处理
-    if (/^https?:\/\/[^\s]+$/.test(inputText.trim())) {
+    const t = inputText.trim()
+    if (/^https?:\/\/[^\s]+$/.test(t)) {
+      editingStory.value.link = sanitizeExternalStoryLink(t)
       return
     }
     
@@ -992,7 +999,9 @@ const handleEditStoryLinkPaste = (event) => {
     if (!inputText || inputText.trim() === '') return
     
     // 如果输入的内容已经是纯URL格式，不需要处理
-    if (/^https?:\/\/[^\s]+$/.test(inputText.trim())) {
+    const t = inputText.trim()
+    if (/^https?:\/\/[^\s]+$/.test(t)) {
+      editingStory.value.link = sanitizeExternalStoryLink(t)
       return
     }
     
