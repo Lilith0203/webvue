@@ -6,9 +6,27 @@ import { useRouter } from 'vue-router'
 import { ref, onMounted, onUnmounted, computed, watch} from 'vue'
 import { imageRefreshService } from './services/imageRefresh'
 import axios from './api'
+import LoginView from './views/LoginView.vue'
 
 const authStore = useAuthStore()
 const router = useRouter()
+
+const showLoginModal = ref(false)
+
+const openLoginModal = () => {
+  showLoginModal.value = true
+}
+
+const closeLoginModal = () => {
+  showLoginModal.value = false
+}
+
+const handleLoginSuccess = () => {
+  // 登录后停留在原页面即可
+  showLoginModal.value = false
+  // 登录成功后立即刷新红点，避免等待轮询/切回页面
+  startPendingCommentsPolling()
+}
 
 /** 有待审核评论时在「管理」旁显示红点 */
 const hasPendingComments = ref(false)
@@ -55,6 +73,14 @@ const onVisibilityChange = () => {
 
 /** 离开管理页后立即刷新待审核数量，红点可马上消失 */
 let removeRouterAfterEach = null
+let lastPendingRefreshAt = 0
+const refreshPendingDotThrottled = () => {
+  if (!authStore.isAuthenticated) return
+  const now = Date.now()
+  if (now - lastPendingRefreshAt < 800) return
+  lastPendingRefreshAt = now
+  fetchPendingCommentCount()
+}
 const activeMenu = ref('')
 const submenuHeight = ref(0)
 const menuTimeout = ref(null)
@@ -163,6 +189,10 @@ const handleAdmin = async () => {
   await router.push('/admin')
 }
 
+const handleLogin = async () => {
+  openLoginModal()
+}
+
 // 组件卸载时清理定时器
 onUnmounted(() => {
   if (menuTimeout.value) {
@@ -170,6 +200,7 @@ onUnmounted(() => {
   }
   stopPendingCommentsPolling()
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  window.removeEventListener('pending-comments-refresh', refreshPendingDotThrottled)
   removeRouterAfterEach?.()
   removeRouterAfterEach = null
   // 停止自动刷新服务
@@ -185,10 +216,12 @@ onMounted(() => {
     startPendingCommentsPolling()
   }
   removeRouterAfterEach = router.afterEach((to, from) => {
-    if (from.path === '/admin' && to.path !== '/admin' && authStore.isAuthenticated) {
-      fetchPendingCommentCount()
-    }
+    // 任意页面切换都刷新一次，保证红点及时同步
+    refreshPendingDotThrottled()
   })
+
+  // 管理页审核/删除后会触发事件，顶部栏立即刷新红点
+  window.addEventListener('pending-comments-refresh', refreshPendingDotThrottled)
 })
 
 watch(
@@ -217,10 +250,24 @@ watch(() => router.path, (newPath) => {
       <a href="https://github.com/Lilith0203/" target="_blank" rel="noopener">Git</a>,
       <a href="https://www.iconfont.cn/" target="_blank" rel="noopener">iconfont</a> 
     </h3>
-    <div v-if="authStore.isAuthenticated" class="logout">
-      <button type="button" @click.prevent="handleLogout">退出</button>
-      <button type="button" @click.prevent="handleAdmin" class="admin-button">
+    <div class="logout">
+      <button v-if="authStore.isAuthenticated" type="button" @click.prevent="handleLogout">退出</button>
+      <button
+        v-if="authStore.isAuthenticated"
+        type="button"
+        @click.prevent="handleAdmin"
+        class="admin-button"
+      >
         管理<span v-if="hasPendingComments" class="admin-pending-dot" title="有待审核评论" aria-hidden="true" />
+      </button>
+
+      <button
+        v-else
+        type="button"
+        @click.prevent="handleLogin"
+        class="login-button"
+      >
+        登录
       </button>
     </div>
   </footer>
@@ -306,6 +353,13 @@ watch(() => router.path, (newPath) => {
       <span class="about-link"><a href="#" @click.prevent="router.push('/about')">关于我</a></span>
     </p>
 </footer>
+
+<!-- 登录弹窗 -->
+<div v-if="showLoginModal" class="login-modal-overlay" @click.self="closeLoginModal">
+  <div class="login-modal-card">
+    <LoginView :redirect="false" @success="handleLoginSuccess" />
+  </div>
+</div>
 </template>
 
 <style scoped>
@@ -520,6 +574,17 @@ nav a.router-link-exact-active {
   background-color: var(--color-blue);
 }
 
+.logout .login-button{
+  background-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #3e3e3e;
+}
+.logout .login-button:hover {
+  background-color: transparent;
+}
+
 .admin-pending-dot {
   display: inline-block;
   width: 6px;
@@ -527,6 +592,23 @@ nav a.router-link-exact-active {
   border-radius: 50%;
   background: #e74c3c;
   flex-shrink: 0;
+}
+
+.login-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-modal-card {
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
 }
 
 .about-link {

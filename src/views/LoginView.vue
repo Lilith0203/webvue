@@ -11,6 +11,14 @@ const password = ref('')
 const error = ref('')
 const loading = ref(false)
 
+const props = defineProps({
+  // 作为弹窗使用时，不自动跳转
+  redirect: { type: Boolean, default: true },
+  redirectTo: { type: String, default: '/' }
+})
+
+const emit = defineEmits(['success', 'cancel'])
+
 const handleLogin = async () => {
   if (!username.value || !password.value) {
     error.value = '请输入用户名和密码'
@@ -38,7 +46,10 @@ const handleLogin = async () => {
     )
 
     // 登录成功后跳转
-    router.push('/')
+    emit('success')
+    if (props.redirect) {
+      router.push(props.redirectTo || '/')
+    }
   } catch (err) {
     error.value = err.response?.data?.message || '登录失败'
     authStore.clearAuth()
@@ -85,7 +96,7 @@ const handleLogin = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 60px auto;
+  margin: 0px auto;
 }
 
 .login-box {
@@ -99,8 +110,9 @@ const handleLogin = async () => {
 
 h2 {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
   color: #333;
+  font-size: 1.2rem;
 }
 
 .form-group {
@@ -118,7 +130,7 @@ input {
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 1rem;
+  font-size: 0.9rem;
 }
 
 input:focus {
@@ -128,7 +140,7 @@ input:focus {
 
 button {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem;
   background-color: #42b883;
   color: white;
   border: none;

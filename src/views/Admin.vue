@@ -196,6 +196,8 @@ const approveComment = async (commentId, isApproved) => {
     
     // 重新加载当前页面的评论
     loadComments(activeTab.value === 'pending' ? 'pending' : 'approved', pagination.value.page)
+    // 通知顶部栏立刻刷新红点
+    window.dispatchEvent(new Event('pending-comments-refresh'))
   } catch (error) {
     console.error('审核评论失败:', error)
     alert('审核操作失败，请重试')
@@ -213,6 +215,8 @@ const deleteComment = async (commentId) => {
       
       // 重新加载当前页面的评论
       loadComments(activeTab.value === 'pending' ? 'pending' : 'approved', pagination.value.page)
+      // 通知顶部栏立刻刷新红点
+      window.dispatchEvent(new Event('pending-comments-refresh'))
     } catch (error) {
       console.error('删除评论失败:', error)
       alert('删除操作失败，请重试')
