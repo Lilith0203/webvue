@@ -1448,7 +1448,6 @@ onBeforeUnmount(() => {
 }
 
 .detail-images-file-input {
-  position: absolute;
   opacity: 0;
   height: 100%;
   cursor: pointer;

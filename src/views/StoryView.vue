@@ -2664,7 +2664,7 @@ const checkAndFixActiveSet = () => {
 
 .set-header {
     font-size: 0.85rem;
-  padding: 4px 8px;
+  padding: 5px 8px;
   background-color: #f0f0f0;
   border-radius: 4px;
   cursor: pointer;
