@@ -117,6 +117,7 @@ const menuConfig = [
     children: [
       {label: '剧情整理', path: '/story'},
       {label: '颜色管理', path: '/color'},
+      {label: '文字识别', path: '/ocr'},
       {label: '小游戏', path: '/program'},
     ]
   }

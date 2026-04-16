@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
 const apps = ref([
   {
@@ -15,8 +16,17 @@ const apps = ref([
     description: '大学时期作品',
     image: '/images/03092015014024.png',
     link: '/programs/santa/index.html'
+  },
+  {
+    id: 3,
+    title: '文字识别（OCR）',
+    description: '上传图片，提取文字',
+    image: '/images/wlink-bg.png',
+    link: '/ocr'
   }
 ])
+
+const isExternalLink = (link) => /^https?:\/\//i.test(link) || /\.html(\?|#|$)/i.test(link)
 </script>
 
 <template>
@@ -26,7 +36,18 @@ const apps = ref([
         <div class="info">
           <h2 class="app-title">{{ app.title }}</h2>
           <p class="app-description">{{ app.description }}</p>
-          <p><a :href="app.link" class="app-link" target="_blank">查看详情</a></p>
+          <p>
+            <a
+              v-if="isExternalLink(app.link)"
+              :href="app.link"
+              class="app-link"
+              target="_blank"
+              rel="noopener"
+            >
+              查看详情
+            </a>
+            <RouterLink v-else :to="app.link" class="app-link">查看详情</RouterLink>
+          </p>
         </div>
         <div>
           <img :src="app.image" alt="App Image" class="app-image" />
