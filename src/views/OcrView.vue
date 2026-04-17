@@ -270,11 +270,11 @@ const runOcr = async () => {
 .file-picker span {
   display: inline-block;
   padding: 4px 10px;
-  border: 1px solid #ddd;
   border-radius: 6px;
   cursor: pointer;
-  background: #fafafa;
+  background: var(--color-green);
   font-size: 0.85rem;
+  color: #fff;
 }
 .type-row {
   display: flex;
