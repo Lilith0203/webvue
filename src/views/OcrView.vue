@@ -10,6 +10,16 @@ const uploadProgress = ref(0)
 const recognizing = ref(false)
 
 const ocrType = ref('General') // General / Advanced / HandWriting / Table / IdCard ...
+const languages = ref('chn,eng') // MultiLang 时生效
+
+const outputRow = ref(true) // Advanced 时生效
+const outputParagraph = ref(false) // Advanced 时生效
+const outputTable = ref(false) // Advanced 时生效
+
+// 数字后处理（针对 9->99 这类误识别）
+const digitsOnly = ref(false)
+const normalizeDigits = ref(true)
+const compressRepeats = ref(false)
 
 const resultText = ref('')
 const errorMessage = ref('')
@@ -89,9 +99,40 @@ const runOcr = async () => {
 
   recognizing.value = true
   try {
-    const ocrRes = await api.post('/ocr', { url: imageUrl, type: ocrType.value })
+    const payload = {
+      url: imageUrl,
+      type: ocrType.value,
+      languages: languages.value,
+      outputRow: outputRow.value,
+      outputParagraph: outputParagraph.value,
+      outputTable: outputTable.value
+    }
+    const ocrRes = await api.post('/ocr', payload)
     if (!ocrRes?.data?.success) throw new Error(ocrRes?.data?.message || 'OCR 识别失败')
-    resultText.value = ocrRes?.data?.text || ''
+    let text = ocrRes?.data?.text || ''
+
+    if (digitsOnly.value) {
+      // 常见混淆纠错：O/o→0，I/l→1，S→5，B→8（仅在数字模式下启用）
+      if (normalizeDigits.value) {
+        text = text
+          .replace(/[Oo]/g, '0')
+          .replace(/[Il]/g, '1')
+          .replace(/S/g, '5')
+          .replace(/B/g, '8')
+      }
+      // 只保留数字（保留换行用于多行数字）
+      text = text
+        .split('\n')
+        .map((line) => line.replace(/[^\d]/g, ''))
+        .join('\n')
+
+      // 可选：压缩连续重复（例如把 "99" 变成 "9"），有风险，默认关闭
+      if (compressRepeats.value) {
+        text = text.replace(/(\d)\1+/g, '$1')
+      }
+    }
+
+    resultText.value = text
     if (!resultText.value) {
       errorMessage.value = '识别成功，但未提取到文字（可尝试切换类型为 Advanced 或 HandWriting）'
     }
@@ -124,6 +165,41 @@ const runOcr = async () => {
             <option value="IdCard">IdCard（身份证）</option>
             <option value="MultiLang">MultiLang（多语言）</option>
           </select>
+        </div>
+
+        <div v-if="ocrType === 'MultiLang'" class="type-row">
+          <span class="type-label">语言</span>
+          <input v-model="languages" class="type-input" placeholder="如 chn,eng 或 eng" />
+        </div>
+
+        <div v-if="ocrType === 'Advanced'" class="switches">
+          <label class="switch">
+            <input type="checkbox" v-model="outputRow" />
+            <span>按行输出</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" v-model="outputParagraph" />
+            <span>按段输出</span>
+          </label>
+          <label class="switch">
+            <input type="checkbox" v-model="outputTable" />
+            <span>表格输出</span>
+          </label>
+        </div>
+
+        <div class="switches">
+          <label class="switch">
+            <input type="checkbox" v-model="digitsOnly" />
+            <span>数字模式</span>
+          </label>
+          <label class="switch" :class="{ disabled: !digitsOnly }">
+            <input type="checkbox" v-model="normalizeDigits" :disabled="!digitsOnly" />
+            <span>数字纠错</span>
+          </label>
+          <label class="switch" :class="{ disabled: !digitsOnly }">
+            <input type="checkbox" v-model="compressRepeats" :disabled="!digitsOnly" />
+            <span>压缩连续重复</span>
+          </label>
         </div>
 
         <div v-if="previewUrl" class="preview">
@@ -216,6 +292,28 @@ const runOcr = async () => {
   border-radius: 6px;
   padding: 6px 10px;
   background: #fff;
+}
+.type-input {
+  flex: 1;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 6px 10px;
+}
+.switches {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #555;
+}
+.switch.disabled {
+  opacity: 0.6;
 }
 .preview,
 .placeholder {
