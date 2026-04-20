@@ -3007,7 +3007,7 @@ const checkAndFixActiveSet = () => {
 .modal-content {
   background-color: white;
   border-radius: 8px;
-  padding: 15px 20px 15px;
+  padding: 15px 20px 30px;
   width: 400px;
   max-width: 90%;
   max-height: calc(100vh - 140px); /* 调整最大高度 */

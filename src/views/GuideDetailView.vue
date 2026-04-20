@@ -222,7 +222,7 @@ onUnmounted(() => {
 
   <!-- 悬浮置顶按钮 -->
   <div v-if="showBackToTop" class="back-to-top" @click="scrollToTop">
-    <i class="iconfont icon-zhiding"></i>
+    <i class="iconfont icon-zhiding1"></i>
   </div>
 </template>
 
@@ -430,24 +430,15 @@ onUnmounted(() => {
   right: 15px;
   bottom: 80px;
   z-index: 999;
-  background: #fff;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px #0002;
-  width: 32px;
-  height: 32px;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: box-shadow 0.2s;
 }
-.back-to-top:hover {
-  box-shadow: 0 4px 16px #0003;
-  background: #f5f5f5;
-}
 .back-to-top .iconfont {
-  font-size: 14px;
-  color: #9d84f5;
+  font-size: 32px;
 }
 
 @media (min-width: 1024px) {

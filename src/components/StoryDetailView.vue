@@ -27,6 +27,9 @@ const detailDraft = ref('')
 const lastSavedDetailDraft = ref('')
 const isAutoSaving = ref(false)
 let autoSaveTimer = null
+const showFullDetail = ref(false)
+const MAX_DETAIL_LINES = 100
+const showBackToTop = ref(false)
 const previewVisible = ref(false)
 const previewImage = ref('')
 const previewImages = ref([])
@@ -128,6 +131,35 @@ const reprocessStoryDetail = () => {
   }
 }
 
+const detailLines = computed(() => {
+  const text = story.value?.detail || ''
+  return text ? text.split(/\r?\n/) : []
+})
+
+const isDetailTruncated = computed(() => detailLines.value.length > MAX_DETAIL_LINES)
+
+const truncatedDetailText = computed(() => {
+  if (!isDetailTruncated.value) return story.value?.detail || ''
+  return detailLines.value.slice(0, MAX_DETAIL_LINES).join('\n')
+})
+
+const renderedDetailForDisplay = computed(() => {
+  const detail = story.value?.detail || ''
+  if (!detail) return ''
+  if (showFullDetail.value || !isDetailTruncated.value) {
+    return story.value?.renderedDetail || processMarkdownContent(detail)
+  }
+  return processMarkdownContent(truncatedDetailText.value)
+})
+
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+const handleScroll = () => {
+  showBackToTop.value = window.scrollY > 200
+}
+
 // 监听tagColors变化，当颜色加载完成后重新处理内容
 watch(tagColors, (newColors) => {
   if (newColors.length > 0 && story.value && story.value.detail) {
@@ -148,6 +180,7 @@ const fetchStory = async () => {
   try {
     const res = await axios.get(`/stories/${route.params.id}`)
     story.value = res.data.data
+    showFullDetail.value = false
     detailDraft.value = story.value.detail || ''
     lastSavedDetailDraft.value = detailDraft.value
     // 只有当tagColors已经加载完成时才处理内容
@@ -839,11 +872,15 @@ onMounted(() => {
   )
   // 获取标签颜色
   fetchTagColors()
+
+  window.addEventListener('scroll', handleScroll)
+  handleScroll()
 })
 
 onBeforeUnmount(() => {
   if (autoSaveTimer) clearInterval(autoSaveTimer)
   autoSaveTimer = null
+  window.removeEventListener('scroll', handleScroll)
 })
 </script>
 
@@ -954,7 +991,15 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <div v-else>
-            <div class="detail-text" v-html="story.renderedDetail || '<span class=\'empty-detail\'>暂无详情</span>'"></div>
+            <div class="detail-text">
+              <div
+                class="detail-text-content"
+                v-html="renderedDetailForDisplay || '<span class=\'empty-detail\'>暂无详情</span>'"
+              ></div>
+              <div v-if="isDetailTruncated && !showFullDetail" class="detail-more detail-more-inside">
+                <button type="button" class="detail-more-btn" @click="showFullDetail = true">更多……</button>
+              </div>
+            </div>
           </div>
         </div>
         <div class="relation-section">
@@ -1126,6 +1171,11 @@ onBeforeUnmount(() => {
       :onCommentSubmit="submitComment"
       :onCommentDelete="deleteComment"
     />
+
+    <!-- 悬浮置顶按钮（回到顶部） -->
+    <div v-if="showBackToTop" class="back-to-top" @click="scrollToTop">
+      <i class="iconfont icon-zhiding1"></i>
+    </div>
     
     <ImagePreview
       v-if="previewVisible"
@@ -1146,6 +1196,24 @@ onBeforeUnmount(() => {
   max-width: 900px;
   margin: 30px auto 0;
   min-height: 500px;
+}
+
+.back-to-top {
+  position: fixed;
+  right: 20px;
+  bottom: 58px;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1200;
+}
+.back-to-top .iconfont {
+  color: #fff;
+  font-size: 32px;
 }
 .articles-header {
   font-size: 0.9rem;
@@ -1302,6 +1370,11 @@ onBeforeUnmount(() => {
   border: 1px dashed #e6e6e6;
 }
 
+.detail-more-inside {
+  margin-bottom: 0;
+  text-align: center;
+}
+
 /* 动态颜色类，使用CSS变量 */
 /* 这些类现在通过内联样式实现，支持所有颜色管理中的标签颜色 */
 
@@ -1416,6 +1489,20 @@ onBeforeUnmount(() => {
   color: #bbb;
   font-style: italic;
 }
+.detail-more {
+  text-align: center;
+}
+.detail-more-btn {
+  border: none;
+  background: transparent;
+  color: #4a90e2;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.detail-more-btn:hover {
+  color: #2f76c4;
+}
+
 .edit-area {
   display: flex;
   flex-direction: column;

@@ -241,6 +241,9 @@ const runOcr = async () => {
 <style scoped>
 .ocr-page {
   margin-top: 15px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .title {
   font-size: 1.25rem;
@@ -252,10 +255,21 @@ const runOcr = async () => {
   margin-bottom: 12px;
 }
 .panel {
-  display: grid;
-  grid-template-columns: 360px 1fr;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
   gap: 14px;
-  align-items: start;
+  width: 100%;
+}
+.left {
+  flex: 0 0 min(380px, 38vw);
+  max-width: 100%;
+  min-width: 260px;
+}
+.right {
+  flex: 1 1 0;
+  min-width: 0;
 }
 .left,
 .right {
@@ -378,17 +392,26 @@ const runOcr = async () => {
   border-radius: 6px;
   padding: 10px;
   resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
+  font-size: 0.9rem;
 }
 .error {
   margin-top: 10px;
   color: #d55355;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   .panel {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    flex-wrap: wrap;
+  }
+  .left {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+  }
+  .right {
+    flex: 1 1 auto;
+    width: 100%;
   }
 }
 </style>
