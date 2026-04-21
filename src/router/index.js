@@ -156,7 +156,8 @@ router.beforeEach((to, from, next) => {
     '/article/:id/edit',
     '/admin',
     '/guide/publish',
-    '/guide/:id/edit'
+    '/guide/:id/edit',
+    '/ocr'
   ]
   const authRequired = privatePages.includes(to.path)
 

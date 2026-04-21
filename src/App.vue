@@ -88,7 +88,7 @@ const menuTimeout = ref(null)
 const activeQR = ref(null)
 const isMobile = ref(false)
 
-const menuConfig = [
+const menuConfig = computed(() => [
   {
     label: 'Home',
     key: 'home',
@@ -117,11 +117,11 @@ const menuConfig = [
     children: [
       {label: '剧情整理', path: '/story'},
       {label: '颜色管理', path: '/color'},
-      {label: '文字识别', path: '/ocr'},
       {label: '小游戏', path: '/program'},
+      ...(authStore.isAuthenticated ? [{label: '文字识别', path: '/ocr'}] : []),
     ]
   }
-]
+])
 
 // 社交媒体配置
 const socialLinks = [

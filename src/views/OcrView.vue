@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import api from '../api'
 
 const file = ref(null)
@@ -26,10 +26,9 @@ const errorMessage = ref('')
 
 const canRun = computed(() => !!file.value && !uploading.value && !recognizing.value)
 
-const onPickFile = (e) => {
+const setFile = (f) => {
   errorMessage.value = ''
   resultText.value = ''
-  const f = e.target.files?.[0]
   if (!f) return
   if (!f.type?.startsWith('image/')) {
     errorMessage.value = '请选择图片文件'
@@ -43,6 +42,35 @@ const onPickFile = (e) => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
   previewUrl.value = URL.createObjectURL(f)
 }
+
+const onPickFile = (e) => {
+  const f = e.target.files?.[0]
+  setFile(f)
+}
+
+const handlePaste = (event) => {
+  const items = event?.clipboardData?.items
+  if (!items || !items.length) return
+
+  for (const item of items) {
+    if (item.kind === 'file' && item.type?.startsWith('image/')) {
+      const pastedFile = item.getAsFile()
+      if (pastedFile) {
+        event.preventDefault()
+        setFile(pastedFile)
+      }
+      return
+    }
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('paste', handlePaste)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('paste', handlePaste)
+})
 
 const clearFile = () => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
@@ -154,6 +182,7 @@ const runOcr = async () => {
           <input type="file" accept="image/*" @change="onPickFile" />
           <span>选择图片</span>
         </label>
+        <span class="paste-hint">也可以直接粘贴截图（Ctrl+V）</span>
 
         <div class="type-row">
           <span class="type-label">类型</span>
@@ -289,6 +318,12 @@ const runOcr = async () => {
   background: var(--color-green);
   font-size: 0.85rem;
   color: #fff;
+}
+.paste-hint {
+  margin-left: 10px;
+  color: #888;
+  font-size: 12px;
+  user-select: none;
 }
 .type-row {
   display: flex;
