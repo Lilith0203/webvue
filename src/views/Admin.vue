@@ -3,8 +3,67 @@ import { ref, onMounted, computed } from 'vue'
 import axios from '../api'
 import { message } from '../utils/message'
 import { confirm } from '../utils/confirm'
+import { useAuthStore } from '../stores/auth'
 
 const commentsEnabled = ref(true) // 默认启用评论功能
+const authStore = useAuthStore()
+
+// 账号设置
+const profileOldPassword = ref('')
+const profileNewUsername = ref('')
+const profileNewPassword = ref('')
+const profileNewPassword2 = ref('')
+const profileSaving = ref(false)
+
+const saveProfile = async () => {
+  if (profileSaving.value) return
+  const oldPassword = (profileOldPassword.value || '').trim()
+  const newUsername = (profileNewUsername.value || '').trim()
+  const newPassword = profileNewPassword.value || ''
+  const newPassword2 = profileNewPassword2.value || ''
+
+  if (!newUsername && !newPassword) {
+    message.alert('请填写要修改的内容')
+    return
+  }
+  if (newPassword && newPassword.length < 6) {
+    message.alert('新密码至少 6 位')
+    return
+  }
+  if (newPassword && !oldPassword) {
+    message.alert('修改密码需要输入旧密码')
+    return
+  }
+  if (newPassword && newPassword !== newPassword2) {
+    message.alert('两次输入的新密码不一致')
+    return
+  }
+
+  profileSaving.value = true
+  try {
+    const res = await axios.post('/user/profile/update', {
+      oldPassword,
+      newUsername: newUsername || undefined,
+      newPassword: newPassword || undefined
+    })
+    if (!res.data?.success) throw new Error(res.data?.message || '保存失败')
+
+    const token = res.data?.data?.token
+    const user = res.data?.data?.user
+    if (token && user) {
+      authStore.setAuth({ username: user }, token)
+    }
+
+    profileOldPassword.value = ''
+    profileNewPassword.value = ''
+    profileNewPassword2.value = ''
+    message.alert('保存成功')
+  } catch (e) {
+    message.alert(e?.response?.data?.message || e?.message || '保存失败')
+  } finally {
+    profileSaving.value = false
+  }
+}
 
 // 公告管理相关状态
 const announcementTabs = [
@@ -267,6 +326,60 @@ onMounted(() => {
 <template>
   <div class="admin-panel">
     <h2 class="header">网站配置</h2>
+
+    <!-- 账号设置 -->
+    <section class="setting-section">
+      <h3>账号设置</h3>
+      <div class="account-form">
+        <div class="account-row">
+          <div class="account-item">
+            <div class="account-label">当前用户名</div>
+            <div class="account-control">
+              <div class="value">{{ authStore.user?.username || '未登录' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="account-row">
+          <div class="account-item">
+            <div class="account-label">新用户名</div>
+            <div class="account-control">
+              <input v-model="profileNewUsername" class="input" type="text" placeholder="不改可留空" />
+            </div>
+          </div>
+        </div>
+
+        <div class="account-row">
+          <div class="account-item">
+            <div class="account-label">旧密码</div>
+            <div class="account-control">
+              <input v-model="profileOldPassword" class="input" type="password" placeholder="改密码时必填，只改用户名可留空" />
+            </div>
+          </div>
+        </div>
+
+        <div class="account-row two-cols">
+          <div class="account-item">
+            <div class="account-label">新密码</div>
+            <div class="account-control">
+              <input v-model="profileNewPassword" class="input" type="password" placeholder="至少 6 位（可选）" />
+            </div>
+          </div>
+          <div class="account-item">
+            <div class="account-label">确认新密码</div>
+            <div class="account-control">
+              <input v-model="profileNewPassword2" class="input" type="password" placeholder="再次输入新密码" />
+            </div>
+          </div>
+        </div>
+
+        <div class="account-actions">
+          <button class="primary-btn" type="button" :disabled="profileSaving" @click="saveProfile">
+            {{ profileSaving ? '保存中...' : '保存修改' }}
+          </button>
+        </div>
+      </div>
+    </section>
     
     <!-- 评论设置 -->
     <section class="setting-section">
@@ -439,7 +552,7 @@ onMounted(() => {
 
 <style scoped>
 .header {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   margin-bottom: 20px;
 }
 
@@ -452,6 +565,82 @@ onMounted(() => {
   padding: 0 20px;
 }
 
+.account-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-row {
+  width: 100%;
+}
+
+.account-row.two-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+
+.account-item {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.account-label {
+  font-size: 0.85rem;
+  color: #666;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.account-control {
+  min-width: 0;
+}
+
+.value {
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #42b883;
+}
+
+.account-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 6px;
+}
+
+.primary-btn {
+  width: auto;
+  padding: 4px 10px;
+  background-color: var(--color-blue);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.primary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .setting-section {
   width: 100%;
   margin-bottom: 30px;
@@ -460,7 +649,7 @@ onMounted(() => {
 }
 
 .setting-section h3 {
-  font-size: 1rem;
+  font-size: 0.95rem;
   margin-bottom: 15px;
   color: #333;
 }
@@ -799,6 +988,20 @@ onMounted(() => {
 @media (max-width: 768px) {
   .admin-panel {
     padding: 0 15px;
+  }
+
+  .account-row.two-cols {
+    grid-template-columns: 1fr;
+  }
+
+  .account-item {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    align-items: stretch;
+  }
+
+  .account-label {
+    text-align: left;
   }
   
   .tab-button {
