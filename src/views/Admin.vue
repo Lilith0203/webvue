@@ -7,6 +7,7 @@ import { useAuthStore } from '../stores/auth'
 
 const commentsEnabled = ref(true) // 默认启用评论功能
 const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 // 账号设置
 const profileOldPassword = ref('')
@@ -30,8 +31,8 @@ const saveProfile = async () => {
     message.alert('新密码至少 6 位')
     return
   }
-  if (newPassword && !oldPassword) {
-    message.alert('修改密码需要输入旧密码')
+  if ((newUsername || newPassword) && !oldPassword) {
+    message.alert('修改用户信息需要输入旧密码')
     return
   }
   if (newPassword && newPassword !== newPassword2) {
@@ -50,8 +51,9 @@ const saveProfile = async () => {
 
     const token = res.data?.data?.token
     const user = res.data?.data?.user
+    const role = res.data?.data?.role
     if (token && user) {
-      authStore.setAuth({ username: user }, token)
+      authStore.setAuth({ username: user, role: role || authStore.user?.role || 'user' }, token)
     }
 
     profileOldPassword.value = ''
@@ -317,9 +319,11 @@ const goToCommentPage = (type, itemId) => {
 
 // 加载设置、公告和未审核评论
 onMounted(() => {
-  loadSettings()
-  loadComments('pending') // 默认加载未审核评论
-  loadAnnouncements() // 加载公告数据
+  if (isAdmin.value) {
+    loadSettings()
+    loadComments('pending') // 默认加载未审核评论
+    loadAnnouncements() // 加载公告数据
+  }
 })
 </script>
 
@@ -327,7 +331,7 @@ onMounted(() => {
   <div class="admin-panel">
     <h2 class="header">网站配置</h2>
 
-    <!-- 账号设置 -->
+    <!-- 账号设置（所有用户可见） -->
     <section class="setting-section">
       <h3>账号设置</h3>
       <div class="account-form">
@@ -336,6 +340,15 @@ onMounted(() => {
             <div class="account-label">当前用户名</div>
             <div class="account-control">
               <div class="value">{{ authStore.user?.username || '未登录' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="account-row">
+          <div class="account-item">
+            <div class="account-label">角色</div>
+            <div class="account-control">
+              <div class="value">{{ authStore.user?.role === 'admin' ? '管理员' : '普通用户' }}</div>
             </div>
           </div>
         </div>
@@ -353,7 +366,7 @@ onMounted(() => {
           <div class="account-item">
             <div class="account-label">旧密码</div>
             <div class="account-control">
-              <input v-model="profileOldPassword" class="input" type="password" placeholder="改密码时必填，只改用户名可留空" />
+              <input v-model="profileOldPassword" class="input" type="password" placeholder="修改用户名/密码时必填" />
             </div>
           </div>
         </div>
@@ -381,6 +394,8 @@ onMounted(() => {
       </div>
     </section>
     
+    <!-- 管理功能（仅管理员可见） -->
+    <template v-if="isAdmin">
     <!-- 评论设置 -->
     <section class="setting-section">
       <h3>评论设置</h3>
@@ -547,6 +562,7 @@ onMounted(() => {
         </div>
       </div>
     </section>
+    </template>
   </div>
 </template>
 
@@ -601,7 +617,7 @@ onMounted(() => {
 }
 
 .value {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   color: #333;
 }
 
