@@ -54,10 +54,12 @@ const startScanLogin = async () => {
         const status = st.data?.data?.status
         if (status === 'confirmed') {
           const token = st.data?.data?.token
+          const user = st.data?.data?.user
+          const role = st.data?.data?.role
           const redirectPath = st.data?.data?.redirect || redirect
           stopScanPolling()
           if (token) {
-            authStore.setAuth({ username: 'weapp' }, token)
+            authStore.setAuth({ username: user || 'weapp', role: role || 'user' }, token)
             emit('success')
             if (props.redirect) router.push(redirectPath)
           } else {
@@ -108,6 +110,7 @@ const handleLogin = async () => {
     authStore.setAuth(
       {
         username: username.value,
+        role: response.data?.data?.role || 'user'
       },
       response.data.data.token
     )
