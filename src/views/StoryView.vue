@@ -257,6 +257,10 @@ const isLoggedIn = computed(() => {
   return authStore.isAuthenticated
 })
 
+const isAdmin = computed(() => {
+  return authStore.user?.role === 'admin'
+})
+
 const rootSets = computed(() => {
   // 确保每个合集都有children属性
   return storySets.value
@@ -1887,7 +1891,7 @@ const checkAndFixActiveSet = () => {
             </div>
           </div>
           
-          <div v-if="isLoggedIn" class="set-actions">
+          <div v-if="isAdmin" class="set-actions">
               <button class="btn btn-add" @click="openAddStoryModal">添加剧情</button>
               <button class="btn btn-edit" @click="openEditSetModal(activeSet)">编辑</button>
               <button class="btn add-set-btn" @click="openAddSetModal">新建</button>
@@ -2027,7 +2031,7 @@ const checkAndFixActiveSet = () => {
                       
                     </div>
                   </div>
-                  <div class="story-actions" v-if="isLoggedIn">
+                  <div class="story-actions" v-if="isAdmin">
                       <button class="action-btn" @click="openCopyStoryModal(story)">
                         <i class="iconfont icon-fuzhi"></i>
                       </button>
@@ -2900,6 +2904,7 @@ const checkAndFixActiveSet = () => {
   display: flex;
   gap: 10px;
   align-items: flex-start;
+  min-height: 60px;
 }
 
 .story-content-area {

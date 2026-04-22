@@ -11,6 +11,7 @@ import { marked } from 'marked'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 // 添加颜色管理相关状态
 const tagColors = ref([])
@@ -196,6 +197,10 @@ const fetchStory = async () => {
 }
 
 const saveDetail = async () => {
+  if (!isAdmin.value) {
+    error.value = '无权限：仅管理员可编辑笔记'
+    return
+  }
   loading.value = true
   error.value = null
   try {
@@ -219,7 +224,7 @@ const saveDetail = async () => {
 
 // 自动保存：仅在编辑中、内容变化时，每 5 分钟后台保存一次（不退出编辑态）
 const autoSaveDetail = async () => {
-  if (!authStore.isAuthenticated) return
+  if (!isAdmin.value) return
   if (!editing.value) return
   if (!story.value?.id) return
   if (loading.value || isAutoSaving.value) return
@@ -482,6 +487,10 @@ function relationTypeText(type) {
 }
 
 async function handleAddRelation() {
+  if (!isAdmin.value) {
+    addError.value = '无权限：仅管理员可操作关联剧情'
+    return
+  }
   if (!addRelatedId.value || !addRelationType.value) {
     addError.value = '请选择关联剧情和类型'
     return
@@ -511,6 +520,7 @@ async function handleAddRelation() {
 }
 
 async function handleDeleteRelation(relId) {
+  if (!isAdmin.value) return
   if (await confirm('确定要删除关联吗？')) {
     delLoading.value[relId] = true
     try {
@@ -638,6 +648,10 @@ function selectEditRelatedStory(item) {
 }
 
 async function saveEditRelation() {
+  if (!isAdmin.value) {
+    editError.value = '无权限：仅管理员可操作关联剧情'
+    return
+  }
   if (!editRelationType.value || !editRelatedId.value) {
     editError.value = '请选择关联类型和关联剧情'
     return
@@ -936,7 +950,7 @@ onBeforeUnmount(() => {
           <div class="detail-header">
             <h2>笔记</h2>
             <button
-              v-if="!editing && authStore.isAuthenticated"
+              v-if="!editing && isAdmin"
               class="btn btn-edit"
               @click="editing=true"
             ><i class="iconfont icon-edit"></i></button>
@@ -1005,7 +1019,7 @@ onBeforeUnmount(() => {
         <div class="relation-section">
           <div class="relation-header">
             <h3>关联剧情</h3>
-            <button v-if="authStore.isAuthenticated" class="btn btn-edit" @click="openAddRelationForm" type="button">
+            <button v-if="isAdmin" class="btn btn-edit" @click="openAddRelationForm" type="button">
               <i class="iconfont icon-tianjia"></i>
             </button>
           </div>
@@ -1101,7 +1115,7 @@ onBeforeUnmount(() => {
                 <!-- 操作按钮 -->
                 <div class="relation-actions">
                   <button
-                    v-if="authStore.isAuthenticated"
+                    v-if="isAdmin"
                     class="btn btn-edit btn-edit-relation"
                     @click="startEditRelation(rel)"
                     title="编辑关联"
@@ -1110,7 +1124,7 @@ onBeforeUnmount(() => {
                     <i class="iconfont icon-edit"></i>
                   </button>
                   <button
-                    v-if="authStore.isAuthenticated"
+                    v-if="isAdmin"
                     class="btn btn-cancel btn-del-relation"
                     :disabled="delLoading[rel.id]"
                     @click="handleDeleteRelation(rel.id)"

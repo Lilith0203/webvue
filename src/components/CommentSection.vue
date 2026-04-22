@@ -1,5 +1,5 @@
 <script setup>
-import { ref,defineProps } from 'vue'
+import { ref,defineProps, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { message } from '../utils/message'
 import { isValidComment } from '../utils/validation'
@@ -37,6 +37,24 @@ const replyForm = ref({
   name: '',
   content: ''
 })
+
+const defaultDisplayName = computed(() => {
+  if (authStore.isAuthenticated) return authStore.user?.username || '游客'
+  return '游客'
+})
+
+watch(
+  () => authStore.isAuthenticated,
+  () => {
+    if (!newComment.value.name || newComment.value.name === '游客') {
+      newComment.value.name = defaultDisplayName.value
+    }
+    if (!replyForm.value.name || replyForm.value.name === '游客') {
+      replyForm.value.name = defaultDisplayName.value
+    }
+  },
+  { immediate: true }
+)
 
 // 为每条评论维护展开状态
 const expandedComments = ref({})
@@ -96,7 +114,7 @@ const submitComment = () => {
   message.alert('评论提交成功，审核通过后将会显示。')
   
   // 清空输入框
-  newComment.value.name = ''
+  newComment.value.name = defaultDisplayName.value
   newComment.value.content = ''
 }
 
@@ -108,7 +126,7 @@ const commentDelete = async(commentId) => {
 const startReply = (commentId) => {
   replyingTo.value = commentId
   replyForm.value = {
-    name: '',
+    name: defaultDisplayName.value,
     content: ''
   }
 }
@@ -117,7 +135,7 @@ const startReply = (commentId) => {
 const cancelReply = () => {
   replyingTo.value = null
   replyForm.value = {
-    name: '',
+    name: defaultDisplayName.value,
     content: ''
   }
 }
@@ -224,7 +242,7 @@ const handleCommentClick = (event, commentId) => {
           <h4>回复 {{ comment.name }}：</h4>
           <form @submit.prevent="submitReply">
             <label for="reply-name">Name：</label>
-            <input v-model="replyForm.name" type="text" id="reply-name" placeholder="昵称请不要多于10个字" required>
+            <input v-model="replyForm.name" type="text" id="reply-name" placeholder="登录默认用户名，未登录默认游客（≤10字）" :readonly="authStore.isAuthenticated" required>
             <label for="reply-content" class="sr-only">回复内容：</label>
             <textarea v-model="replyForm.content" id="reply-content" placeholder="添加回复..." rows="3" required></textarea>
             <div class="reply-actions">
@@ -253,7 +271,7 @@ const handleCommentClick = (event, commentId) => {
                 <h5>回复 {{ reply.name }}：</h5>
                 <form @submit.prevent="submitReply">
                   <label for="nested-reply-name">Name：</label>
-                  <input v-model="replyForm.name" type="text" id="nested-reply-name" placeholder="昵称请不要多于10个字" required>
+                  <input v-model="replyForm.name" type="text" id="nested-reply-name" placeholder="登录默认用户名，未登录默认游客（≤10字）" :readonly="authStore.isAuthenticated" required>
                   <label for="nested-reply-content" class="sr-only">回复内容：</label>
                   <textarea v-model="replyForm.content" id="nested-reply-content" placeholder="添加回复..." rows="2" required></textarea>
                   <div class="reply-actions">
@@ -269,7 +287,7 @@ const handleCommentClick = (event, commentId) => {
     </div>
     <form class="comment-form" @submit.prevent="submitComment">
       <label for="comment-name">Name：</label>
-      <input v-model="newComment.name" type="text" id="comment-name" placeholder="昵称请不要多于10个字" required>
+      <input v-model="newComment.name" type="text" id="comment-name" placeholder="登录默认用户名，未登录默认游客（≤10字）" :readonly="authStore.isAuthenticated" required>
       <label for="comment-content" class="sr-only">评论内容：</label>
       <textarea v-model="newComment.content" id="comment-content" placeholder="添加评论..." rows="4" required></textarea>
       <button type="submit" class="comment-submit">发表评论</button>
