@@ -316,7 +316,7 @@ onMounted(() => {
       <!-- 添加按钮 - 仅登录状态显示 -->
       <div v-if="isLoggedIn" class="action-buttons">
         <button @click="openCreateModal(selectedDate)" class="add-plan-btn">
-          <i class="iconfont icon-add"></i> 添加计划
+          添加计划
         </button>
       </div>
     </div>
@@ -750,7 +750,7 @@ onMounted(() => {
   color: white;
   border: none;
   border-radius: 4px;
-  padding: 2px 4px;
+  padding: 3px 8px;
   cursor: pointer;
   display: flex;
   align-items: center;

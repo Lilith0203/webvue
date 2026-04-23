@@ -330,69 +330,6 @@ onMounted(() => {
 <template>
   <div class="admin-panel">
     <h2 class="header">网站配置</h2>
-
-    <!-- 账号设置（所有用户可见） -->
-    <section class="setting-section">
-      <h3>账号设置</h3>
-      <div class="account-form">
-        <div class="account-row">
-          <div class="account-item">
-            <div class="account-label">当前用户名</div>
-            <div class="account-control">
-              <div class="value">{{ authStore.user?.username || '未登录' }}</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="account-row">
-          <div class="account-item">
-            <div class="account-label">角色</div>
-            <div class="account-control">
-              <div class="value">{{ authStore.user?.role === 'admin' ? '管理员' : '普通用户' }}</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="account-row">
-          <div class="account-item">
-            <div class="account-label">新用户名</div>
-            <div class="account-control">
-              <input v-model="profileNewUsername" class="input" type="text" placeholder="不改可留空" />
-            </div>
-          </div>
-        </div>
-
-        <div class="account-row">
-          <div class="account-item">
-            <div class="account-label">旧密码</div>
-            <div class="account-control">
-              <input v-model="profileOldPassword" class="input" type="password" placeholder="修改用户名/密码时必填" />
-            </div>
-          </div>
-        </div>
-
-        <div class="account-row two-cols">
-          <div class="account-item">
-            <div class="account-label">新密码</div>
-            <div class="account-control">
-              <input v-model="profileNewPassword" class="input" type="password" placeholder="至少 6 位（可选）" />
-            </div>
-          </div>
-          <div class="account-item">
-            <div class="account-label">确认新密码</div>
-            <div class="account-control">
-              <input v-model="profileNewPassword2" class="input" type="password" placeholder="再次输入新密码" />
-            </div>
-          </div>
-        </div>
-
-        <div class="account-actions">
-          <button class="primary-btn" type="button" :disabled="profileSaving" @click="saveProfile">
-            {{ profileSaving ? '保存中...' : '保存修改' }}
-          </button>
-        </div>
-      </div>
-    </section>
     
     <!-- 管理功能（仅管理员可见） -->
     <template v-if="isAdmin">
@@ -562,7 +499,71 @@ onMounted(() => {
         </div>
       </div>
     </section>
+
     </template>
+
+    <!-- 账号设置（所有用户可见） -->
+    <section class="setting-section">
+      <h3>账号设置</h3>
+      <div class="account-form">
+        <div class="account-row">
+          <div class="account-item">
+            <div class="account-label">当前用户名</div>
+            <div class="account-control">
+              <div class="value">{{ authStore.user?.username || '未登录' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="account-row">
+          <div class="account-item">
+            <div class="account-label">角色</div>
+            <div class="account-control">
+              <div class="value">{{ authStore.user?.role === 'admin' ? '管理员' : '普通用户' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="account-row">
+          <div class="account-item">
+            <div class="account-label">新用户名</div>
+            <div class="account-control">
+              <input v-model="profileNewUsername" class="input" type="text" placeholder="不改可留空" />
+            </div>
+          </div>
+        </div>
+
+        <div class="account-row">
+          <div class="account-item">
+            <div class="account-label">旧密码</div>
+            <div class="account-control">
+              <input v-model="profileOldPassword" class="input" type="password" placeholder="修改用户名/密码时必填" />
+            </div>
+          </div>
+        </div>
+
+        <div class="account-row two-cols">
+          <div class="account-item">
+            <div class="account-label">新密码</div>
+            <div class="account-control">
+              <input v-model="profileNewPassword" class="input" type="password" placeholder="至少 6 位（可选）" />
+            </div>
+          </div>
+          <div class="account-item">
+            <div class="account-label">确认新密码</div>
+            <div class="account-control">
+              <input v-model="profileNewPassword2" class="input" type="password" placeholder="再次输入新密码" />
+            </div>
+          </div>
+        </div>
+
+        <div class="account-actions">
+          <button class="primary-btn" type="button" :disabled="profileSaving" @click="saveProfile">
+            {{ profileSaving ? '保存中...' : '保存修改' }}
+          </button>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 

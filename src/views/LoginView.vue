@@ -106,11 +106,15 @@ const handleLogin = async () => {
     if (!response.data.data.token) {
       throw new Error('No token received')
     }
+
+    const serverUser = response.data?.data?.user
+    const serverRole = response.data?.data?.role
     // 存储token
     authStore.setAuth(
       {
-        username: username.value,
-        role: response.data?.data?.role || 'user'
+        // 用服务端返回的真实用户名（保持大小写一致）
+        username: serverUser || username.value,
+        role: serverRole || 'user'
       },
       response.data.data.token
     )
