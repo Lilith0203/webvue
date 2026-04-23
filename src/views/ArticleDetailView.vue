@@ -165,7 +165,7 @@ onMounted(async () => {
     <article v-else-if="article" class="a-complete">
       <h1 class="a-title">{{ article.title }} 
         <a href="#" 
-           v-if="authStore.isAuthenticated"
+           v-if="authStore.isAuthenticated && authStore.user?.role === 'admin'"
            @click.prevent="router.push(`/article/${article.id}/edit`)">
           <i class="iconfont icon-bianji"></i>
         </a>
@@ -193,7 +193,7 @@ onMounted(async () => {
 }
 
 .a-title {
-  font-size: 24px;
+  font-size: 1.3rem;
   line-height: 2.5;
   font-weight: bold;
 }

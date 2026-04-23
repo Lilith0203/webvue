@@ -45,7 +45,7 @@ api.interceptors.response.use(
         //token 过期或无效
         if (error.response?.status === 401) {
             authStore.clearAuth()
-            window.location.href = '/login'
+            // 不强制跳转到登录页：保持在当前页面，由页面自行提示/弹窗登录
         }
         return Promise.reject(error)
     }

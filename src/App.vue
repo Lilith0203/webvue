@@ -183,7 +183,7 @@ const toggleQRCode = (index) => {
 
 const handleLogout = async () => {
   authStore.clearAuth()
-  await router.push('/')
+  // 不跳转页面，停留在当前页面
 }
 
 const handleAdmin = async () => {
@@ -257,9 +257,7 @@ watch(() => router.path, (newPath) => {
         v-if="authStore.isAuthenticated"
         type="button"
         @click.prevent="handleAdmin"
-        class="admin-button"
-      >
-        管理<span v-if="hasPendingComments" class="admin-pending-dot" title="有待审核评论" aria-hidden="true" />
+        class="admin-button">管理<span v-if="hasPendingComments" class="admin-pending-dot" title="有待审核评论" aria-hidden="true" />
       </button>
 
       <button
@@ -389,10 +387,10 @@ watch(() => router.path, (newPath) => {
 
 .logout button {
   float: right;
-  font-size: 12px;
+  font-size: 0.8rem;
   background-color: var(--color-red);
   color: white;
-  padding: 3px 8px;
+  padding: 2px 8px 3px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -567,9 +565,6 @@ nav a.router-link-exact-active {
 .logout .admin-button{
   margin-right: 10px;
   background-color: var(--color-blue);
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
 }
 .logout .admin-button:hover {
   background-color: var(--color-blue);

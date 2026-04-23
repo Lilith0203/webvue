@@ -101,7 +101,7 @@ watch(
           </span>
           共 <span>{{backendData.count}}</span> 篇文章
         </p>
-        <span v-if="authStore.isAuthenticated" class="publish-new">
+        <span v-if="authStore.isAuthenticated && authStore.user?.role === 'admin'" class="publish-new">
           <a href="/publish" @click.prevent="router.push('/publish')">发布+</a>
         </span>
       </div>
@@ -130,7 +130,7 @@ watch(
                   href="`/article?tag=${tag}`"
                   @click.prevent="router.push(`/article?tag=${tag}`)">{{tag}}</a>
               </div>
-              <span v-if="authStore.isAuthenticated" class="edit-delete">
+              <span v-if="authStore.isAuthenticated && authStore.user?.role === 'admin'" class="edit-delete">
                 <a class="edit" 
                   href="#"
                   @click.prevent="router.push(`/article/${article.id}/edit`)"><i class="iconfont icon-bianji"></i></a>
@@ -186,7 +186,6 @@ watch(
 }
 
 .a-title {
-  font-size: 18px;
   line-height: 45px;
 }
 
@@ -233,7 +232,7 @@ watch(
 }
 
 .a-title a {
-  font-size: 18px;
+  font-size: 1.1rem;
   line-height: 45px;
   color: #5e5e5e;
   font-weight: bold;
@@ -306,6 +305,8 @@ watch(
 
 .publish-new a {
   color: #fff;
+  font-size: 0.8rem;
+  padding: 2px 4px;
 }
 
 .operation {

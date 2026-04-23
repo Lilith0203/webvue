@@ -544,7 +544,13 @@ const fetchMaterialData = async () => {
     })
     materialData.value = response.data.materials
   } catch (err) {
-    error.value = "获取数据失败：" + err.message
+    // 未登录（401）或无权限时：按“空列表”处理，不显示报错
+    if (err?.response?.status === 401) {
+      materialData.value = []
+      error.value = null
+    } else {
+      error.value = "获取数据失败：" + err.message
+    }
   } finally {
     loading.value = false
   }
@@ -554,6 +560,20 @@ const fetchMaterialData = async () => {
 watch(showOutOfStock, () => {
   fetchMaterialData()
 })
+
+// 登录状态变化时自动刷新数据
+watch(
+  () => authStore.isAuthenticated,
+  (loggedIn) => {
+    if (loggedIn) {
+      fetchMaterialData()
+    } else {
+      materialData.value = []
+      error.value = null
+    }
+  },
+  { immediate: true }
+)
 
 const updateMaterialItem = async (row) => {
   if (!canEdit.value) return
@@ -1477,7 +1497,7 @@ a:hover {
 
 /* 按钮样式 */
 .add-btn {
-  font-size: 12px;
+  font-size: 0.8rem;
   background-color: var(--color-green);
   color: white;
   padding: 4px 12px;

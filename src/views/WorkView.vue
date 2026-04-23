@@ -12,7 +12,7 @@ import Announcement from '../components/Announcement.vue'
 const authStore = useAuthStore()
 //判断是否有编辑权限
 const canEdit = computed(() => {
-    return authStore.isAuthenticated
+    return authStore.isAuthenticated && authStore.user?.role === 'admin'
 })
 
 const currentPage = ref(1)
@@ -981,7 +981,13 @@ onMounted(async () => {
             </div>
             
             <!-- 置顶按钮（右上角） -->
-            <div v-if="canEdit" class="top-btn" @click="toggleTop($event, work.id)">
+            <div
+              v-if="canEdit || work.top > 0"
+              class="top-btn"
+              :class="{ disabled: !canEdit }"
+              @click="canEdit ? toggleTop($event, work.id) : $event.stopPropagation()"
+              :title="canEdit ? (work.top > 0 ? '取消置顶' : '置顶') : ''"
+            >
               <i :class="['iconfont', work.top > 0 ? 'icon-zhiding1' : 'icon-zhiding2']"></i>
             </div>
             
@@ -1222,7 +1228,7 @@ onMounted(async () => {
 }
 
 .add-set-btn {
-  padding: 3px 6px;
+  padding: 3px 6px 4px;
   background-color: var(--color-blue);
   color: white;
   border: none;
@@ -1695,6 +1701,15 @@ onMounted(async () => {
 
 .top-btn:hover {
   transform: scale(1.1);
+}
+
+.top-btn.disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.top-btn.disabled:hover {
+  transform: none;
 }
 
 .top-btn i {
