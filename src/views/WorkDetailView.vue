@@ -3,6 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
+import { jwtDecode } from 'jwt-decode'
 import WorkEditor from '../components/WorkEditor.vue'
 import { marked } from 'marked'
 import CommentSection from '../components/CommentSection.vue'
@@ -17,7 +18,18 @@ const renderer = new marked.Renderer()
 const authStore = useAuthStore()
 //判断是否有编辑权限
 const canEdit = computed(() => {
-    return authStore.isAuthenticated
+    return authStore.isAuthenticated && authStore.user?.role === 'admin'
+})
+
+const authedUserId = computed(() => {
+  if (!authStore.token) return null
+  try {
+    const decoded = jwtDecode(authStore.token)
+    const id = decoded && decoded.id
+    return typeof id === 'number' ? id : (typeof id === 'string' ? parseInt(id, 10) : null)
+  } catch (e) {
+    return null
+  }
 })
   
 const router = useRouter()
@@ -362,11 +374,15 @@ const clickTag = (tag) => {
   })
 }
 
-// 跳转到材料详情页
-const goToMaterial = (materialId) => {
+// 跳转到材料详情页：仅允许跳转到“自己的材料”
+const goToMaterial = (material) => {
+  const userId = authedUserId.value
+  if (!userId) return
+  if (!material || material.userId !== userId) return
+
   const url = router.resolve({
     path: '/material',
-    query: { id: materialId }
+    query: { id: material.id }
   }).href
   window.open(url, '_blank')
 }
@@ -711,7 +727,11 @@ onMounted(async() => {
                 :key="material.id"
                 class="material-item">
                 
-                <span class="material-name" @click="goToMaterial(material.id)" title="点击查看材料详情">{{ material.name }}</span>
+                <span
+                  class="material-name"
+                  @click="goToMaterial(material)"
+                  :title="(authedUserId && material.userId === authedUserId) ? '点击查看材料详情' : ''"
+                >{{ material.name }}</span>
                 <span class="material-quantity">×{{ material.quantity }}</span>
                 <span v-if="material.substance" class="material-info">{{ material.substance }}</span>
                 <span v-if="material.size" class="material-info">{{ material.size }}</span>

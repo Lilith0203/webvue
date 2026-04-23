@@ -1,11 +1,12 @@
 <script setup>
 import axios from '../api'
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { confirm } from '../utils/confirm'
 
 const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.isAuthenticated && authStore.user?.role === 'admin')
 
 const route = useRoute()
 const router = useRouter()
@@ -166,7 +167,7 @@ watch(
           <span class="category-name-mobile">{{ getDisplayName(category) }}</span>
           <span class="category-name-desktop">{{ getFullDisplayName(category) }}</span>
         </div>
-        <span v-if="authStore.isAuthenticated" class="publish-new">
+        <span v-if="isAdmin" class="publish-new">
           <a href="/guide/publish" @click.prevent="router.push('/guide/publish')">发布+</a>
         </span>
       </div>
@@ -195,7 +196,7 @@ watch(
                 <span class="category-label">分类: </span>
                 <span class="category-name">{{ getFullDisplayName(guide.category) }}</span>
               </div>
-              <span v-if="authStore.isAuthenticated" class="edit-delete">
+              <span v-if="isAdmin" class="edit-delete">
                 <a class="edit" 
                   href="#"
                   @click.prevent="router.push(`/guide/${guide.id}/edit`)"><i class="iconfont icon-bianji"></i></a>
@@ -410,6 +411,7 @@ watch(
 }
 
 .publish-new a {
+  font-size: 0.8rem;
   color: #fff;
 }
 

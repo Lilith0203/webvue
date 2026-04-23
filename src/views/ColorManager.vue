@@ -5,6 +5,7 @@ import { confirm } from '../utils/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.isAuthenticated && authStore.user?.role === 'admin')
 
 const colors = ref({
   1: [],  // 材料颜色
@@ -24,6 +25,7 @@ const editingColor = ref(null)
 
 // 添加新颜色
 const addColor = async () => {
+  if (!isAdmin.value) return
   if (!newColor.value.code) return
   
   try {
@@ -55,6 +57,7 @@ const addColor = async () => {
 
 // 删除颜色
 const deleteColor = async (category, id) => {
+  if (!isAdmin.value) return
   if (await confirm('确定要删除这个颜色吗？')) {
     try {
       await axios.post(`/color/delete`, {
@@ -102,6 +105,7 @@ const getCategoryName = (category) => {
 
 // 开始编辑颜色
 const startEdit = (category, color) => {
+  if (!isAdmin.value) return
   editingColor.value = {
     ...color,
     category: category,
@@ -111,6 +115,7 @@ const startEdit = (category, color) => {
 
 // 保存编辑的颜色
 const saveEdit = async () => {
+  if (!isAdmin.value) return
   if (!editingColor.value) return
   
   try {
@@ -152,6 +157,7 @@ const groupedColors = computed(() => {
 
 // 编辑格子图合集
 const editPixelSet = async (setName, colors) => {
+  if (!isAdmin.value) return
   editingColor.value = {
     category: 3,
     set: setName,
@@ -167,6 +173,7 @@ const editPixelSet = async (setName, colors) => {
 
 // 保存格子图合集
 const savePixelSet = async () => {
+  if (!isAdmin.value) return
   if (!editingColor.value) return
   
   try {
@@ -191,6 +198,7 @@ const savePixelSet = async () => {
 
 // 删除格子图合集
 const deletePixelSet = async (setName, category) => {
+  if (!isAdmin.value) return
   if (await confirm(`确定要删除合集"${setName}"吗？`)) {
     try {
       // 获取该合集中所有颜色的ID
@@ -212,6 +220,7 @@ const deletePixelSet = async (setName, category) => {
 
 // 向合集添加新颜色
 const addColorToSet = () => {
+  if (!isAdmin.value) return
   if (editingColor.value) {
     editingColor.value.colors.push({
       id: null,
@@ -223,6 +232,7 @@ const addColorToSet = () => {
 
 // 从合集中删除颜色
 const removeColorFromSet = (index) => {
+  if (!isAdmin.value) return
   if (editingColor.value && editingColor.value.colors.length > 1) {
     editingColor.value.colors.splice(index, 1)
   }
@@ -236,7 +246,7 @@ onMounted(() => {
 <template>
   <div class="color-manager">
     <!-- 添加新颜色表单 -->
-    <div class="color-form" v-if="authStore.isAuthenticated">
+    <div class="color-form" v-if="isAdmin">
       <div class="form-row">
         <div class="form-group">
           <label>分类：</label>
@@ -293,8 +303,8 @@ onMounted(() => {
                   <span class="color-code">{{ color.code }}</span>
                 </div>
                 <div class="color-actions">
-                  <button class="edit-btn" @click="startEdit(1, color)" v-if="authStore.isAuthenticated"><i class="iconfont icon-edit"></i></button>
-                  <button class="delete-btn" @click="deleteColor(1, color.id)" v-if="authStore.isAuthenticated"><i class="iconfont icon-ashbin"></i></button>
+                  <button class="edit-btn" @click="startEdit(1, color)" v-if="isAdmin"><i class="iconfont icon-edit"></i></button>
+                  <button class="delete-btn" @click="deleteColor(1, color.id)" v-if="isAdmin"><i class="iconfont icon-ashbin"></i></button>
                 </div>
               </template>
               <template v-else>
@@ -342,8 +352,8 @@ onMounted(() => {
                   <span class="color-code">{{ color.code }}</span>
                 </div>
                 <div class="color-actions">
-                  <button class="edit-btn" @click="startEdit(2, color)" v-if="authStore.isAuthenticated"><i class="iconfont icon-edit"></i></button>
-                  <button class="delete-btn" @click="deleteColor(2, color.id)" v-if="authStore.isAuthenticated"><i class="iconfont icon-ashbin"></i></button>
+                  <button class="edit-btn" @click="startEdit(2, color)" v-if="isAdmin"><i class="iconfont icon-edit"></i></button>
+                  <button class="delete-btn" @click="deleteColor(2, color.id)" v-if="isAdmin"><i class="iconfont icon-ashbin"></i></button>
                 </div>
               </template>
               <template v-else>
@@ -383,10 +393,10 @@ onMounted(() => {
               <div class="set-header">
                 <h3 class="set-title">{{ setName }}</h3>
                 <div class="set-actions">
-                  <button class="edit-btn" @click="editPixelSet(setName, setColors)" v-if="authStore.isAuthenticated">
+                  <button class="edit-btn" @click="editPixelSet(setName, setColors)" v-if="isAdmin">
                     <i class="iconfont icon-edit"></i>
                   </button>
-                  <button class="delete-btn" @click="deletePixelSet(setName, 3)" v-if="authStore.isAuthenticated">
+                  <button class="delete-btn" @click="deletePixelSet(setName, 3)" v-if="isAdmin">
                     <i class="iconfont icon-ashbin"></i>
                   </button>
                 </div>
@@ -422,7 +432,7 @@ onMounted(() => {
                     </div>
                   </div>
                   <!-- 添加新颜色按钮 -->
-                  <div class="color-edit-item add-color" @click="addColorToSet">
+                  <div class="color-edit-item add-color" @click="addColorToSet" v-if="isAdmin">
                     <div class="add-button">
                       <i class="iconfont icon-add"></i>
                     </div>
@@ -455,8 +465,8 @@ onMounted(() => {
                   <span class="color-code">{{ color.code }}</span>
                 </div>
                 <div class="color-actions">
-                  <button class="edit-btn" @click="startEdit(4, color)" v-if="authStore.isAuthenticated"><i class="iconfont icon-edit"></i></button>
-                  <button class="delete-btn" @click="deleteColor(4, color.id)" v-if="authStore.isAuthenticated"><i class="iconfont icon-ashbin"></i></button>
+                  <button class="edit-btn" @click="startEdit(4, color)" v-if="isAdmin"><i class="iconfont icon-edit"></i></button>
+                  <button class="delete-btn" @click="deleteColor(4, color.id)" v-if="isAdmin"><i class="iconfont icon-ashbin"></i></button>
                 </div>
               </template>
               <template v-else>

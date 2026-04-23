@@ -18,6 +18,8 @@ const guide = ref(null)
 const loading = ref(false)
 const error = ref(null)
 
+const isAdmin = computed(() => authStore.isAuthenticated && authStore.user?.role === 'admin')
+
 // 评论相关状态
 const comments = ref([])
 const loadingComments = ref(false)
@@ -195,7 +197,7 @@ onUnmounted(() => {
     <article v-else-if="guide" class="g-complete">
       <h1 class="g-title">{{ guide.title }}
         <a href="#" 
-           v-if="authStore.isAuthenticated"
+           v-if="isAdmin"
            @click.prevent="router.push(`/guide/${guide.id}/edit`)">
           <i class="iconfont icon-bianji"></i>
         </a>
@@ -232,7 +234,7 @@ onUnmounted(() => {
 }
 
 .g-title {
-  font-size: 22px;
+  font-size: 1.1rem;
   line-height: 1.8;
   font-weight: bold;
 }

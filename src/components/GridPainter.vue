@@ -3,8 +3,20 @@ import { ref, onMounted, onUnmounted, computed } from 'vue'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
 import { message } from '../utils/message'
+import { jwtDecode } from 'jwt-decode'
 
 const authStore = useAuthStore()
+
+const authedUserId = computed(() => {
+  if (!authStore.token) return null
+  try {
+    const decoded = jwtDecode(authStore.token)
+    const id = decoded && decoded.id
+    return typeof id === 'number' ? id : (typeof id === 'string' ? parseInt(id, 10) : null)
+  } catch (e) {
+    return null
+  }
+})
   
 const gridStyle = ref('brick')  // 'normal' 或 'brick'
 const gridSize = ref(32)  // 默认32x32
@@ -73,6 +85,7 @@ const fetchSavedGrids = async () => {
     const response = await axios.get('/grid/list')
     savedGrids.value = response.data.gridlist.map(grid => ({
       id: grid.id,
+      userId: grid.userId,
       cells: JSON.parse(grid.cells),
       size: grid.size,
       timestamp: new Date(grid.createdAt).toLocaleString()
@@ -253,7 +266,10 @@ onUnmounted(() => {
           <!-- 操作按钮 -->
           <div class="saved-grid-actions">
             <button @click="loadSavedGrid(grid)">加载</button>
-            <button v-if="authStore.isAuthenticated" @click="deleteSavedGrid(grid.id)">删除</button>
+            <button
+              v-if="authStore.isAuthenticated && grid.userId === authedUserId"
+              @click="deleteSavedGrid(grid.id)"
+            >删除</button>
           </div>
           
           <!-- 时间戳 -->

@@ -1411,7 +1411,7 @@ onMounted(async () => {
 }
 
 .tag {
-  padding: 1px 8px;
+  padding: 2px 8px 1px;
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
