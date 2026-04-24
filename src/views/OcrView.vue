@@ -2,12 +2,18 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import api from '../api'
 
-const file = ref(null)
-const previewUrl = ref('')
+const files = ref([]) // File[]
+const previewUrls = ref([]) // string[]
+const activeIndex = ref(0)
+
+const activeFile = computed(() => files.value[activeIndex.value] || null)
+const activePreviewUrl = computed(() => previewUrls.value[activeIndex.value] || '')
 
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const recognizing = ref(false)
+const runningIndex = ref(0)
+const runningTotal = ref(0)
 
 const ocrType = ref('General') // General / Advanced / HandWriting / Table / IdCard ...
 const languages = ref('chn,eng') // MultiLang 时生效
@@ -24,28 +30,66 @@ const compressRepeats = ref(false)
 const resultText = ref('')
 const errorMessage = ref('')
 
-const canRun = computed(() => !!file.value && !uploading.value && !recognizing.value)
+const canRun = computed(() => files.value.length > 0 && !uploading.value && !recognizing.value)
 
-const setFile = (f) => {
+const replaceFiles = (list) => {
   errorMessage.value = ''
   resultText.value = ''
-  if (!f) return
-  if (!f.type?.startsWith('image/')) {
-    errorMessage.value = '请选择图片文件'
+  if (!Array.isArray(list) || list.length === 0) return
+
+  // revoke old previews
+  for (const u of previewUrls.value) {
+    if (u) URL.revokeObjectURL(u)
+  }
+
+  const accepted = []
+  const previews = []
+  for (const f of list) {
+    if (!f) continue
+    if (!f.type?.startsWith('image/')) continue
+    if (f.size > 8 * 1024 * 1024) continue
+    accepted.push(f)
+    previews.push(URL.createObjectURL(f))
+  }
+
+  if (accepted.length === 0) {
+    errorMessage.value = '请选择图片文件（单张不超过 8MB）'
     return
   }
-  if (f.size > 8 * 1024 * 1024) {
-    errorMessage.value = '图片大小不能超过 8MB'
-    return
-  }
-  file.value = f
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-  previewUrl.value = URL.createObjectURL(f)
+
+  files.value = accepted
+  previewUrls.value = previews
+  activeIndex.value = 0
 }
 
 const onPickFile = (e) => {
-  const f = e.target.files?.[0]
-  setFile(f)
+  const list = Array.from(e.target.files || [])
+  replaceFiles(list)
+  // reset value so same file can be picked again
+  e.target.value = ''
+}
+
+const addFiles = (list) => {
+  if (!Array.isArray(list) || list.length === 0) return
+  errorMessage.value = ''
+  resultText.value = ''
+
+  const nextFiles = [...files.value]
+  const nextPreviews = [...previewUrls.value]
+  for (const f of list) {
+    if (!f) continue
+    if (!f.type?.startsWith('image/')) continue
+    if (f.size > 8 * 1024 * 1024) continue
+    nextFiles.push(f)
+    nextPreviews.push(URL.createObjectURL(f))
+  }
+  if (nextFiles.length === files.value.length) {
+    errorMessage.value = '未检测到可用图片（单张不超过 8MB）'
+    return
+  }
+  files.value = nextFiles
+  previewUrls.value = nextPreviews
+  if (activeIndex.value >= files.value.length) activeIndex.value = 0
 }
 
 const handlePaste = (event) => {
@@ -57,7 +101,7 @@ const handlePaste = (event) => {
       const pastedFile = item.getAsFile()
       if (pastedFile) {
         event.preventDefault()
-        setFile(pastedFile)
+        addFiles([pastedFile])
       }
       return
     }
@@ -73,12 +117,24 @@ onBeforeUnmount(() => {
 })
 
 const clearFile = () => {
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-  file.value = null
-  previewUrl.value = ''
+  for (const u of previewUrls.value) {
+    if (u) URL.revokeObjectURL(u)
+  }
+  files.value = []
+  previewUrls.value = []
+  activeIndex.value = 0
   uploadProgress.value = 0
   resultText.value = ''
   errorMessage.value = ''
+}
+
+const removeAt = (idx) => {
+  if (idx < 0 || idx >= files.value.length) return
+  const u = previewUrls.value[idx]
+  if (u) URL.revokeObjectURL(u)
+  files.value.splice(idx, 1)
+  previewUrls.value.splice(idx, 1)
+  if (activeIndex.value >= files.value.length) activeIndex.value = Math.max(0, files.value.length - 1)
 }
 
 const copyText = async () => {
@@ -95,79 +151,90 @@ const copyText = async () => {
   }
 }
 
+const postProcessText = (raw) => {
+  let text = raw || ''
+  if (digitsOnly.value) {
+    if (normalizeDigits.value) {
+      text = text
+        .replace(/[Oo]/g, '0')
+        .replace(/[Il]/g, '1')
+        .replace(/S/g, '5')
+        .replace(/B/g, '8')
+    }
+    text = text
+      .split('\n')
+      .map((line) => line.replace(/[^\d]/g, ''))
+      .join('\n')
+    if (compressRepeats.value) {
+      text = text.replace(/(\d)\1+/g, '$1')
+    }
+  }
+  return text
+}
+
 const runOcr = async () => {
-  if (!file.value) return
+  if (files.value.length === 0) return
   errorMessage.value = ''
   resultText.value = ''
 
-  let imageUrl = ''
-
-  uploading.value = true
-  uploadProgress.value = 0
-  try {
-    const formData = new FormData()
-    formData.append('file', file.value)
-    formData.append('folder', 'tools/ocr')
-    const uploadRes = await api.post('/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      onUploadProgress: (progressEvent) => {
-        if (!progressEvent.total) return
-        uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-      }
-    })
-    imageUrl = uploadRes?.data?.url || ''
-    if (!imageUrl) throw new Error('上传失败：未返回 url')
-  } catch (err) {
-    errorMessage.value = err?.response?.data?.message || err?.message || '上传失败'
-    return
-  } finally {
-    uploading.value = false
-    uploadProgress.value = 0
-  }
-
   recognizing.value = true
+  runningIndex.value = 0
+  runningTotal.value = files.value.length
+  const parts = []
+
   try {
-    const payload = {
-      url: imageUrl,
-      type: ocrType.value,
-      languages: languages.value,
-      outputRow: outputRow.value,
-      outputParagraph: outputParagraph.value,
-      outputTable: outputTable.value
-    }
-    const ocrRes = await api.post('/ocr', payload)
-    if (!ocrRes?.data?.success) throw new Error(ocrRes?.data?.message || 'OCR 识别失败')
-    let text = ocrRes?.data?.text || ''
+    for (let i = 0; i < files.value.length; i++) {
+      runningIndex.value = i + 1
 
-    if (digitsOnly.value) {
-      // 常见混淆纠错：O/o→0，I/l→1，S→5，B→8（仅在数字模式下启用）
-      if (normalizeDigits.value) {
-        text = text
-          .replace(/[Oo]/g, '0')
-          .replace(/[Il]/g, '1')
-          .replace(/S/g, '5')
-          .replace(/B/g, '8')
+      // 1) upload
+      let imageUrl = ''
+      uploading.value = true
+      uploadProgress.value = 0
+      try {
+        const formData = new FormData()
+        formData.append('file', files.value[i])
+        formData.append('folder', 'tools/ocr')
+        const uploadRes = await api.post('/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (progressEvent) => {
+            if (!progressEvent.total) return
+            uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+          }
+        })
+        imageUrl = uploadRes?.data?.url || ''
+        if (!imageUrl) throw new Error('上传失败：未返回 url')
+      } finally {
+        uploading.value = false
+        uploadProgress.value = 0
       }
-      // 只保留数字（保留换行用于多行数字）
-      text = text
-        .split('\n')
-        .map((line) => line.replace(/[^\d]/g, ''))
-        .join('\n')
 
-      // 可选：压缩连续重复（例如把 "99" 变成 "9"），有风险，默认关闭
-      if (compressRepeats.value) {
-        text = text.replace(/(\d)\1+/g, '$1')
+      // 2) ocr
+      const payload = {
+        url: imageUrl,
+        type: ocrType.value,
+        languages: languages.value,
+        outputRow: outputRow.value,
+        outputParagraph: outputParagraph.value,
+        outputTable: outputTable.value
       }
+      const ocrRes = await api.post('/ocr', payload)
+      if (!ocrRes?.data?.success) throw new Error(ocrRes?.data?.message || 'OCR 识别失败')
+      const text = postProcessText(ocrRes?.data?.text || '')
+      if (text && text.trim()) parts.push(text.trimEnd())
     }
 
-    resultText.value = text
+    resultText.value = parts.join('\n\n')
     if (!resultText.value) {
-      errorMessage.value = '识别成功，但未提取到文字（可尝试切换类型为 Advanced 或 HandWriting）'
+      errorMessage.value = '识别完成，但未提取到文字（可尝试切换类型为 Advanced 或 HandWriting）'
     }
   } catch (err) {
     errorMessage.value = err?.response?.data?.message || err?.message || 'OCR 识别失败'
   } finally {
     recognizing.value = false
+    uploading.value = false
+    uploadProgress.value = 0
+    runningIndex.value = 0
+    runningTotal.value = 0
   }
 }
 </script>
@@ -179,7 +246,7 @@ const runOcr = async () => {
     <div class="panel">
       <div class="left">
         <label class="file-picker">
-          <input type="file" accept="image/*" @change="onPickFile" />
+          <input type="file" accept="image/*" multiple @change="onPickFile" />
           <span>选择图片</span>
         </label>
         <span class="paste-hint">也可以直接粘贴截图（Ctrl+V）</span>
@@ -231,11 +298,25 @@ const runOcr = async () => {
           </label>
         </div>
 
-        <div v-if="previewUrl" class="preview">
-          <img :src="previewUrl" alt="preview" />
+        <div v-if="activePreviewUrl" class="preview">
+          <img :src="activePreviewUrl" alt="preview" />
         </div>
         <div v-else class="placeholder">
           <span>暂无图片预览</span>
+        </div>
+
+        <div v-if="files.length > 1" class="thumbs">
+          <div
+            v-for="(u, idx) in previewUrls"
+            :key="u"
+            class="thumb"
+            :class="{ active: idx === activeIndex }"
+            @click="activeIndex = idx"
+            :title="`第 ${idx + 1} 张`"
+          >
+            <img :src="u" alt="thumb" />
+            <button class="thumb-remove" @click.stop="removeAt(idx)" title="移除">×</button>
+          </div>
         </div>
 
         <div class="actions">
@@ -246,6 +327,9 @@ const runOcr = async () => {
         </div>
 
         <div v-if="uploading" class="progress">上传中：{{ uploadProgress }}%</div>
+        <div v-if="recognizing && runningTotal" class="progress">
+          识别中：{{ runningIndex }}/{{ runningTotal }}
+        </div>
       </div>
 
       <div class="right">
@@ -410,6 +494,43 @@ const runOcr = async () => {
   margin-top: 10px;
   color: #666;
   font-size: 12px;
+}
+.thumbs {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 8px;
+}
+.thumb {
+  position: relative;
+  height: 64px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fafafa;
+  cursor: pointer;
+}
+.thumb.active {
+  outline: 2px solid rgba(74, 157, 217, 0.35);
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.thumb-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  line-height: 18px;
+  padding: 0;
 }
 .result-head {
   display: flex;
