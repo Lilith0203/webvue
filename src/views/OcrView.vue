@@ -15,7 +15,7 @@ const recognizing = ref(false)
 const runningIndex = ref(0)
 const runningTotal = ref(0)
 
-const ocrType = ref('General') // General / Advanced / HandWriting / Table / IdCard ...
+const ocrType = ref('Advanced') // General / Advanced / HandWriting / Table / IdCard ...
 const languages = ref('chn,eng') // MultiLang 时生效
 
 const outputRow = ref(true) // Advanced 时生效
@@ -26,6 +26,9 @@ const outputTable = ref(false) // Advanced 时生效
 const digitsOnly = ref(false)
 const normalizeDigits = ref(true)
 const compressRepeats = ref(false)
+
+// 中文标点纠错（保守策略，避免误伤真实数字 66/99）
+const zhPunctFix = ref(true)
 
 const resultText = ref('')
 const errorMessage = ref('')
@@ -153,6 +156,66 @@ const copyText = async () => {
 
 const postProcessText = (raw) => {
   let text = raw || ''
+
+  const isCjkOrZhPunct = (ch) => {
+    if (!ch) return false
+    // 汉字 + 常见中文/全角标点（含引号、省略号前后的点）
+    return /[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef“”‘’（）【】《》、，。！？：；…]/.test(ch)
+  }
+
+  const replace66_99Quotes = (input) => {
+    // 仅在两侧都不是数字，且至少一侧靠近汉字/中文标点时替换
+    const replaceToken = (s, token, outChar) => {
+      const re = new RegExp(`(^|[^\\d])${token}([^\\d]|$)`, 'g')
+      return s.replace(re, (m, left, right) => {
+        const lch = left && left.length ? left[left.length - 1] : ''
+        const rch = right && right.length ? right[0] : ''
+        if (isCjkOrZhPunct(lch) || isCjkOrZhPunct(rch)) {
+          return `${left}${outChar}${right}`
+        }
+        return m
+      })
+    }
+    let s = input
+    s = replaceToken(s, '66', '“')
+    s = replaceToken(s, '99', '”')
+    return s
+  }
+
+  const normalizeEllipsis = (input) => {
+    // 把 ...... 或 .. .. 等归一化为 ……；仅在中文语境下（靠近中文/标点）且不夹在数字之间
+    const re = /(^|[^\d])(\.{2,})([^\d]|$)/g
+    return input.replace(re, (m, left, dots, right) => {
+      const lch = left && left.length ? left[left.length - 1] : ''
+      const rch = right && right.length ? right[0] : ''
+      if (isCjkOrZhPunct(lch) || isCjkOrZhPunct(rch)) {
+        return `${left}……${right}`
+      }
+      return m
+    })
+  }
+
+  const unifyZhPunct = (input) => {
+    // 仅在“汉字前后”把半角标点替换为中文全角，避免影响英文/数字
+    const CJK = '[\\u4e00-\\u9fff]'
+    let s = input
+    s = s.replace(new RegExp(`(${CJK})\\s*,(?=\\s*${CJK})`, 'g'), '$1，')
+    s = s.replace(new RegExp(`(${CJK})\\s*,(?=\\s*$)`, 'g'), '$1，')
+    s = s.replace(new RegExp(`(${CJK})\\s*\\.(?=\\s*${CJK})`, 'g'), '$1。')
+    s = s.replace(new RegExp(`(${CJK})\\s*\\.(?=\\s*$)`, 'g'), '$1。')
+    s = s.replace(new RegExp(`(${CJK})\\s*:(?=\\s*${CJK})`, 'g'), '$1：')
+    s = s.replace(new RegExp(`(${CJK})\\s*:(?=\\s*$)`, 'g'), '$1：')
+    s = s.replace(new RegExp(`(${CJK})\\s*;(?=\\s*${CJK})`, 'g'), '$1；')
+    s = s.replace(new RegExp(`(${CJK})\\s*;(?=\\s*$)`, 'g'), '$1；')
+    s = s.replace(new RegExp(`(${CJK})\\s*\\!(?=\\s*${CJK})`, 'g'), '$1！')
+    s = s.replace(new RegExp(`(${CJK})\\s*\\!(?=\\s*$)`, 'g'), '$1！')
+    s = s.replace(new RegExp(`(${CJK})\\s*\\?(?=\\s*${CJK})`, 'g'), '$1？')
+    s = s.replace(new RegExp(`(${CJK})\\s*\\?(?=\\s*$)`, 'g'), '$1？')
+    // 把全角空格归一为空格
+    s = s.replace(/\u3000/g, ' ')
+    return s
+  }
+
   if (digitsOnly.value) {
     if (normalizeDigits.value) {
       text = text
@@ -169,6 +232,13 @@ const postProcessText = (raw) => {
       text = text.replace(/(\d)\1+/g, '$1')
     }
   }
+
+  if (zhPunctFix.value) {
+    text = replace66_99Quotes(text)
+    text = normalizeEllipsis(text)
+    text = unifyZhPunct(text)
+  }
+
   return text
 }
 
@@ -284,6 +354,7 @@ const runOcr = async () => {
         </div>
 
         <div class="switches">
+          <!--
           <label class="switch">
             <input type="checkbox" v-model="digitsOnly" />
             <span>数字模式</span>
@@ -295,6 +366,10 @@ const runOcr = async () => {
           <label class="switch" :class="{ disabled: !digitsOnly }">
             <input type="checkbox" v-model="compressRepeats" :disabled="!digitsOnly" />
             <span>压缩连续重复</span>
+          </label>-->
+          <label class="switch">
+            <input type="checkbox" v-model="zhPunctFix" />
+            <span>中文标点纠错</span>
           </label>
         </div>
 

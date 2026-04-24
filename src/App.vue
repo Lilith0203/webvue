@@ -249,7 +249,8 @@ watch(() => router.path, (newPath) => {
     <h3 class="links">
       常用链接：
       <a href="https://github.com/Lilith0203/" target="_blank" rel="noopener">Git</a>,
-      <a href="https://www.iconfont.cn/" target="_blank" rel="noopener">iconfont</a> 
+      <a href="https://www.iconfont.cn/" target="_blank" rel="noopener">iconfont</a>,
+      <a href="https://home.console.aliyun.com/home/dashboard/ProductAndService" target="_blank" rel="noopener">阿里云</a> 
     </h3>
     <div class="logout">
       <button v-if="authStore.isAuthenticated" type="button" @click.prevent="handleLogout">退出</button>
