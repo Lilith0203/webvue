@@ -469,12 +469,14 @@ nav a {
 
 /* Safari 下 .submenu-trigger.green 文字会变黑：这里显式指定颜色 */
 .submenu-trigger.green {
-  color: var(--color-green);
-  -webkit-text-fill-color: currentColor;
+  color: var(--color-green) !important;
+  -webkit-text-fill-color: var(--color-green) !important;
 }
 
-.submenu-trigger.green .iconfont {
-  color: currentColor;
+.submenu-trigger.green,
+.submenu-trigger.green * {
+  color: var(--color-green) !important;
+  -webkit-text-fill-color: var(--color-green) !important;
 }
 
 nav a.router-link-exact-active {
