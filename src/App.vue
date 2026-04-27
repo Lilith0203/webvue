@@ -462,10 +462,7 @@ nav a {
   font-weight: bold;
 }
 
-.submenu-trigger:hover,
-.nav-link-text:hover {
-  color: var(--color-text);
-}
+/* hover 时不强制改文字颜色，避免覆盖彩色菜单（Safari 尤其明显） */
 
 /* Safari 下 .submenu-trigger.green 文字会变黑：这里显式指定颜色 */
 .submenu-trigger.green {
