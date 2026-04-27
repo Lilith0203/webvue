@@ -153,6 +153,30 @@ const renderedDetailForDisplay = computed(() => {
   return processMarkdownContent(truncatedDetailText.value)
 })
 
+const renderedDetailForDisplayWithMore = computed(() => {
+  const html = renderedDetailForDisplay.value || ''
+  if (!html) return ''
+  if (!isDetailTruncated.value || showFullDetail.value) return html
+
+  // 把“……（查看全文）”插到“最后一行/最后一段”的末尾（通过事件代理处理点击）
+  // 优先插入到最后一个 </p> 内部；否则退化为追加到末尾
+  const moreHtml = `……<span class="detail-more-inline" data-action="show-full-detail">（查看全文）</span>`
+  const idx = html.lastIndexOf('</p>')
+  if (idx !== -1) {
+    return `${html.slice(0, idx)}${moreHtml}${html.slice(idx)}`
+  }
+  return `${html}${moreHtml}`
+})
+
+const onDetailContentClick = (e) => {
+  const target = e && e.target
+  if (!target) return
+  const action = target.getAttribute && target.getAttribute('data-action')
+  if (action === 'show-full-detail') {
+    showFullDetail.value = true
+  }
+}
+
 const scrollToTop = () => {
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
@@ -1008,11 +1032,9 @@ onBeforeUnmount(() => {
             <div class="detail-text">
               <div
                 class="detail-text-content"
-                v-html="renderedDetailForDisplay || '<span class=\'empty-detail\'>暂无详情</span>'"
+                v-html="renderedDetailForDisplayWithMore || '<span class=\'empty-detail\'>暂无详情</span>'"
+                @click="onDetailContentClick"
               ></div>
-              <div v-if="isDetailTruncated && !showFullDetail" class="detail-more detail-more-inside">
-                <button type="button" class="detail-more-btn" @click="showFullDetail = true">更多……</button>
-              </div>
             </div>
           </div>
         </div>
@@ -1216,8 +1238,8 @@ onBeforeUnmount(() => {
   position: fixed;
   right: 20px;
   bottom: 88px;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   background: transparent;
   display: flex;
   align-items: center;
@@ -1227,7 +1249,7 @@ onBeforeUnmount(() => {
 }
 .back-to-top .iconfont {
   color: #fff;
-  font-size: 32px;
+  font-size: 30px;
 }
 .articles-header {
   font-size: 0.9rem;
@@ -1387,6 +1409,18 @@ onBeforeUnmount(() => {
 .detail-more-inside {
   margin-bottom: 0;
   text-align: center;
+}
+
+:deep(.detail-more-inline) {
+  margin-left: 8px;
+  color: #499e8d;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+:deep(.detail-more-inline:hover) {
+  opacity: 0.85;
 }
 
 /* 动态颜色类，使用CSS变量 */

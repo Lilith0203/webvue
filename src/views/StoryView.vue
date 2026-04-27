@@ -2806,7 +2806,6 @@ const checkAndFixActiveSet = () => {
   display: flex;
   justify-content:flex-end;
   gap: 5px;
-  margin-bottom: 5px;
 }
 
 .btn {
@@ -2904,7 +2903,7 @@ const checkAndFixActiveSet = () => {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  min-height: 60px;
+  min-height: 73px;
 }
 
 .story-content-area {

@@ -467,6 +467,16 @@ nav a {
   color: var(--color-text);
 }
 
+/* Safari 下 .submenu-trigger.green 文字会变黑：这里显式指定颜色 */
+.submenu-trigger.green {
+  color: var(--color-green);
+  -webkit-text-fill-color: currentColor;
+}
+
+.submenu-trigger.green .iconfont {
+  color: currentColor;
+}
+
 nav a.router-link-exact-active {
   color: var(--color-text);
 }
