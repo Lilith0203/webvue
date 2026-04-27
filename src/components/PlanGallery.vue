@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { Calendar } from 'v-calendar'
 import axios from '../api' // Assuming you have an axios instance configured
 import { useRouter, useRoute } from 'vue-router'
@@ -37,6 +37,12 @@ const isLoggedIn = computed(() => {
 
 // Fetch plan data
 const fetchPlans = async () => {
+  if (!isLoggedIn.value) {
+    plans.value = []
+    error.value = null
+    loading.value = false
+    return
+  }
   loading.value = true
   error.value = null
   try {
@@ -53,8 +59,14 @@ const fetchPlans = async () => {
       endDate: plan.endDate ? new Date(plan.endDate).toISOString().split('T')[0] : null
     }))
   } catch (err) {
-    error.value = "获取计划失败：" + err.message
-    console.error('Fetch plans error:', err)
+    // 未登录（401）按“空列表”处理，并且不显示错误
+    if (err?.response?.status === 401) {
+      plans.value = []
+      error.value = null
+    } else {
+      error.value = "获取计划失败：" + err.message
+      console.error('Fetch plans error:', err)
+    }
   } finally {
     loading.value = false
   }
@@ -264,8 +276,20 @@ const onPlanClick = (plan) => {
 }
 
 onMounted(() => {
-  fetchPlans()
+  if (isLoggedIn.value) fetchPlans()
 })
+
+watch(
+  () => isLoggedIn.value,
+  (loggedIn) => {
+    if (loggedIn) fetchPlans()
+    else {
+      plans.value = []
+      error.value = null
+      loading.value = false
+    }
+  }
+)
 </script>
 
 <template>
