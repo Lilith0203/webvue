@@ -500,6 +500,7 @@ const runOcr = async () => {
   border-radius: 6px;
   padding: 6px 10px;
   background: #fff;
+  font-size: 0.8rem;
 }
 .type-input {
   flex: 1;
@@ -551,6 +552,7 @@ const runOcr = async () => {
   border-radius: 6px;
   background: #fff;
   cursor: pointer;
+  font-size: 0.8rem;
 }
 .btn.primary {
   background: var(--color-blue);
@@ -563,7 +565,6 @@ const runOcr = async () => {
 }
 .btn.small {
   padding: 6px 10px;
-  font-size: 12px;
 }
 .progress {
   margin-top: 10px;
