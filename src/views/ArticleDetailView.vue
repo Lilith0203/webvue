@@ -167,7 +167,7 @@ onMounted(async () => {
         <a href="#" 
            v-if="authStore.isAuthenticated && authStore.user?.role === 'admin'"
            @click.prevent="router.push(`/article/${article.id}/edit`)">
-          <i class="iconfont icon-bianji"></i>
+          <i class="iconfont icon-edit"></i>
         </a>
       </h1>
       <div class="meta">
@@ -228,11 +228,11 @@ onMounted(async () => {
   opacity: 0.8;
 }
 
-.icon-bianji {
+.icon-edit {
   font-size: 1.2rem;
 }
 
-.icon-bianji:hover {
+.icon-edit:hover {
   border: 1px dashed #9da09e;
 }
 

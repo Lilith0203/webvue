@@ -573,7 +573,7 @@ onMounted(async() => {
         <a @click="handleBack()" class="a-back"><i class="iconfont icon-back"></i></a>
         <div class="header">
           <h2>{{ work.id }} {{ work.name }}</h2>
-          <div v-if="canEdit" @click="startEdit(work)"><i class="iconfont icon-bianji"></i></div>
+          <div v-if="canEdit" @click="startEdit(work)"><i class="iconfont icon-edit"></i></div>
         </div>
 
         <!-- 交互区域 -->

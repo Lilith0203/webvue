@@ -913,10 +913,10 @@ onMounted(async () => {
             <!-- 编辑和删除按钮（仅管理员可见） -->
             <div v-if="canEdit" class="set-actions" @click.stop>
               <button class="set-action-btn" @click="openEditSetEditor(set)" title="编辑">
-                <i class="iconfont icon-bianji"></i>
+                <i class="iconfont icon-edit"></i>
               </button>
               <button class="set-action-btn" @click="deleteSet(set.id)" title="删除">
-                <i class="iconfont icon-shanchu"></i>
+                <i class="iconfont icon-ashbin"></i>
               </button>
             </div>
           </div>
@@ -1035,8 +1035,8 @@ onMounted(async () => {
               <span>更新时间: {{ formatDate(work.updatedAt) }}</span>
               <!-- 操作按钮 -->
               <div class="actions" v-if="canEdit">
-                <button @click="openEditEditor(work)"><i class="iconfont icon-bianji"></i></button>
-                <button @click="deleteWork(work.id)"><i class="iconfont icon-shanchu"></i></button>
+                <button @click="openEditEditor(work)"><i class="iconfont icon-edit"></i></button>
+                <button @click="deleteWork(work.id)"><i class="iconfont icon-ashbin"></i></button>
               </div>
             </div>
           </div>
@@ -1153,8 +1153,8 @@ onMounted(async () => {
                 <span>更新时间: {{ formatDate(work.updatedAt) }}</span>
                 <!-- 操作按钮 -->
                 <div class="actions" v-if="canEdit">
-                  <button @click="openEditEditor(work)"><i class="iconfont icon-bianji"></i></button>
-                  <button @click="deleteWork(work.id)"><i class="iconfont icon-shanchu"></i></button>
+                  <button @click="openEditEditor(work)"><i class="iconfont icon-edit"></i></button>
+                  <button @click="deleteWork(work.id)"><i class="iconfont icon-ashbin"></i></button>
                 </div>
               </div>
             </div>

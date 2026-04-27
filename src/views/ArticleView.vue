@@ -133,8 +133,8 @@ watch(
               <span v-if="authStore.isAuthenticated && authStore.user?.role === 'admin'" class="edit-delete">
                 <a class="edit" 
                   href="#"
-                  @click.prevent="router.push(`/article/${article.id}/edit`)"><i class="iconfont icon-bianji"></i></a>
-                <a class="delete" href="#" @click.prevent="handleDelete(article.id)"><i class="iconfont icon-shanchu"></i></a>
+                  @click.prevent="router.push(`/article/${article.id}/edit`)"><i class="iconfont icon-edit"></i></a>
+                <a class="delete" href="#" @click.prevent="handleDelete(article.id)"><i class="iconfont icon-ashbin"></i></a>
               </span>
             </div>
             <h1 class="a-title"><a href="#" @click.prevent="router.push(`/article/${article.id}?page=${route.query.page || 1}`)">{{article.title}}</a></h1>

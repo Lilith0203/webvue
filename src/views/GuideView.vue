@@ -199,8 +199,8 @@ watch(
               <span v-if="isAdmin" class="edit-delete">
                 <a class="edit" 
                   href="#"
-                  @click.prevent="router.push(`/guide/${guide.id}/edit`)"><i class="iconfont icon-bianji"></i></a>
-                <a class="delete" href="#" @click.prevent="handleDelete(guide.id)"><i class="iconfont icon-shanchu"></i></a>
+                  @click.prevent="router.push(`/guide/${guide.id}/edit`)"><i class="iconfont icon-edit"></i></a>
+                <a class="delete" href="#" @click.prevent="handleDelete(guide.id)"><i class="iconfont icon-ashbin"></i></a>
               </span>
             </div>
             <h1 class="g-title"><a href="#" @click.prevent="router.push(`/guide/${guide.id}`)">{{guide.title}}</a></h1>

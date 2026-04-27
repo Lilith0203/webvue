@@ -217,8 +217,8 @@ const handleRemoveFromSet = (event, id) => {
           <span>更新时间: {{ formatDate(work.updatedAt) }}</span>
           <!-- 操作按钮 -->
           <div class="actions" v-if="(showEditActions || showRemoveFromSet) && canEdit">
-            <button v-if="showEditActions" @click="handleEdit(work)"><i class="iconfont icon-bianji"></i></button>
-            <button v-if="showEditActions" @click="handleDelete(work.id)"><i class="iconfont icon-shanchu"></i></button>
+            <button v-if="showEditActions" @click="handleEdit(work)"><i class="iconfont icon-edit"></i></button>
+            <button v-if="showEditActions" @click="handleDelete(work.id)"><i class="iconfont icon-ashbin"></i></button>
             <button v-if="showRemoveFromSet" @click="handleRemoveFromSet($event, work.id)" title="从合集移出" class="remove-btn">
               X
             </button>
