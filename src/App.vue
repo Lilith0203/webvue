@@ -301,8 +301,8 @@ watch(() => router.path, (newPath) => {
             v-if="!menu.children" 
             :to="menu.path"
             class="nav-link">
+            <i class="iconfont icon-huawen"></i>
             <div class="nav-link-text">
-              <i class="iconfont icon-huawen"></i>
               {{ menu.label }}
             </div>
           </RouterLink>
@@ -312,13 +312,14 @@ watch(() => router.path, (newPath) => {
             v-else 
             class="submenu-container">
 
+            <i class="iconfont icon-huawen"></i>
             <div 
               class="submenu-trigger green"
               @click="toggleSubmenu(menu.key)">
-              <i class="iconfont icon-huawen"></i>
               {{ menu.label }}
-              <i v-if="menu.key === 'program'" class="iconfont icon-huawen"></i>
+              
             </div>
+            <i v-if="menu.key === 'program'" class="iconfont icon-huawen"></i>
           
             <!-- 子菜单 -->
             <Transition name="submenu">
@@ -465,7 +466,8 @@ nav {
 }
 
 nav a {
-  display: block;
+  display: inline-flex;
+  align-items: center;
 }
 
 .nav-link-text,
@@ -479,15 +481,19 @@ nav a {
   font-weight: bold;
 }
 
+.nav-link-text {
+  color: var(--color-green);
+}
+
+nav a .iconfont {
+  display: inline-block;
+}
+
 /* hover 时不强制改文字颜色，避免覆盖彩色菜单（Safari 尤其明显） */
 
 /* “小工具”触发器用绿色 */
 .submenu-trigger.green {
   color: var(--color-green);
-}
-
-nav a.router-link-exact-active {
-  color: var(--color-text);
 }
 
 .submenu {
@@ -517,7 +523,8 @@ nav a.router-link-exact-active {
 }
 
 .submenu-container {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   position: relative;
 }
 
