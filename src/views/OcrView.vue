@@ -259,9 +259,123 @@ const postProcessText = (raw) => {
     text = replace66_99Quotes(text)
     text = normalizeEllipsis(text)
     text = unifyZhPunct(text)
+
+    // 将大段空白转成换行（用于把 OCR 的“空格排版”更像分行）
+    // - 仅在中文标点纠错开启时生效，避免影响英文段落
+    // - 2 个以上空格/Tab/全角空格 视为“分隔”
+    text = text
+      .replace(/\u3000/g, ' ')
+      .replace(/[ \t]{2,}/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
   }
 
   return text
+}
+
+const fileToImageBitmap = async (f) => {
+  // 优先 createImageBitmap（更快、解码更稳），不支持则回退到 Image
+  if (typeof createImageBitmap === 'function') {
+    return await createImageBitmap(f)
+  }
+  const url = URL.createObjectURL(f)
+  try {
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = url
+    await new Promise((resolve, reject) => {
+      img.onload = resolve
+      img.onerror = reject
+    })
+    return img
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+const canvasToJpegBlob = async (canvas, quality) => {
+  const q = Math.min(0.95, Math.max(0.5, quality))
+  return await new Promise((resolve) => {
+    canvas.toBlob((b) => resolve(b), 'image/jpeg', q)
+  })
+}
+
+const mergeImagesToSingleFile = async (fileList) => {
+  const bitmaps = []
+  for (const f of fileList) {
+    // eslint-disable-next-line no-await-in-loop
+    bitmaps.push(await fileToImageBitmap(f))
+  }
+
+  // 统一宽度（避免不同截图宽度拼接错位）
+  const maxWidth = 1400
+  const bg = '#ffffff'
+
+  const widths = bitmaps.map((b) => b.width || b.naturalWidth || 0).filter(Boolean)
+  const targetW = Math.min(maxWidth, Math.max(1, ...widths))
+
+  const scaledHeights = bitmaps.map((b) => {
+    const w = b.width || b.naturalWidth
+    const h = b.height || b.naturalHeight
+    if (!w || !h) return 0
+    return Math.round((h * targetW) / w)
+  })
+
+  const totalH = scaledHeights.reduce((sum, h) => sum + h, 0)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = targetW
+  canvas.height = Math.max(1, totalH)
+  const ctx = canvas.getContext('2d', { alpha: false })
+  ctx.fillStyle = bg
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  let y = 0
+  for (let i = 0; i < bitmaps.length; i++) {
+    const b = bitmaps[i]
+    const w = b.width || b.naturalWidth
+    const h = b.height || b.naturalHeight
+    const dh = scaledHeights[i]
+    if (w && h && dh) {
+      ctx.drawImage(b, 0, y, targetW, dh)
+      y += dh
+    }
+  }
+
+  // 目标：尽量不超过 8MB；超了就降质量，仍超就缩放
+  const MAX_BYTES = 8 * 1024 * 1024
+  let quality = 0.9
+  let blob = await canvasToJpegBlob(canvas, quality)
+  if (!blob) throw new Error('合并失败：无法生成图片')
+
+  while (blob.size > MAX_BYTES && quality > 0.6) {
+    quality -= 0.08
+    // eslint-disable-next-line no-await-in-loop
+    blob = await canvasToJpegBlob(canvas, quality)
+    if (!blob) break
+  }
+
+  // 仍超：缩放一次再导出
+  if (blob && blob.size > MAX_BYTES) {
+    const scale = Math.sqrt(MAX_BYTES / blob.size)
+    const w2 = Math.max(600, Math.floor(canvas.width * scale))
+    const h2 = Math.max(600, Math.floor(canvas.height * scale))
+    const c2 = document.createElement('canvas')
+    c2.width = w2
+    c2.height = h2
+    const ctx2 = c2.getContext('2d', { alpha: false })
+    ctx2.fillStyle = bg
+    ctx2.fillRect(0, 0, w2, h2)
+    ctx2.drawImage(canvas, 0, 0, w2, h2)
+    blob = await canvasToJpegBlob(c2, Math.max(0.65, quality))
+  }
+
+  if (!blob) throw new Error('合并失败：无法生成图片')
+  if (blob.size > MAX_BYTES) {
+    throw new Error('合并后的图片过大（>8MB），请减少图片数量或裁剪后重试')
+  }
+
+  return new File([blob], `ocr_merged_${Date.now()}.jpg`, { type: 'image/jpeg' })
 }
 
 const runOcr = async () => {
@@ -271,51 +385,47 @@ const runOcr = async () => {
 
   recognizing.value = true
   runningIndex.value = 0
-  runningTotal.value = files.value.length
-  const parts = []
+  runningTotal.value = 1
 
   try {
-    for (let i = 0; i < files.value.length; i++) {
-      runningIndex.value = i + 1
+    // 0) merge
+    runningIndex.value = 1
+    const mergedFile = await mergeImagesToSingleFile(files.value)
 
-      // 1) upload
-      let imageUrl = ''
-      uploading.value = true
+    // 1) upload once
+    let imageUrl = ''
+    uploading.value = true
+    uploadProgress.value = 0
+    try {
+      const formData = new FormData()
+      formData.append('file', mergedFile)
+      formData.append('folder', 'tools/ocr')
+      const uploadRes = await api.post('/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          if (!progressEvent.total) return
+          uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+        }
+      })
+      imageUrl = uploadRes?.data?.url || ''
+      if (!imageUrl) throw new Error('上传失败：未返回 url')
+    } finally {
+      uploading.value = false
       uploadProgress.value = 0
-      try {
-        const formData = new FormData()
-        formData.append('file', files.value[i])
-        formData.append('folder', 'tools/ocr')
-        const uploadRes = await api.post('/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          onUploadProgress: (progressEvent) => {
-            if (!progressEvent.total) return
-            uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-          }
-        })
-        imageUrl = uploadRes?.data?.url || ''
-        if (!imageUrl) throw new Error('上传失败：未返回 url')
-      } finally {
-        uploading.value = false
-        uploadProgress.value = 0
-      }
-
-      // 2) ocr
-      const payload = {
-        url: imageUrl,
-        type: ocrType.value,
-        languages: languages.value,
-        outputRow: outputRow.value,
-        outputParagraph: outputParagraph.value,
-        outputTable: outputTable.value
-      }
-      const ocrRes = await api.post('/ocr', payload)
-      if (!ocrRes?.data?.success) throw new Error(ocrRes?.data?.message || 'OCR 识别失败')
-      const text = postProcessText(ocrRes?.data?.text || '')
-      if (text && text.trim()) parts.push(text.trimEnd())
     }
 
-    resultText.value = parts.join('\n\n')
+    // 2) ocr once
+    const payload = {
+      url: imageUrl,
+      type: ocrType.value,
+      languages: languages.value,
+      outputRow: outputRow.value,
+      outputParagraph: outputParagraph.value,
+      outputTable: outputTable.value
+    }
+    const ocrRes = await api.post('/ocr', payload)
+    if (!ocrRes?.data?.success) throw new Error(ocrRes?.data?.message || 'OCR 识别失败')
+    resultText.value = postProcessText(ocrRes?.data?.text || '')
     if (!resultText.value) {
       errorMessage.value = '识别完成，但未提取到文字（可尝试切换类型为 Advanced 或 HandWriting）'
     }
