@@ -295,13 +295,13 @@ watch(() => router.path, (newPath) => {
 
       <nav>
         <!-- 遍历生成菜单 -->
+        <i class="iconfont icon-huawen"></i>
         <template v-for="menu in menuConfig" :key="menu.key || menu.path">
           <!-- 一级菜单（无子菜单） -->
           <RouterLink 
             v-if="!menu.children" 
             :to="menu.path"
             class="nav-link">
-            <i class="iconfont icon-huawen"></i>
             <div class="nav-link-text">
               {{ menu.label }}
             </div>
