@@ -777,6 +777,10 @@ onMounted(async() => {
   font-size: 1.5rem;
 }
 
+.icon-edit {
+  font-size: 1.2rem;
+}
+
 .work-detail {
   padding: 40px 0 20px;
   max-width: 1200px;
@@ -1009,7 +1013,7 @@ onMounted(async() => {
   
 .update-time {
   color: #999;
-  font-size: 12px;
+  font-size: 0.8rem;
 }
 
 .materials-section {
@@ -1088,16 +1092,16 @@ onMounted(async() => {
 }
 
 .shop-link .iconfont {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
 }
 
 .shop-link span {
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #999;
 }
 
 .shop-link .price-value {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: #333;
   padding-left: 7px;
 }
@@ -1251,7 +1255,7 @@ onMounted(async() => {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   margin-left: auto;
 }
 

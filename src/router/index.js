@@ -5,6 +5,9 @@ import ArticleDetailView from '../views/ArticleDetailView.vue'
 import GuideView from '../views/GuideView.vue'
 import GuideDetailView from '../views/GuideDetailView.vue'
 import GuideEditor from '../views/GuideEditor.vue'
+import KitchenView from '../views/KitchenView.vue'
+import MenuDetailView from '../views/MenuDetailView.vue'
+import MenuEditor from '../views/MenuEditor.vue'
 import WorkView from '../views/WorkView.vue'
 import WorkDetailView from '../views/WorkDetailView.vue'
 import SetDetailView from '../views/SetDetailView.vue'
@@ -128,6 +131,26 @@ const router = createRouter({
       path: '/guide',
       name: 'guide',
       component: GuideView
+    },
+    {
+      path: '/kitchen',
+      name: 'kitchen',
+      component: KitchenView
+    },
+    {
+      path: '/menu/:id',
+      name: 'menu-detail',
+      component: MenuDetailView
+    },
+    {
+      path: '/menu/new',
+      name: 'menu-new',
+      component: MenuEditor
+    },
+    {
+      path: '/menu/:id/edit',
+      name: 'menu-edit',
+      component: MenuEditor
     },
     {
       path: '/guide/:id',

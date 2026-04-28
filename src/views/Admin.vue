@@ -6,6 +6,7 @@ import { confirm } from '../utils/confirm'
 import { useAuthStore } from '../stores/auth'
 
 const commentsEnabled = ref(true) // 默认启用评论功能
+const ocrUserEnabled = ref(true) // 默认允许普通用户使用 OCR
 const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 
@@ -168,6 +169,7 @@ const toggleComments = async () => {
     await axios.post('/config/set', {
       comment: commentsEnabled.value
     });
+    window.dispatchEvent(new Event('site-config-refresh'))
     // 可选：显示保存成功提示
     // alert('设置已保存');
   } catch (error) {
@@ -178,10 +180,26 @@ const toggleComments = async () => {
   }
 }
 
+// 切换普通用户 OCR 权限并立即保存
+const toggleOcrUserEnabled = async () => {
+  ocrUserEnabled.value = !ocrUserEnabled.value
+  try {
+    await axios.post('/config/set', {
+      ocr_user_enabled: ocrUserEnabled.value
+    })
+    window.dispatchEvent(new Event('site-config-refresh'))
+  } catch (error) {
+    console.error('保存配置失败:', error)
+    alert('保存失败，请重试')
+    ocrUserEnabled.value = !ocrUserEnabled.value
+  }
+}
+
 const loadSettings = async() => {
   try {
-    const response = await axios.get('/config/load')
+    const response = await axios.get('/config/load', { params: { keys: 'comment,ocr_user_enabled' } })
     commentsEnabled.value = response.data.data.comment
+    ocrUserEnabled.value = response.data.data.ocr_user_enabled !== false
   } catch (error) {
     console.error('获取配置失败:', error)
   }
@@ -337,10 +355,21 @@ onMounted(() => {
     <section class="setting-section">
       <h3>评论设置</h3>
       <div class="comment">
-        <div class="toggle-button" @click="toggleComments">
-          <div class="toggle-indicator" :class="{ 'active': commentsEnabled }"></div>
+        <div class="comment-row">
+          <div class="toggle-group">
+            <div class="toggle-button" @click="toggleComments">
+              <div class="toggle-indicator" :class="{ 'active': commentsEnabled }"></div>
+            </div>
+            <span>{{ commentsEnabled ? '评论功能已启用' : '评论功能已禁用' }}</span>
+          </div>
+
+          <div class="toggle-group ocr-toggle">
+            <div class="toggle-button" @click="toggleOcrUserEnabled">
+              <div class="toggle-indicator" :class="{ 'active': ocrUserEnabled }"></div>
+            </div>
+            <span>{{ ocrUserEnabled ? '普通用户可用文字识别' : '普通用户禁用文字识别' }}</span>
+          </div>
         </div>
-        <span>{{ commentsEnabled ? '评论功能已启用' : '评论功能已禁用' }}</span>
       </div>
     </section>
     
@@ -676,6 +705,20 @@ onMounted(() => {
   align-items: center;
 }
 
+.comment-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.toggle-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .toggle-button {
   width: 56px;
   height: 26px;
@@ -684,7 +727,6 @@ onMounted(() => {
   position: relative;
   cursor: pointer;
   transition: background-color 0.3s;
-  margin-right: 20px;
 }
 
 .toggle-indicator {

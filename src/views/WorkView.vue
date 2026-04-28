@@ -999,7 +999,7 @@ onMounted(async () => {
               </div>
               
               <div v-if="canEdit" class="interaction-btn" @click="toggleRecommend($event, work.id)">
-                <i :class="['iconfont', work.recommendWeight > 0 ? 'icon-xingxingtuijian1' : 'icon--xingxingtuijian']"></i>
+                <i :class="['iconfont', work.recommendWeight > 0 ? 'icon-xingxingtuijian1' : 'icon-xingxingtuijian']"></i>
               </div>
             </div>
           </div>
@@ -1228,13 +1228,13 @@ onMounted(async () => {
 }
 
 .add-set-btn {
-  padding: 3px 6px 4px;
+  padding: 3px 6px;
   background-color: var(--color-blue);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1389,6 +1389,11 @@ onMounted(async () => {
   color: #ff6b6b;
 }
 
+.iconfont {
+  font-size: 1.1rem;
+}
+
+
 .shop-link .iconfont {
   font-size: 1.1rem;
 }
@@ -1511,6 +1516,8 @@ onMounted(async () => {
   background-color: transparent;
   border: none;
   cursor: pointer;
+  padding: 0;
+  margin-left: 6px;
 }
 
 .actions button:hover {
@@ -1624,10 +1631,6 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 5px;
-}
-
-.recommended-tag i {
-  font-size: 14px;
 }
 
 .recommended-tag.active {

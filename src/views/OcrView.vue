@@ -15,7 +15,7 @@ const recognizing = ref(false)
 const runningIndex = ref(0)
 const runningTotal = ref(0)
 
-const ocrType = ref('Advanced') // General / Advanced / HandWriting / Table / IdCard ...
+const ocrType = ref('General') // General / Advanced / HandWriting / Table / IdCard ...
 const languages = ref('chn,eng') // MultiLang 时生效
 
 const outputRow = ref(true) // Advanced 时生效
@@ -33,7 +33,16 @@ const zhPunctFix = ref(true)
 const resultText = ref('')
 const errorMessage = ref('')
 
-const canRun = computed(() => files.value.length > 0 && !uploading.value && !recognizing.value)
+import { useAuthStore } from '../stores/auth'
+
+const authStore = useAuthStore()
+const isAdmin = computed(() => authStore.user?.role === 'admin')
+const ocrUserEnabled = ref(true)
+
+const canRun = computed(() => {
+  if (!isAdmin.value && !ocrUserEnabled.value) return false
+  return files.value.length > 0 && !uploading.value && !recognizing.value
+})
 
 const replaceFiles = (list) => {
   errorMessage.value = ''
@@ -113,6 +122,19 @@ const handlePaste = (event) => {
 
 onMounted(() => {
   window.addEventListener('paste', handlePaste)
+  // 加载配置：普通用户是否允许使用 OCR
+  api
+    .get('/config/load', { params: { keys: 'ocr_user_enabled' } })
+    .then((res) => {
+      const v = res?.data?.data?.ocr_user_enabled
+      ocrUserEnabled.value = v !== false
+      if (!isAdmin.value && !ocrUserEnabled.value) {
+        errorMessage.value = '管理员已关闭普通用户文字识别功能'
+      }
+    })
+    .catch(() => {
+      ocrUserEnabled.value = true
+    })
 })
 
 onBeforeUnmount(() => {

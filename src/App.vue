@@ -87,6 +87,19 @@ const menuTimeout = ref(null)
 // 当前显示的二维码索引
 const activeQR = ref(null)
 const isMobile = ref(false)
+const ocrUserEnabled = ref(true)
+const isAdmin = computed(() => authStore.user?.role === 'admin')
+
+const loadSiteConfig = async () => {
+  try {
+    const res = await axios.get('/config/load', { params: { keys: 'ocr_user_enabled' } })
+    const v = res?.data?.data?.ocr_user_enabled
+    // 后端返回布尔；兜底默认 true
+    ocrUserEnabled.value = v !== false
+  } catch {
+    ocrUserEnabled.value = true
+  }
+}
 
 const menuConfig = computed(() => [
   {
@@ -108,7 +121,8 @@ const menuConfig = computed(() => [
     key: 'article',
     children: [
       {label: '文章', path: '/article'},
-      {label: '攻略', path: '/guide'}
+      {label: '攻略', path: '/guide'},
+      {label: '小厨房', path: '/kitchen'}
     ]
   },
   {
@@ -118,7 +132,7 @@ const menuConfig = computed(() => [
       {label: '剧情整理', path: '/story'},
       {label: '颜色管理', path: '/color'},
       {label: '小游戏', path: '/program'},
-      ...(authStore.isAuthenticated ? [{label: '文字识别', path: '/ocr'}] : []),
+      ...(authStore.isAuthenticated && (isAdmin.value || ocrUserEnabled.value) ? [{label: '文字识别', path: '/ocr'}] : []),
     ]
   }
 ])
@@ -202,6 +216,7 @@ onUnmounted(() => {
   stopPendingCommentsPolling()
   document.removeEventListener('visibilitychange', onVisibilityChange)
   window.removeEventListener('pending-comments-refresh', refreshPendingDotThrottled)
+  window.removeEventListener('site-config-refresh', loadSiteConfig)
   removeRouterAfterEach?.()
   removeRouterAfterEach = null
   // 停止自动刷新服务
@@ -212,6 +227,7 @@ onMounted(() => {
   isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
   // 启动自动刷新服务
   imageRefreshService.startAutoRefresh()
+  loadSiteConfig()
   document.addEventListener('visibilitychange', onVisibilityChange)
   if (authStore.isAuthenticated) {
     startPendingCommentsPolling()
@@ -223,6 +239,7 @@ onMounted(() => {
 
   // 管理页审核/删除后会触发事件，顶部栏立即刷新红点
   window.addEventListener('pending-comments-refresh', refreshPendingDotThrottled)
+  window.addEventListener('site-config-refresh', loadSiteConfig)
 })
 
 watch(
@@ -464,16 +481,9 @@ nav a {
 
 /* hover 时不强制改文字颜色，避免覆盖彩色菜单（Safari 尤其明显） */
 
-/* Safari 下 .submenu-trigger.green 文字会变黑：这里显式指定颜色 */
+/* “小工具”触发器用绿色 */
 .submenu-trigger.green {
-  color: var(--color-green) !important;
-  -webkit-text-fill-color: var(--color-green) !important;
-}
-
-.submenu-trigger.green,
-.submenu-trigger.green * {
-  color: var(--color-green) !important;
-  -webkit-text-fill-color: var(--color-green) !important;
+  color: var(--color-green);
 }
 
 nav a.router-link-exact-active {
