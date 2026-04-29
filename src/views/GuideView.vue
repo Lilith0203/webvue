@@ -149,8 +149,7 @@ watch(
 <template>
   <main>
     <div class="content-wrapper">
-      <div v-if="loading" class="loading">加载中...</div>
-      <div v-else-if="error" class="error">{{ error }}</div>
+      <div v-if="error" class="error">{{ error }}</div>
 
       <!-- 分类选择 -->
       <div class="categories-wrapper">
@@ -194,7 +193,12 @@ watch(
             <div class="operation">
               <div class="g-category">
                 <span class="category-label">分类: </span>
-                <span class="category-name">{{ getFullDisplayName(guide.category) }}</span>
+                <span
+                  class="category-name"
+                  @click.stop="selectCategory(guide.category)"
+                >
+                  {{ getFullDisplayName(guide.category) }}
+                </span>
               </div>
               <span v-if="isAdmin" class="edit-delete">
                 <a class="edit" 
@@ -247,30 +251,24 @@ watch(
 .categories-wrapper {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 15px;
   align-items: center;
 }
 
 .category-item {
-  padding: 2px 8px;
-  background: white;
-  border: 1px solid #e4e4e4;
-  border-radius: 6px;
+  padding: 3px 8px;
+  background: #82bd98;
+  border: none;
+  border-radius: 3px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 0.85rem;
+  color: #fff;
   transition: all 0.3s ease;
-}
-
-.category-item:hover {
-  background: #e9ecef;
-  border-color: #adb5bd;
 }
 
 .category-item.active {
   background: #4a90e2;
-  color: white;
-  border-color: #4a90e2;
 }
 
 .g-brief {
@@ -310,22 +308,21 @@ watch(
 }
 
 .g-category {
-  font-size: 14px;
-  line-height: 1.8em;
+  font-size: 0.85rem;
+  line-height: 2em;
 }
 
 .category-label {
   color: #666;
-  font-size: 12px;
 }
 
 .category-name {
-  color: #499e8d;
-  font-size: 0.8rem;
+  color: var(--color-blue);
   transition: all 0.3s ease;
   padding: 0px 0px 1px 0;
   margin: 0 3px;
   border-bottom: 1px dashed #5e5e5e;
+  cursor: pointer;
 }
 
 .category-name:hover {
@@ -334,7 +331,11 @@ watch(
 }
 
 .g-title {
-  line-height: 1.5;
+  line-height: 2.5;
+  /* 消除 h1 默认 margin，并让文字行在自身盒子内垂直居中 */
+  margin: 0;
+  display: flex;
+  align-items: center;
 }
 
 .g-title a {
@@ -342,6 +343,8 @@ watch(
   font-size: 1rem;
   color: #5e5e5e;
   font-weight: bold;
+  display: flex;
+  align-items: center;
 }
 
 .g-title a:hover {
@@ -355,6 +358,7 @@ watch(
 
 .g-brief-text {
   text-indent: 2em;
+  font-size: 0.9rem;
 }
 
 .update-time {
@@ -362,10 +366,6 @@ watch(
   margin-top: 0.5rem;
   font-size: 0.8rem;
   color: #9da09e;
-}
-
-.update-time span {
-  color: #5e5e5e;
 }
 
 .pages {
@@ -416,9 +416,8 @@ watch(
 }
 
 .edit-delete i {
-  margin-left: 10px;
-  padding: 1px;
-  font-size: 1.2rem;
+  padding: 2px;
+  font-size: 1.1rem;
   border-radius: 4px;
 }
 
@@ -433,7 +432,7 @@ watch(
 }
 
 .search-input {
-  padding: 6px;
+  padding: 5px 6px;
   border: 1px solid #ccc;
   border-radius: 4px;
 }

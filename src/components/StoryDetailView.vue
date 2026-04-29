@@ -1230,7 +1230,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .content-wrapper {
   max-width: 900px;
-  margin: 30px auto 0;
+  margin: 20px auto 0;
   min-height: 500px;
 }
 
@@ -1253,7 +1253,7 @@ onBeforeUnmount(() => {
 }
 .articles-header {
   font-size: 0.9rem;
-  margin-bottom: 1rem;
+  margin-bottom: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1628,7 +1628,7 @@ onBeforeUnmount(() => {
 }
 .edit-actions {
   display: flex;
-  gap: 10px;
+  gap: 5px;
   justify-content: flex-end;
 }
 .btn {

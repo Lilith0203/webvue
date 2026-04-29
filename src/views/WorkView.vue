@@ -117,6 +117,37 @@ const getClientId = () => {
   return clientId;
 }
 
+// 批量获取交互数据，避免逐条请求造成 N+1
+const fetchInteractionBatch = async (items, type = 2) => {
+  if (!Array.isArray(items) || items.length === 0) return []
+  const itemIds = items.map((item) => item.id).filter(Boolean)
+  if (itemIds.length === 0) return items
+
+  try {
+    const response = await axios.post('/interaction/batch', {
+      type,
+      itemIds,
+      clientId: getClientId()
+    })
+    const interactionMap = response?.data?.data || {}
+
+    return items.map((item) => {
+      const interaction = interactionMap[item.id] || {}
+      return {
+        ...item,
+        likeCount: interaction.like || 0,
+        recommendWeight: interaction.weight || 0,
+        top: interaction.top || item.top || 0,
+        hasLiked: interaction.hasLiked || false,
+        hasRecommended: (interaction.weight || 0) > 0
+      }
+    })
+  } catch (error) {
+    console.error('批量获取交互数据失败:', error)
+    return items
+  }
+}
+
 // 点赞
 const toggleLike = async (event, workId) => {
   event.stopPropagation() // 阻止事件冒泡，避免触发卡片点击
@@ -285,31 +316,8 @@ const fetchTopWorks = async () => {
       if (topItems.length === 0) {
         return []
       }
-      
-      // 获取每个置顶作品的交互数据
-      const topWorksWithInteraction = await Promise.all(
-        topItems.map(async (work) => {
-          try {
-            const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
-            return {
-              ...work,
-              likeCount: interactionResponse.data.data.like,
-              recommendWeight: interactionResponse.data.data.weight,
-              top: interactionResponse.data.data.top || 0,
-              hasLiked: interactionResponse.data.data.hasLiked || false,
-              hasRecommended: interactionResponse.data.data.hasRecommended || false
-            }
-          } catch (error) {
-            console.error(`获取置顶作品 ${work.id} 的交互数据失败:`, error)
-            return {
-              ...work,
-              top: work.top || 0
-            }
-          }
-        })
-      )
-      
-      return topWorksWithInteraction
+
+      return await fetchInteractionBatch(topItems, 2)
     }
     return []
   } catch (error) {
@@ -342,52 +350,17 @@ const fetchWorks = async () => {
       const topWorks = await fetchTopWorks()
       const topWorkIds = new Set(topWorks.map(w => w.id))
       
-      // 获取每个作品的交互数据，并过滤掉置顶作品（避免重复）
-      const worksWithInteraction = await Promise.all(
-        response.data.works
-          .filter(work => !topWorkIds.has(work.id)) // 过滤掉已置顶的作品
-          .map(async (work) => {
-            try {
-              const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
-              return {
-                ...work,
-                likeCount: interactionResponse.data.data.like,
-                recommendWeight: interactionResponse.data.data.weight,
-                top: interactionResponse.data.data.top || 0,
-                hasLiked: interactionResponse.data.data.hasLiked || false,
-                hasRecommended: interactionResponse.data.data.hasRecommended || false
-              }
-            } catch (error) {
-              console.error(`获取作品 ${work.id} 的交互数据失败:`, error)
-              return work
-            }
-          })
+      // 批量获取交互数据，并过滤掉置顶作品（避免重复）
+      const worksWithInteraction = await fetchInteractionBatch(
+        response.data.works.filter(work => !topWorkIds.has(work.id)),
+        2
       )
       
       // 将置顶作品放在最前面，然后是第一页的其他作品
       works.value = [...topWorks, ...worksWithInteraction]
     } else {
       // 其他页面或有筛选条件时，直接获取作品数据，不受置顶影响
-      const worksWithInteraction = await Promise.all(
-        response.data.works.map(async (work) => {
-          try {
-            const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
-            return {
-              ...work,
-              likeCount: interactionResponse.data.data.like,
-              recommendWeight: interactionResponse.data.data.weight,
-              top: interactionResponse.data.data.top || 0,
-              hasLiked: interactionResponse.data.data.hasLiked || false,
-              hasRecommended: interactionResponse.data.data.hasRecommended || false
-            }
-          } catch (error) {
-            console.error(`获取作品 ${work.id} 的交互数据失败:`, error)
-            return work
-          }
-        })
-      )
-      
-      works.value = worksWithInteraction
+      works.value = await fetchInteractionBatch(response.data.works, 2)
     }
     
     // 总页数按原始数据计算，不受置顶影响
@@ -409,32 +382,12 @@ const fetchIncompleteWorks = async () => {
     const response = await axios.get('/works', {
       params: {
         page: 1,
-        size: 1000, // 获取足够多的未完成作品
+        size: 100, // 获取足够多的未完成作品
         status: 0 // 只获取未完成的作品，不受标签和搜索关键词筛选
       }
     })
     
-    // 获取每个作品的交互数据
-    const worksWithInteraction = await Promise.all(
-      response.data.works.map(async (work) => {
-        try {
-          const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
-          return {
-            ...work,
-            likeCount: interactionResponse.data.data.like,
-            recommendWeight: interactionResponse.data.data.weight,
-            top: interactionResponse.data.data.top || 0,
-            hasLiked: interactionResponse.data.data.hasLiked || false,
-            hasRecommended: interactionResponse.data.data.hasRecommended || false
-          }
-        } catch (error) {
-          console.error(`获取作品 ${work.id} 的交互数据失败:`, error)
-          return work
-        }
-      })
-    )
-    
-    incompleteWorks.value = worksWithInteraction
+    incompleteWorks.value = await fetchInteractionBatch(response.data.works, 2)
   } catch (error) {
     console.error('获取未完成作品列表失败:', error)
   } finally {
@@ -669,28 +622,9 @@ const fetchRecommendedWorks = async () => {
     
     if (response.data.success) {
       const items = response.data.data.items
-      
-      // 获取每个作品的交互数据
-      const worksWithInteraction = await Promise.all(
-        items.map(async (work) => {
-          try {
-            const interactionResponse = await axios.get(`/interaction/2/${work.id}/${getClientId()}`)
-            return {
-              ...work,
-              likeCount: interactionResponse.data.data.like,
-              recommendWeight: interactionResponse.data.data.weight,
-              hasLiked: interactionResponse.data.data.hasLiked || false,
-              hasRecommended: interactionResponse.data.data.hasRecommended || false
-            }
-          } catch (error) {
-            console.error(`获取作品 ${work.id} 的交互数据失败:`, error)
-            return work
-          }
-        })
-      )
-      
-      // 直接替换数据，使用真正的分页
-      recommendedWorks.value = worksWithInteraction
+
+      // 直接替换数据，使用真正的分页（交互数据改为批量获取）
+      recommendedWorks.value = await fetchInteractionBatch(items, 2)
       
       // 计算总页数
       recommendedTotalPages.value = Math.ceil(response.data.data.count / pageSize.value)
@@ -1621,10 +1555,11 @@ onMounted(async () => {
 /* 仅数字用浅色；彩色 iconfont 不设 color，避免盖住字形配色 */
 .interaction-btn > span {
   color: rgba(255, 255, 255, 0.95);
+  font-size: 0.9rem;
 }
 
 .interaction-btn i {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 }
 
 .recommended-tag {

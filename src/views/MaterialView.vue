@@ -730,7 +730,7 @@ const goToMaterialById = (materialId) => {
         <RouterLink 
           v-if="canEdit"
           to="/material/type"
-          class="category-link">分类管理
+          class="category-link"><button class="category-link-btn">分类管理</button>
         </RouterLink>
         <div 
           v-if="isColumnSettingsVisible" 
@@ -779,7 +779,7 @@ const goToMaterialById = (materialId) => {
         
         <div class="form-grid">
           <div v-for="(config, key) in columns" :key="key" class="form-item"
-            :style="{display: key!=='pic'?'block':'none'}">
+            :style="{display: (key!=='pic' && key!=='id' && key!=='actions')?'block':'none'}">
             <template v-if="key !== 'id'">
               <label v-if="key !== 'actions'">{{ config.label }}</label>
               <template v-if="key === 'type'">
@@ -1165,16 +1165,12 @@ const goToMaterialById = (materialId) => {
 
 <style scoped>
 
-.category-link {
-  font-size: 12px;
+.category-link-btn {
+  font-size: 0.8rem;
   background-color: var(--color-blue);
   color: #fff;
-  padding: 5px 8px;
-  border-radius: 4px;;
-}
-
-.category-link:hover {
-  text-decoration: none;
+  padding: 3px 6px 4px;
+  border-radius: 4px;
 }
 
 /* 添加新样式 */
@@ -1185,7 +1181,7 @@ const goToMaterialById = (materialId) => {
 }
 
 .load-more-btn {
-  padding: 4px 6px;
+  padding: 3px 6px;
   background-color: var(--color-blue);
   color: white;
   border: none;
@@ -1335,12 +1331,14 @@ a:hover {
 }
 
 .settings-btn {
-  font-size: 12px;
+  padding: 3px 6px 4px;
+  font-size: 0.8rem;
   background-color: #666;
   color: white;
   display: inline-block;
-  margin-right: 10px;
+  margin-right: 5px;
   border-radius: 4px;
+  border: none;
 }
 
 .column-dropdown {
@@ -1440,7 +1438,7 @@ a:hover {
 
 .modal-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 0.9rem;
 }
 
 .close-btn {
@@ -1459,7 +1457,7 @@ a:hover {
 .form-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 5px;
+  gap: 10px;
   margin-bottom: 10px;
 }
 
@@ -1500,7 +1498,7 @@ a:hover {
   font-size: 0.8rem;
   background-color: var(--color-green);
   color: white;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -1589,7 +1587,7 @@ td:last-child {
 }
 
 .reset-btn {
-  padding: 4px 12px;
+  padding: 3px 10px 4px;
   background-color: #909399;
   color: white;
   border: none;
@@ -1868,15 +1866,6 @@ td .type-input {
     border-collapse: collapse;
     min-width: 800px;
   }
-
-  .modal-content {
-    width: 20%;
-    padding: 15px;
-  }
-  
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* 排序按钮样式 */
@@ -1887,12 +1876,12 @@ td .type-input {
 }
 
 .sort-btn {
-  padding: 4px 8px;
+  padding: 3px 8px 4px;
   background-color: #f0f0f0;
   border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.75rem;
   color: #333;
   transition: all 0.3s;
 }

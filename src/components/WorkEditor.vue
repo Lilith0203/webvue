@@ -1217,9 +1217,10 @@ const handleKeydown = (event) => {
 .form-item input,
 .form-item textarea {
   width: 100%;
-  padding: 8px;
+  padding: 4px 8px 5px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  font-size: 0.85rem;
 }
   
 .tag-input {
@@ -1291,11 +1292,11 @@ const handleKeydown = (event) => {
   
 .remove {
   position: absolute;
-  top: -8px;
+  top: -9px;
   right: -8px;
   width: 20px;
   height: 20px;
-  background: #ff4444;
+  background: var(--color-red);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -1643,6 +1644,27 @@ const handleKeydown = (event) => {
   background-color: #b4b4b4;
   color: #fff;
 }
+
+.editor-toolbar {
+  margin-bottom: 3px;
+}
+
+.editor-toolbar button{
+  border-radius: 3px;
+  border: none;
+  color: #fff;
+  background-color: var(--color-blue);
+  margin-right: 5px;
+}
+
+/* 预览相关样式 */
+.editor-toolbar button.preview-btn {
+  background-color: var(--color-green);
+  color: white;
+  border: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
   
 @media (max-width: 768px) {
     
@@ -1877,21 +1899,6 @@ const handleKeydown = (event) => {
 .quantity-actions .btn {
   padding: 4px 10px;
   font-size: 0.9em;
-}
-
-/* 预览相关样式 */
-.preview-btn {
-  background-color: var(--color-blue);
-  color: white;
-  border: none;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 0.8em;
-  cursor: pointer;
-}
-
-.preview-btn:hover {
-  background-color: var(--color-primary-dark, #2980b9);
 }
 
 .editor-content textarea {
