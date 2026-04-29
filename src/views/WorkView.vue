@@ -1600,6 +1600,7 @@ onMounted(async () => {
   /*justify-content: space-between;*/
   padding: 8px 12px;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.5));
+  opacity: 0.9;
 }
 
 .interaction-btn {
@@ -1619,6 +1620,10 @@ onMounted(async () => {
 
 .interaction-btn i.icon-dianzan {
   color: #e53935;
+}
+
+.interaction-btn i.icon-dianzan-0 {
+  color: #fff;
 }
 
 .interaction-btn i.icon-xingxingtuijian1 {
