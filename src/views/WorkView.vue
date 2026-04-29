@@ -1350,9 +1350,9 @@ onMounted(async () => {
 }
 
 .tag {
-  padding: 2px 8px 1px;
+  padding: 2px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;
@@ -1376,7 +1376,6 @@ onMounted(async () => {
 }
 
 .tags .tag {
-  font-size: 0.75rem;
   padding: 0 4px 0 0;
   /* 颜色通过 getTagStyle 函数动态设置 */
 }
