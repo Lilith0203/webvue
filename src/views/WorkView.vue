@@ -1374,11 +1374,10 @@ onMounted(async () => {
 }
 
 .shop-link {
-  color: #499e8d;
   text-decoration: none;
   display: inline-flex;
   align-items: center;
-  transition: transform 0.2s ease, color 0.2s ease;
+  transition: transform 0.2s ease, opacity 0.2s ease;
   flex-shrink: 0;
   margin-left: 4px;
   padding: 0;
@@ -1386,13 +1385,14 @@ onMounted(async () => {
 
 .shop-link:hover {
   transform: scale(1.2);
-  color: #ff6b6b;
+  opacity: 0.92;
 }
 
 .iconfont {
   font-size: 1.1rem;
 }
 
+/* 彩色 iconfont：不在此处设置 color / -webkit-text-fill，避免盖住字形配色 */
 
 .shop-link .iconfont {
   font-size: 1.1rem;
@@ -1582,13 +1582,14 @@ onMounted(async () => {
   background: transparent;
   border: none;
   cursor: pointer;
-  color: #999;
   padding: 0;
   font-size: 14px;
+  opacity: 0.75;
+  transition: opacity 0.2s ease;
 }
 
 .search-btn:hover {
-  color: var(--color-blue);
+  opacity: 1;
 }
 
 .interaction-overlay {
@@ -1600,6 +1601,9 @@ onMounted(async () => {
   /*justify-content: space-between;*/
   padding: 8px 12px;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.5));
+  /* Safari：叠在渐变/图片上时减少绘制错位；不修改 icon 颜色 */
+  isolation: isolate;
+  transform: translateZ(0);
   opacity: 0.9;
 }
 
@@ -1608,26 +1612,19 @@ onMounted(async () => {
   align-items: center;
   gap: 5px;
   cursor: pointer;
-  color: white;
   padding: 5px;
   border-radius: 20px;
   transition: all 0.3s ease;
+  isolation: isolate;
+}
+
+/* 仅数字用浅色；彩色 iconfont 不设 color，避免盖住字形配色 */
+.interaction-btn > span {
+  color: rgba(255, 255, 255, 0.95);
 }
 
 .interaction-btn i {
   font-size: 1.2rem;
-}
-
-.interaction-btn i.icon-dianzan {
-  color: #e53935;
-}
-
-.interaction-btn i.icon-dianzan-0 {
-  color: #fff;
-}
-
-.interaction-btn i.icon-xingxingtuijian1 {
-  color: #ffc107;
 }
 
 .recommended-tag {
@@ -1673,7 +1670,7 @@ onMounted(async () => {
 
 .no-recommended i {
   font-size: 48px;
-  color: #ddd;
+  opacity: 0.45;
 }
 
 /* 在售标记样式 */
@@ -1722,7 +1719,6 @@ onMounted(async () => {
 
 .top-btn i {
   font-size: 1.2rem;
-  color: white;
   transition: opacity 0.3s ease;
 }
 
@@ -1733,7 +1729,6 @@ onMounted(async () => {
 
 /* 置顶后透明度1 */
 .top-btn i.icon-zhiding1 {
-  color: #ffc107;
   opacity: 1;
 }
 
