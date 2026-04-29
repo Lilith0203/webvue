@@ -260,12 +260,12 @@ const postProcessText = (raw) => {
     text = normalizeEllipsis(text)
     text = unifyZhPunct(text)
 
-    // 将大段空白转成换行（用于把 OCR 的“空格排版”更像分行）
+    // 将空白转成换行（用于把 OCR 的“空格排版”更像分行）
     // - 仅在中文标点纠错开启时生效，避免影响英文段落
-    // - 2 个以上空格/Tab/全角空格 视为“分隔”
+    // - 任意个空格/Tab（含单个）视为分行；全角空格先归一为半角再匹配
     text = text
       .replace(/\u3000/g, ' ')
-      .replace(/[ \t]{2,}/g, '\n')
+      .replace(/[ \t]+/g, '\n')
       .replace(/\n{3,}/g, '\n\n')
       .trim()
   }
