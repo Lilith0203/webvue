@@ -41,9 +41,12 @@ const processMarkdownContent = (content) => {
   if (!content) return ''
   
   // 使用marked渲染Markdown
-  // 转义星号，防止被Markdown解析为斜体
-  const escapedContent = content.replace(/\*/g, '\\*')
-  let rendered = marked(escapedContent)
+  // 仅转义“单个 *”，避免误触发斜体；保留 **粗体** 可正常渲染
+  const STAR_SENTINEL = '__MD_BOLD_STAR__'
+  const keepBold = content.replace(/\*\*/g, STAR_SENTINEL)
+  const escapedSingles = keepBold.replace(/\*/g, '\\*')
+  const restored = escapedSingles.replace(new RegExp(STAR_SENTINEL, 'g'), '**')
+  let rendered = marked(restored)
   
   // 为所有标签颜色添加内联样式
   tagColors.value.forEach(color => {
@@ -196,20 +199,25 @@ onUnmounted(() => {
     <div v-else-if="error" class="error">{{ error }}</div>
     <article v-else-if="guide" class="g-complete">
       <h1 class="g-title">{{ guide.title }}
-        <a href="#" 
+        <a href="#" class="edit-icon"
            v-if="isAdmin"
            @click.prevent="router.push(`/guide/${guide.id}/edit`)">
           <i class="iconfont icon-edit"></i>
         </a>
       </h1>
       <div class="meta">
+        <p v-if="guide.category" class="tags">
+          游戏：<span class="category-tag">{{ guide.category }}</span>
+          
+          <span v-if="guide.tags" class="inline-tags">
+            标签：<span
+              v-for="tag in guide.tags.split(',').map(t => t.trim()).filter(Boolean)"
+              :key="tag"
+            >
+              {{ tag }}
+            </span>          </span>
+        </p>
         <span class="date">最后更新时间: {{ formatDate(guide.updatedAt) }}</span>
-        <p v-if="guide.category" class="tags">分类：
-          <span class="category-tag">{{ guide.category }}</span>
-        </p>
-        <p v-if="guide.tags" class="tags">标签：
-          <a v-for="tag in guide.tags.split(',')" :key="tag" href="#" @click.prevent="router.push(`/guide?tag=${tag.trim()}`)">{{ tag.trim() }}</a>
-        </p>
       </div>
       <div class="guide-content" v-html="guide.renderedContent"></div>
     </article>
@@ -237,6 +245,15 @@ onUnmounted(() => {
   font-size: 1.1rem;
   line-height: 1.8;
   font-weight: bold;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-icon {
+  display: inline-flex;
+  align-items: center;
 }
 
 .meta {
@@ -251,12 +268,12 @@ onUnmounted(() => {
 }
 
 .date {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: #9da09e;
 }
 
 .tags {
-  margin-top: 0.5rem;
+  margin: 0.5rem 0;
 }
 
 .tags a {
@@ -272,8 +289,22 @@ onUnmounted(() => {
 .category-tag {
   color: #499e8d;
   padding: 0px 0 1px 0;
-  font-size: 0.8rem;
   border-bottom: 1px dashed #499e8d;
+}
+
+.inline-tags {
+  margin-left: 20px;
+}
+
+.inline-tags span {
+  color: var(--color-blue);
+  padding: 0 0 1px 0;
+  margin-right: 0.3rem;
+  border-bottom: 1px dashed #499e8d;
+}
+
+.edit-icon {
+  padding: 0;
 }
 
 .icon-edit {

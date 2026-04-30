@@ -112,6 +112,14 @@ const selectCategory = (category) => {
   })
 }
 
+// 进入详情时带上当前列表查询参数（用于返回时保持分类/页码等状态）
+const goToGuideDetail = (id) => {
+  router.push({
+    path: `/guide/${id}`,
+    query: { ...route.query }
+  })
+}
+
 // 处理删除
 const handleDelete = async (id) => {
   if (await confirm('确定要删除这个攻略吗？')) {
@@ -189,15 +197,27 @@ watch(
             <span>{{ formatDate(guide.createdAt).month_en }}.</span><br/>
             <span>{{ formatDate(guide.createdAt).year }}</span>
           </time>
+          <div v-if="guide.thumbnail" class="g-thumb" @click.prevent="goToGuideDetail(guide.id)">
+            <img :src="guide.thumbnail" :alt="guide.title || '缩略图'" />
+          </div>
           <div class="g-content">
             <div class="operation">
               <div class="g-category">
-                <span class="category-label">分类: </span>
+                <span class="category-label">游戏: </span>
                 <span
                   class="category-name"
                   @click.stop="selectCategory(guide.category)"
                 >
                   {{ getFullDisplayName(guide.category) }}
+                </span>
+                <span v-if="guide.tags" class="g-tags">
+                  <span
+                    v-for="tag in guide.tags.split(',').map(t => t.trim()).filter(Boolean)"
+                    :key="tag"
+                    class="g-tag"
+                  >
+                    {{ tag }}
+                  </span>
                 </span>
               </div>
               <span v-if="isAdmin" class="edit-delete">
@@ -207,10 +227,10 @@ watch(
                 <a class="delete" href="#" @click.prevent="handleDelete(guide.id)"><i class="iconfont icon-ashbin"></i></a>
               </span>
             </div>
-            <h1 class="g-title"><a href="#" @click.prevent="router.push(`/guide/${guide.id}`)">{{guide.title}}</a></h1>
+            <h1 class="g-title"><a href="#" @click.prevent="goToGuideDetail(guide.id)">{{guide.title}}</a></h1>
             <div class="g-brief-text">
               <p>{{ guide.content ? guide.content.substring(0, 50) + (guide.content.length > 100 ? '...' : '') : '' }}
-                <a href="#" @click.prevent="router.push(`/guide/${guide.id}`)" class="read-detail">（阅读全文）</a>
+                <a href="#" @click.prevent="goToGuideDetail(guide.id)" class="read-detail">（阅读全文）</a>
               </p>
             </div>
             <time class="update-time" :datetime="guide?.updatedAt">最后更新时间：<span>{{ formatUpdateTime(guide.updatedAt) }}</span></time>
@@ -298,6 +318,25 @@ watch(
   font-size: 18px;
 }
 
+.g-thumb {
+  width: 140px;
+  height: 86px;
+  margin-right: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #eee;
+  background: #fafafa;
+  flex: 0 0 140px;
+  cursor: pointer;
+}
+
+.g-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .g-content {
   flex: 1;
 }
@@ -310,6 +349,25 @@ watch(
 .g-category {
   font-size: 0.85rem;
   line-height: 2em;
+}
+
+.g-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: 12px;
+  vertical-align: middle;
+}
+
+.g-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #eb7785;
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .category-label {
@@ -371,6 +429,7 @@ watch(
 .pages {
   text-align: center;
   color: #9da09e;
+  font-size: 0.95rem;
 }
 
 .pages span, .pages a {
@@ -379,7 +438,7 @@ watch(
 }
 
 .pages .cur {
-  font-size: 1.1rem;
+  font-size: 1rem;
   padding: 0;
   margin-right: 2px;
   color: #5e5e5e

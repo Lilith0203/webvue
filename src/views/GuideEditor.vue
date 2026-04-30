@@ -16,6 +16,7 @@ const newTag = ref('')
 const showPreview = ref(false)
 const contentEditor = ref(null)
 const imageInput = ref(null)
+const thumbInput = ref(null)
 const isDragging = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref(0)
@@ -26,12 +27,18 @@ const guideForm = ref({
   title: '',
   tags: [],
   content: '',
-  category: ''
+  category: '',
+  thumbnail: ''
 })
 
 // 触发文件选择
 const triggerImageUpload = () => {
   imageInput.value.click()
+}
+
+// 触发缩略图选择
+const triggerThumbUpload = () => {
+  if (thumbInput.value) thumbInput.value.click()
 }
 
 // 处理文件上传
@@ -71,6 +78,50 @@ const uploadImage = async (file) => {
   }
 }
 
+// 上传缩略图（只更新表单 thumbnail 字段，不插入正文）
+const uploadThumbnail = async (file) => {
+  if (!file || !file.type.startsWith('image/')) {
+    message.alert('请选择图片文件')
+    return
+  }
+
+  uploading.value = true
+  uploadProgress.value = 0
+
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('folder', 'guide/thumb')
+
+    const response = await axios.post('/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      onUploadProgress: (progressEvent) => {
+        uploadProgress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+      }
+    })
+
+    let imageUrl = response.data.url
+    try {
+      const urlObj = new URL(imageUrl)
+      const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token', 'x-oss-process']
+      paramsToRemove.forEach((param) => urlObj.searchParams.delete(param))
+      imageUrl = urlObj.toString()
+    } catch {
+      // ignore
+    }
+
+    guideForm.value.thumbnail = imageUrl
+  } catch (error) {
+    console.error('缩略图上传失败:', error)
+    alert('缩略图上传失败')
+  } finally {
+    uploading.value = false
+    uploadProgress.value = 0
+  }
+}
+
 // 插入Markdown图片语法
 const insertImageMarkdown = (imageUrl) => {
   const textarea = contentEditor.value
@@ -100,6 +151,14 @@ const handleImageUpload = (event) => {
   const file = event.target.files[0]
   if (file) {
     uploadImage(file)
+  }
+  event.target.value = ''
+}
+
+const handleThumbUpload = (event) => {
+  const file = event.target.files[0]
+  if (file) {
+    uploadThumbnail(file)
   }
   event.target.value = ''
 }
@@ -135,7 +194,8 @@ const fetchGuide = async () => {
       title: guide.title,
       tags: guide.tags ? guide.tags.split(',').filter(tag => tag.trim()) : [],
       content: guide.content,
-      category: guide.category
+      category: guide.category,
+      thumbnail: guide.thumbnail || ''
     }
   } catch (error) {
     console.error('获取攻略失败:', error)
@@ -151,9 +211,13 @@ onMounted(fetchGuide)
 // Markdown 预览
 const renderedContent = computed(() => {
   if (!guideForm.value.content) return ''
-  // 转义星号，防止被Markdown解析为斜体
-  const escapedContent = guideForm.value.content.replace(/\*/g, '\\*')
-  return marked(escapedContent)
+  // 仅转义“单个 *”，避免误触发斜体；保留 **粗体** 可正常渲染
+  // 说明：此前全量转义 * 会导致 **xxx** 无法触发粗体
+  const STAR_SENTINEL = '__MD_BOLD_STAR__'
+  const keepBold = guideForm.value.content.replace(/\*\*/g, STAR_SENTINEL)
+  const escapedSingles = keepBold.replace(/\*/g, '\\*')
+  const restored = escapedSingles.replace(new RegExp(STAR_SENTINEL, 'g'), '**')
+  return marked(restored)
 })
   
 // 添加标签
@@ -291,6 +355,27 @@ onUnmounted(() => {
           </option>
         </select>
       </div>
+
+      <div class="form-group">
+        <label>缩略图</label>
+        <div class="thumb-uploader">
+          <button type="button" class="thumb-upload-btn" @click="triggerThumbUpload">
+            {{ guideForm.thumbnail ? '更换缩略图' : '上传缩略图' }}
+          </button>
+          <input
+            type="file"
+            ref="thumbInput"
+            @change="handleThumbUpload"
+            accept="image/*"
+            style="display: none"
+          >
+
+          <div v-if="guideForm.thumbnail" class="thumb-preview">
+            <img :src="guideForm.thumbnail" alt="缩略图预览">
+            <button type="button" class="thumb-remove-btn" @click="guideForm.thumbnail = ''">×</button>
+          </div>
+        </div>
+      </div>
   
       <div class="form-group">
         <label>标签</label>
@@ -314,8 +399,8 @@ onUnmounted(() => {
               v-model="newTag"
               @keydown.enter.prevent="addTag"
               @keydown.comma.prevent="addTag"
-              placeholder="输入标签，按Enter或逗号添加"
-              maxlength="20">
+              placeholder="按Enter或逗号添加"
+              maxlength="30">
           </div>
         </div>
       </div>
@@ -390,7 +475,7 @@ onUnmounted(() => {
 
 .publish-guide h2 {
   font-weight: bold;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
   font-size: 1.1rem;
 }
 
@@ -406,6 +491,58 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.thumb-uploader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.thumb-upload-btn {
+  padding: 4px 8px;
+  border: 1px dashed #d0d0d0;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.thumb-upload-btn:hover {
+  border-color: var(--color-blue);
+}
+
+.thumb-preview {
+  position: relative;
+  width: 160px;
+  height: 90px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #eee;
+  background: #fafafa;
+}
+
+.thumb-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.thumb-remove-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  line-height: 22px;
+  padding: 0;
+}
+
 label {
   font-weight: bold;
   color: #333;
@@ -414,10 +551,10 @@ label {
 input[type="text"],
 textarea,
 select {
-  padding: 8px 12px;
+  padding: 6px 6px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 0.85rem;
 }
 
 select {
@@ -459,10 +596,10 @@ select:focus {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 6px;
+  padding: 1px 0px 1px 6px;
   background-color: #e0e0e0;
-  border-radius: 4px;
-  font-size: 14px;
+  border-radius: 3px;
+  font-size: 0.8rem;
 }
 
 .tag button {
@@ -479,11 +616,10 @@ select:focus {
   padding: 8px;
   background-color: #f5f5f5;
   border-radius: 4px;
-  margin-bottom: 8px;
 }
 
 .editor-toolbar button {
-  padding: 4px 8px;
+  padding: 2px 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: white;
@@ -519,12 +655,13 @@ select:focus {
 }
 
 .preview-btn,
-.publish-btn {
-  padding: 8px 16px;
+.publish-btn,
+.cancel-btn {
+  padding: 4px 10px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 0.8rem;
 }
 
 .preview-btn {
@@ -533,7 +670,7 @@ select:focus {
 }
 
 .publish-btn {
-  background-color: #007bff;
+  background-color: var(--color-blue);
   color: white;
 }
 
@@ -548,13 +685,8 @@ select:focus {
 }
   
 .cancel-btn {
-  font-size: 14px;
-  padding: 8px 16px;
-  background-color: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
+  background-color: var(--color-red);
+  color: #fff;
 }
   
 .cancel-btn:hover {
