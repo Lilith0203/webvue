@@ -42,10 +42,10 @@ onMounted(fetchMenu)
   <main>
     <div class="content-wrapper">
       <div class="head">
-        <span class="back" @click="router.back()">← 返回</span>
+        <span class="back" @click="router.push('/kitchen')">← 返回</span>
         <div class="actions" v-if="isAdmin && menu">
-          <button class="btn" @click="router.push(`/menu/${menu.id}/edit`)">编辑</button>
-          <button class="btn danger" @click="handleDelete">删除</button>
+          <button class="btn" @click="router.push(`/menu/${menu.id}/edit`)"><i class="iconfont icon-edit"></i></button>
+          <button class="btn danger" @click="handleDelete"><i class="iconfont icon-ashbin"></i></button>
         </div>
       </div>
 
@@ -74,14 +74,30 @@ onMounted(fetchMenu)
 </template>
 
 <style scoped>
+h3 {
+  font-size: 0.9rem;
+}
 .content-wrapper { max-width: 900px; margin: 20px auto; }
 .head { display:flex; align-items:center; justify-content: space-between; margin-bottom: 10px; }
 .back { color:#499e8d; cursor:pointer; }
 .actions { display:flex; gap: 10px; }
-.btn { border:1px solid #ddd; border-radius:6px; padding:6px 10px; background:#fff; cursor:pointer; }
+.btn { 
+  border: none;
+  padding: 0; 
+  background:transparent; 
+  cursor:pointer; 
+}
+
+.btn i{ 
+  font-size: 1.2rem;
+}
+
 .btn.danger { border-color:#e7b1b1; color:#c0392b; }
 .card { border:1px dashed #e6e6e6; border-radius: 8px; padding: 14px; background:#fff; }
-.title { margin: 0 0 8px; font-size: 1.2rem; }
+.title { 
+  margin: 0 0 8px; 
+  font-size: 1.2rem; 
+}
 .meta { color:#666; margin-bottom: 10px; }
 .label { color:#888; }
 .pics { display:grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 10px 0; }

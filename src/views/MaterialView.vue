@@ -221,7 +221,14 @@ const fetchTypeTree = async () => {
     // 构建id和typeName的映射
     buildTypeMap(typeTree.value)
   } catch (err) {
-    error.value = "获取类型数据失败：" + err.message
+    // 未登录（401）或无权限时：按“空类型树”处理，不显示报错
+    if (err?.response?.status === 401) {
+      typeTree.value = []
+      typeMap.value = new Map()
+      error.value = null
+    } else {
+      error.value = "获取类型数据失败：" + err.message
+    }
   }
 }
 
@@ -566,9 +573,12 @@ watch(
   () => authStore.isAuthenticated,
   (loggedIn) => {
     if (loggedIn) {
+      fetchTypeTree()
       fetchMaterialData()
     } else {
       materialData.value = []
+      typeTree.value = []
+      typeMap.value = new Map()
       error.value = null
     }
   },
@@ -678,8 +688,16 @@ onMounted(async() => {
     }
   })
   loadColumnSettings()
-  await fetchTypeTree()
-  await fetchMaterialData()
+  // 未登录：不请求数据，直接显示空列表
+  if (authStore.isAuthenticated) {
+    await fetchTypeTree()
+    await fetchMaterialData()
+  } else {
+    materialData.value = []
+    typeTree.value = []
+    typeMap.value = new Map()
+    error.value = null
+  }
   
   // 检查URL查询参数中的ID
   if (route.query.id) {

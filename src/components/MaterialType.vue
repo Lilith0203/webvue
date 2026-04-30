@@ -1,10 +1,13 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import axios from '../api'
 import { confirm } from '../utils/confirm'
+import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
+const canEdit = computed(() => authStore.isAuthenticated)
 
 const typeTree = ref([])
 const loading = ref(false)
@@ -33,8 +36,14 @@ const fetchTypeTree = async () => {
     const response = await axios.get('/getMaterialType')
     typeTree.value = response.data.typetree
   } catch (err) {
-    error.value = "获取类型数据失败：" + err.message
-    console.error('Fetch error:', err)
+    // 未登录（401）时：按空树处理，不显示报错
+    if (err?.response?.status === 401) {
+      typeTree.value = []
+      error.value = null
+    } else {
+      error.value = "获取类型数据失败：" + err.message
+      console.error('Fetch error:', err)
+    }
   } finally {
     loading.value = false
   }
@@ -60,6 +69,7 @@ const startEdit = (type) => {
 
 // 保存编辑
 const saveEdit = async () => {
+  if (!canEdit.value) return
   try {
     await axios.post(`/updateMaterialType`, editForm.value)
     await fetchTypeTree() // 重新加载数据
@@ -80,6 +90,7 @@ const cancelEdit = () => {
 
 // 删除类型
 const deleteType = async (typeId) => {
+  if (!canEdit.value) return
   if (!await confirm('确定要删除此类型吗？')) {
     return
   }
@@ -94,6 +105,7 @@ const deleteType = async (typeId) => {
 
 // 添加新类型
 const addType = async () => {
+  if (!canEdit.value) return
   try {
     await axios.post('/addMaterialType', newTypeForm.value)
     await fetchTypeTree() // 重新加载数据
@@ -110,8 +122,27 @@ const goBackToMaterials = () => {
 }
 
 onMounted(() => {
-  fetchTypeTree()
+  // 未登录：不请求数据，直接显示空树
+  if (canEdit.value) {
+    fetchTypeTree()
+  } else {
+    typeTree.value = []
+    error.value = null
+  }
 })
+
+// 登录状态变化时自动刷新/清空（未登录不请求）
+watch(
+  () => authStore.isAuthenticated,
+  (loggedIn) => {
+    if (loggedIn) {
+      fetchTypeTree()
+    } else {
+      typeTree.value = []
+      error.value = null
+    }
+  }
+)
 </script>
 
 <template>
@@ -130,12 +161,12 @@ onMounted(() => {
     <div v-if="loading" class="loading">加载中...</div>
     
     <!-- 添加新类型按钮 -->
-    <button class="add-button" @click="isAddingType = true">
+    <button v-if="canEdit" class="add-button" @click="isAddingType = true">
       添加新类型
     </button>
     
     <!-- 新增类型表单 -->
-    <div v-if="isAddingType" class="add-form">
+    <div v-if="canEdit && isAddingType" class="add-form">
       <input 
         v-model="newTypeForm.typeName"
         placeholder="输入类型名称">
@@ -176,7 +207,7 @@ onMounted(() => {
           </template>
           <template v-else>
             <span class="type-name">{{ type.typeName }}</span>
-            <div class="actions">
+            <div v-if="canEdit" class="actions">
               <button @click="startEdit(type)">编辑</button>
               <button @click="deleteType(type.id)">删除</button>
             </div>
@@ -202,7 +233,7 @@ onMounted(() => {
             </template>
             <template v-else>
               <span class="type-name">{{ child.typeName }}</span>
-              <div class="actions">
+              <div v-if="canEdit" class="actions">
                 <button @click="startEdit(child)">编辑</button>
                 <button @click="deleteType(child.id)">删除</button>
               </div>

@@ -145,7 +145,7 @@ onMounted(() => {
 
         <div class="row">
           <label>图片（多图）</label>
-          <input type="file" accept="image/*" multiple @change="onPickPictures" />
+          <input class="file-upload" type="file" accept="image/*" multiple @change="onPickPictures" />
           <div v-if="uploading" class="progress">上传中：{{ uploadProgress }}%</div>
           <div v-if="form.pictures.length" class="pics">
             <div v-for="(u, idx) in form.pictures" :key="u + idx" class="pic-item">
@@ -170,9 +170,24 @@ onMounted(() => {
 .form { border:1px dashed #e6e6e6; border-radius: 8px; padding: 14px; background:#fff; }
 .row { display:flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
 label { color:#666; font-size: 0.9rem; }
-input, textarea { border:1px solid #ddd; border-radius: 6px; padding: 8px 10px; font-size: 0.95rem; }
+input, textarea { 
+  border:1px solid #ddd; 
+  border-radius: 6px; 
+  padding: 8px 10px; 
+  font-size: 0.9rem; 
+}
+
+.file-upload {
+  font-size: 0.8rem;
+}
 .actions { display:flex; gap: 10px; }
-.btn { border:1px solid #ddd; border-radius: 6px; padding: 6px 12px; background:#fff; cursor:pointer; }
+.btn { 
+  border:1px solid #ddd; 
+  border-radius: 4px; 
+  padding: 3px 10px; 
+  background:#fff; 
+  cursor:pointer; 
+}
 .btn.primary { background: var(--color-blue); color:#fff; border-color: transparent; }
 .progress { color:#666; font-size: 12px; margin-top: 6px; }
 .pics { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 8px; }
