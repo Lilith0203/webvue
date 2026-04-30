@@ -192,7 +192,8 @@ watch(
 
       <div class="list-wrapper" v-if="backendData">
         <article class="g-brief" v-for="guide in backendData.guides" :key="guide.id">
-          <div v-if="guide.thumbnail" class="g-thumb" @click.prevent="goToGuideDetail(guide.id)">
+          <!-- 桌面端：缩略图在最左侧 -->
+          <div v-if="guide.thumbnail" class="g-thumb desktop-thumb" @click.prevent="goToGuideDetail(guide.id)">
             <img :src="guide.thumbnail" :alt="guide.title || '缩略图'" />
           </div>
           <div class="g-content">
@@ -221,6 +222,10 @@ watch(
                   @click.prevent="router.push(`/guide/${guide.id}/edit`)"><i class="iconfont icon-edit"></i></a>
                 <a class="delete" href="#" @click.prevent="handleDelete(guide.id)"><i class="iconfont icon-ashbin"></i></a>
               </span>
+            </div>
+            <!-- 手机端：缩略图放在分类标签下面、标题上面 -->
+            <div v-if="guide.thumbnail" class="g-thumb mobile-thumb" @click.prevent="goToGuideDetail(guide.id)">
+              <img :src="guide.thumbnail" :alt="guide.title || '缩略图'" />
             </div>
             <h1 class="g-title"><a href="#" @click.prevent="goToGuideDetail(guide.id)">{{guide.title}}</a></h1>
             <div class="g-brief-text">
@@ -310,6 +315,31 @@ watch(
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+/* 默认：只显示桌面端缩略图位置 */
+.mobile-thumb {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  /* 手机端：缩略图放进内容区，列表左侧不留图 */
+  .desktop-thumb {
+    display: none;
+  }
+
+  .mobile-thumb {
+    display: block;
+    width: 100%;
+    max-width: 520px;
+    height: 160px;
+    margin: 8px 0 6px;
+    flex: none;
+  }
+
+  .g-brief {
+    display: block;
+  }
 }
 
 .g-content {
