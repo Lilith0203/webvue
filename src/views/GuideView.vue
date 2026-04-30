@@ -192,11 +192,6 @@ watch(
 
       <div class="list-wrapper" v-if="backendData">
         <article class="g-brief" v-for="guide in backendData.guides" :key="guide.id">
-          <time :datetime="guide?.createdAt" class="create-time">
-            <span class="time-date">{{ formatDate(guide.createdAt).month }}.{{ formatDate(guide.createdAt).day }}</span><br/>
-            <span>{{ formatDate(guide.createdAt).month_en }}.</span><br/>
-            <span>{{ formatDate(guide.createdAt).year }}</span>
-          </time>
           <div v-if="guide.thumbnail" class="g-thumb" @click.prevent="goToGuideDetail(guide.id)">
             <img :src="guide.thumbnail" :alt="guide.title || '缩略图'" />
           </div>
@@ -229,7 +224,7 @@ watch(
             </div>
             <h1 class="g-title"><a href="#" @click.prevent="goToGuideDetail(guide.id)">{{guide.title}}</a></h1>
             <div class="g-brief-text">
-              <p>{{ guide.content ? guide.content.substring(0, 50) + (guide.content.length > 100 ? '...' : '') : '' }}
+              <p>{{ guide.content ? guide.content.substring(0, 40) + (guide.content.length > 100 ? '...' : '') : '' }}
                 <a href="#" @click.prevent="goToGuideDetail(guide.id)" class="read-detail">（阅读全文）</a>
               </p>
             </div>
@@ -298,30 +293,10 @@ watch(
   padding-bottom: 0.5rem;
 }
 
-.create-time {
-  flex: 0 0 60px;
-  height: 86px;
-  padding-top: 15px;
-  margin-right: 12px;
-  background: url(/images/article-time.png) no-repeat;
-  color: #d6d6d6;
-  text-align: center;
-  font-size: 12px;
-  line-height: initial;
-}
-
-.create-time span {
-  font-weight: bold;
-}
-
-.time-date {
-  font-size: 18px;
-}
-
 .g-thumb {
-  width: 140px;
+  width: 120px;
   height: 86px;
-  margin-right: 12px;
+  margin: 10px 10px 0 0;
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid #eee;

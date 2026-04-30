@@ -211,7 +211,7 @@ watch(
 
 .publish-new {
   background-color: #499e8d;
-  padding: 0px 4px;
+  padding: 0px 5px;
   border-radius: 4px;
   margin-left: auto;
 }
