@@ -1228,7 +1228,7 @@ const goToMaterialById = (materialId) => {
 }
 
 .material-table {
-  font-size: 12px;
+  font-size: 0.8rem;
   margin: 20px 0;
   overflow-x: auto;
 }
@@ -1241,7 +1241,7 @@ table {
 
 th, td {
   border: 1px solid #ddd;
-  padding: 5px;
+  padding: 4px 5px;
   text-align: left;
   max-width: 100px;
   white-space: normal; /* 允许文本换行 */
@@ -1503,7 +1503,7 @@ a:hover {
   padding: 4px 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 0.8rem;
 }
 
 .form-textarea {
@@ -1523,7 +1523,7 @@ a:hover {
 }
 
 .save-btn {
-  font-size: 12px;
+  font-size: 0.8rem;
   background-color: var(--color-green);
   color: white;
   padding: 2px 6px;
@@ -1532,7 +1532,7 @@ a:hover {
 }
 
 .cancel-btn {
-  font-size: 12px;
+  font-size: 0.8rem;
   background-color: var(--color-red);
   color: white;
   padding: 2px 6px;
@@ -1852,7 +1852,7 @@ td .type-input {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.8rem;
 }
 
 .upload-progress {

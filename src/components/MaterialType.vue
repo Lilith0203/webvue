@@ -91,10 +91,23 @@ const cancelEdit = () => {
 // 删除类型
 const deleteType = async (typeId) => {
   if (!canEdit.value) return
-  if (!await confirm('确定要删除此类型吗？')) {
+  let materialCount = 0
+  try {
+    const res = await axios.get('/material/countByType', { params: { type: typeId } })
+    materialCount = typeof res.data?.count === 'number' ? res.data.count : 0
+  } catch (err) {
+    if (err?.response?.status === 401) return
+    error.value = '检查材料数量失败：' + (err?.message || '')
     return
   }
-  
+  const msg =
+    materialCount > 0
+      ? `该类型下仍有 ${materialCount} 条材料；删除类型不会删除这些材料，但可能影响分类展示。确定删除该类型吗？`
+      : '确定要删除此类型吗？'
+  if (!await confirm(msg)) {
+    return
+  }
+
   try {
     await axios.post(`/deleteMaterialType`, { id: typeId })
     await fetchTypeTree() // 重新加载数据
@@ -179,8 +192,8 @@ watch(
           {{ type.typeName }}
         </option>
       </select>
-      <button @click="addType">√</button>
-      <button @click="isAddingType = false">x</button>
+      <button @click="addType"><i class="iconfont icon-ok"></i></button>
+      <button @click="isAddingType = false"><i class="iconfont icon-cancel-test"></i></button>
     </div>
     
     <!-- 类型树 -->
@@ -202,14 +215,14 @@ watch(
               v-model="editForm.typeName"
               @keyup.enter="saveEdit"
               @keyup.esc="cancelEdit">
-            <button @click="saveEdit">保存</button>
-            <button @click="cancelEdit">取消</button>
+            <button @click="saveEdit"><i class="iconfont icon-ok"></i></button>
+            <button @click="cancelEdit"><i class="iconfont icon-cancel-test"></i></button>
           </template>
           <template v-else>
             <span class="type-name">{{ type.typeName }}</span>
             <div v-if="canEdit" class="actions">
-              <button @click="startEdit(type)">编辑</button>
-              <button @click="deleteType(type.id)">删除</button>
+              <button @click="startEdit(type)"><i class="iconfont icon-edit"></i></button>
+              <button @click="deleteType(type.id)"><i class="iconfont icon-ashbin"></i></button>
             </div>
           </template>
         </div>
@@ -228,14 +241,14 @@ watch(
                 v-model="editForm.typeName"
                 @keyup.enter="saveEdit"
                 @keyup.esc="cancelEdit">
-              <button @click="saveEdit">保存</button>
-              <button @click="cancelEdit">取消</button>
+              <button @click="saveEdit"><i class="iconfont icon-ok"></i></button>
+              <button @click="cancelEdit"><i class="iconfont icon-cancel-test"></i></button>
             </template>
             <template v-else>
               <span class="type-name">{{ child.typeName }}</span>
               <div v-if="canEdit" class="actions">
-                <button @click="startEdit(child)">编辑</button>
-                <button @click="deleteType(child.id)">删除</button>
+                <button @click="startEdit(child)"><i class="iconfont icon-edit"></i></button>
+                <button @click="deleteType(child.id)"><i class="iconfont icon-ashbin"></i></button>
               </div>
             </template>
           </div>
@@ -250,7 +263,7 @@ watch(
   padding: 10px 10px;
   max-width: 800px;
   margin: 0 auto;
-  font-size: 13px;
+  font-size: 0.85rem;
 }
 
 .header-actions {
@@ -267,8 +280,8 @@ watch(
 
 .add-button {
   margin: 10px 0;
-  padding: 5px 10px;
-  background-color: #409EFF;
+  padding: 4px 10px;
+  background-color: var(--color-blue);
   color: white;
   border: none;
   border-radius: 4px;
@@ -285,9 +298,20 @@ watch(
   align-items: center;
 }
 
+.add-form button {
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.add-form i {
+  font-size: 1.1rem;
+}
+
 .add-form input, .add-form select {
   max-width: 100px;
-  font-size: 12px;
+  font-size: 0.85rem;
 }
 
 .type-item {
@@ -295,7 +319,7 @@ watch(
   align-items: center;
   padding: 8px;
   border-bottom: 1px solid #eee;
-  gap: 10px;
+  gap: 8px;
 }
 
 .children .type-item {
@@ -322,13 +346,15 @@ watch(
   gap: 8px;
 }
 
-.actions button {
-  padding: 3px 6px;
-  background-color: #f4f4f5;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
+.type-item button {
+  background-color: transparent;
+  border: none;
   cursor: pointer;
-  font-size: 12px;
+  padding: 0;
+}
+
+.type-item button i{
+  font-size: 1.1rem;
 }
 
 .actions button:hover {

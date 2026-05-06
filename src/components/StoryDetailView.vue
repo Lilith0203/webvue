@@ -1765,6 +1765,7 @@ onBeforeUnmount(() => {
   padding: 4px 10px 4px 10px;
   border-radius: 4px;
   border: 1px solid #ccc;
+  font-size: 0.85rem;
 }
 
 .add-relation-id { width: 90px; }
@@ -1797,6 +1798,7 @@ onBeforeUnmount(() => {
   padding: 4px 8px;
   border-radius: 4px;
   border: 1px solid #ccc;
+  font-size: 0.85rem;
 }
 .add-relation-suggest {
   position: absolute;
