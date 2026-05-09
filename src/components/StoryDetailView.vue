@@ -1344,7 +1344,7 @@ onBeforeUnmount(() => {
 }
 .content-block {
   margin: 5px 0 15px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: #444;
   line-height: 1.6;
   background: #f8f8f8;

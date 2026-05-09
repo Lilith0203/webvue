@@ -15,7 +15,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const canEdit = computed(() => authStore.isAuthenticated)
+const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 // 合集信息
 const setInfo = ref(null)
@@ -210,6 +210,7 @@ const deleteWork = async (id) => {
 
 // 打开作品选择器
 const openWorkSelector = () => {
+  if (!isAdmin.value) return
   showWorkSelector.value = true
 }
 
@@ -220,6 +221,7 @@ const closeWorkSelector = () => {
 
 // 添加作品到合集
 const addWorksToSet = async (selectedWorks) => {
+  if (!isAdmin.value) return
   const setId = parseInt(route.params.id)
   if (!setId) return
   
@@ -249,6 +251,7 @@ const addWorksToSet = async (selectedWorks) => {
 
 // 从合集移出作品
 const removeWorkFromSet = async (workId) => {
+  if (!isAdmin.value) return
   const confirmed = await confirm('确定要从合集中移出这个作品吗？')
   if (!confirmed) {
     return
@@ -346,7 +349,7 @@ onMounted(async () => {
     <div class="works-section">
       <div class="section-header">
         <h2>合集作品</h2>
-        <div class="header-actions" v-if="canEdit">
+        <div class="header-actions" v-if="isAdmin">
           <button class="add-to-set-btn" @click="openWorkSelector">
              添加
           </button>
@@ -361,7 +364,7 @@ onMounted(async () => {
         v-else
         :works="works"
         :show-edit-actions="false"
-        :show-remove-from-set="canEdit"
+        :show-remove-from-set="isAdmin"
         :on-edit="openEditEditor"
         :on-delete="deleteWork"
         :on-remove-from-set="removeWorkFromSet"
