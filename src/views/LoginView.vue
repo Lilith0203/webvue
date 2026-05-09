@@ -173,7 +173,7 @@ const handleLogin = async () => {
         <div v-else class="scan-box">
           <img v-if="scanQrUrl" :src="scanQrUrl" alt="扫码登录二维码" class="qr-img" />
           <div class="scan-hint">
-            用微信小程序扫一扫，确认后网页将自动登录
+            用微信小程序“<span>Lilith工具箱</span>”扫一扫，确认后网页将自动登录
           </div>
           <button type="button" class="refresh-btn" @click="startScanLogin">刷新二维码</button>
         </div>
@@ -248,17 +248,18 @@ const handleLogin = async () => {
   font-size: 13px;
   text-align: center;
 }
+
+.scan-hint span {
+  color: var(--color-blue);
+}
 .refresh-btn {
   width: auto;
-  padding: 6px 12px;
+  padding: 5px 12px;
   background: var(--color-green);
   border: 1px solid #ddd;
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
-}
-.refresh-btn:hover {
-  border-color: #42b883;
 }
 
 h2 {
@@ -294,19 +295,14 @@ input:focus {
 
 button {
   width: 100%;
-  padding: 0.5rem;
+  padding: 7px;
   background-color: var(--color-green);
   color: white;
   border: none;
   border-radius: 4px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   cursor: pointer;
   transition: background-color 0.2s;
-}
-
-button:hover {
-  background-color: #3aa876;
-  color: #fff;
 }
 
 button:disabled {

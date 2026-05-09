@@ -602,7 +602,7 @@ nav a .iconfont {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #3e3e3e;
+  color: #fff;
 }
 .logout .login-button:hover {
   background-color: transparent;

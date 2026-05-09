@@ -1349,7 +1349,7 @@ onBeforeUnmount(() => {
   line-height: 1.6;
   background: #f8f8f8;
   border-radius: 6px;
-  padding: 12px 10px;
+  padding: 8px 10px;
   word-break: break-all;
 }
 .pictures {
