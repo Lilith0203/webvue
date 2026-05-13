@@ -1530,9 +1530,12 @@ const navigateToStoryDetail = (storyId) => {
   localStorage.setItem('storyIsSimpleMode', isSimpleMode.value.toString())
   sessionStorage.setItem('storyListScrollPosition', window.scrollY.toString())  // 保存滚动位置
   
-  // 传递当前选中的合集ID和排序方向
+  // 传递当前选中的合集ID和排序方向；有搜索词时带上 q，供详情页高亮
   const currentSetId = activeChildId.value || activeSetId.value
-  router.push(`/story/${storyId}?from=list&setId=${currentSetId}&sortDirection=${sortDirection.value}`)
+  const baseQuery = `from=list&setId=${currentSetId}&sortDirection=${sortDirection.value}`
+  const kw = (searchKeyword.value || '').trim()
+  const qParam = kw ? `&q=${encodeURIComponent(kw)}` : ''
+  router.push(`/story/${storyId}?${baseQuery}${qParam}`)
 }
 
 const showCustomTooltip = (event, content) => {

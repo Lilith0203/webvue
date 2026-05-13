@@ -125,6 +125,51 @@ const processMarkdownContent = (content) => {
   return rendered
 }
 
+/** 从路由读取列表搜索高亮词（由 StoryView 跳转时传入 ?q=） */
+const searchHighlightPhrase = computed(() => {
+  const raw = route.query.q
+  const s = Array.isArray(raw) ? raw[0] : raw
+  if (!s || typeof s !== 'string') return ''
+  try {
+    return decodeURIComponent(s).trim()
+  } catch {
+    return ''
+  }
+})
+
+const HIGHLIGHT_OPEN = '<mark class="story-search-highlight">'
+const HIGHLIGHT_CLOSE = '</mark>'
+
+/** 在 HTML 中对可见文本做关键词包裹，避免破坏标签结构 */
+function applyHighlightToHtml(html, phrase) {
+  if (!html || !phrase) return html
+  const placeholders = []
+  const stripped = html.replace(/<[^>]+>/g, (tag) => {
+    const i = placeholders.length
+    placeholders.push(tag)
+    return `\uE000${i}\uE000`
+  })
+  const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const re = new RegExp(escaped, 'gi')
+  const highlighted = stripped.replace(re, `${HIGHLIGHT_OPEN}$&${HIGHLIGHT_CLOSE}`)
+  return highlighted.replace(/\uE000(\d+)\uE000/g, (_, i) => placeholders[parseInt(i, 10)])
+}
+
+const detailHtmlWithSearchHighlight = computed(() => {
+  const base = renderedDetailForDisplayWithMore.value || ''
+  const phrase = searchHighlightPhrase.value
+  if (!phrase || editing.value) return base
+  return applyHighlightToHtml(base, phrase)
+})
+
+const storyContentDisplayHtml = computed(() => {
+  if (!story.value?.content) return ''
+  const html = formatStoryContent(story.value.content)
+  const phrase = searchHighlightPhrase.value
+  if (!phrase) return html
+  return applyHighlightToHtml(html, phrase)
+})
+
 // 重新处理剧情详情内容（当颜色加载完成后调用）
 const reprocessStoryDetail = () => {
   if (story.value && story.value.detail && tagColors.value.length > 0) {
@@ -955,7 +1000,7 @@ onBeforeUnmount(() => {
             <span v-if="index < story.sets.length - 1" class="set-sep">、</span>
           </span>
         </div>
-        <div class="content-block" v-if="story.content" v-html="formatStoryContent(story.content)"></div>
+        <div class="content-block" v-if="story.content" v-html="storyContentDisplayHtml"></div>
         <div class="pictures" v-if="story.pictures && story.pictures.length">
           <div
             v-for="(pic, i) in story.pictures"
@@ -1032,7 +1077,7 @@ onBeforeUnmount(() => {
             <div class="detail-text">
               <div
                 class="detail-text-content"
-                v-html="renderedDetailForDisplayWithMore || '<span class=\'empty-detail\'>暂无详情</span>'"
+                v-html="detailHtmlWithSearchHighlight || '<span class=\'empty-detail\'>暂无详情</span>'"
                 @click="onDetailContentClick"
               ></div>
             </div>
@@ -1285,6 +1330,16 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+/* 列表搜索进入详情时，关键词底色高亮（v-html 内 mark） */
+mark.story-search-highlight {
+  background-color: #fff59d;
+  color: inherit;
+  padding: 0.06em 0.15em;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 .recommended-icon {

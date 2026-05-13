@@ -195,6 +195,54 @@ const toggleOcrUserEnabled = async () => {
   }
 }
 
+// OCR 全站：每月参考次数（control: ocr_monthly_limit）+ 当前月已用（control: ocr_monthly_usage）
+const ocrMonthlyLimit = ref('')
+const ocrQuotaUsedCount = ref('')
+const ocrQuotaSaving = ref(false)
+
+const loadOcrQuotaForm = async () => {
+  if (!isAdmin.value) return
+  try {
+    const res = await axios.get('/ocr/quota')
+    if (res.data?.success) {
+      ocrMonthlyLimit.value = String(res.data.limit ?? '')
+      ocrQuotaUsedCount.value = String(res.data.used ?? '')
+    }
+  } catch {
+    // ignore
+  }
+}
+
+const saveOcrQuotaAdmin = async () => {
+  if (ocrQuotaSaving.value) return
+  const lim = parseInt(String(ocrMonthlyLimit.value ?? '').trim(), 10)
+  const used = parseInt(String(ocrQuotaUsedCount.value ?? '').trim(), 10)
+  if (!Number.isFinite(lim) || lim <= 0) {
+    message.alert('「每月次数」须为正整数')
+    return
+  }
+  if (!Number.isFinite(used) || used < 0) {
+    message.alert('「本月已用」须为 ≥0 的整数')
+    return
+  }
+  ocrQuotaSaving.value = true
+  try {
+    const res = await axios.post('/ocr/quota/admin', {
+      monthlyLimit: lim,
+      usedCount: used
+    })
+    if (!res.data?.success) throw new Error(res.data?.message || '保存失败')
+    message.alert(
+      `已保存：每月 ${res.data.data.monthlyLimit} 次，本月已用 ${res.data.data.usedCount}，剩余 ${res.data.data.remaining} 次`
+    )
+    await loadOcrQuotaForm()
+  } catch (e) {
+    message.alert(e?.response?.data?.message || e?.message || '保存失败')
+  } finally {
+    ocrQuotaSaving.value = false
+  }
+}
+
 const loadSettings = async() => {
   try {
     const response = await axios.get('/config/load', { params: { keys: 'comment,ocr_user_enabled' } })
@@ -339,6 +387,7 @@ const goToCommentPage = (type, itemId) => {
 onMounted(() => {
   if (isAdmin.value) {
     loadSettings()
+    loadOcrQuotaForm()
     loadComments('pending') // 默认加载未审核评论
     loadAnnouncements() // 加载公告数据
   }
@@ -369,6 +418,20 @@ onMounted(() => {
             </div>
             <span>{{ ocrUserEnabled ? '普通用户可用文字识别' : '普通用户禁用文字识别' }}</span>
           </div>
+        </div>
+        <div class="ocr-quota-admin">
+          <h4 class="ocr-quota-admin-title">OCR 全站用量</h4>
+          <div class="ocr-quota-admin-row">
+            <label>每月次数</label>
+            <input v-model="ocrMonthlyLimit" type="number" min="1" placeholder="200" class="ocr-quota-input" />
+          </div>
+          <div class="ocr-quota-admin-row">
+            <label>本月已用（全站）</label>
+            <input v-model="ocrQuotaUsedCount" type="number" min="0" placeholder="0" class="ocr-quota-input" />
+          </div>
+          <button type="button" class="ocr-quota-save-btn" :disabled="ocrQuotaSaving" @click="saveOcrQuotaAdmin">
+            {{ ocrQuotaSaving ? '保存中…' : '保存' }}
+          </button>
         </div>
       </div>
     </section>
@@ -702,7 +765,9 @@ onMounted(() => {
 
 .comment {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
 }
 
 .comment-row {
@@ -747,6 +812,59 @@ onMounted(() => {
 
 .toggle-button.active {
   background-color: #499e8d; /* 切换开启时的背景颜色 */
+}
+
+.ocr-quota-admin {
+  width: 100%;
+  max-width: 520px;
+  padding: 12px 14px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.ocr-quota-admin-title {
+  margin: 0 0 6px 0;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.ocr-quota-admin-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.ocr-quota-admin-row label {
+  width: 110px;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: #444;
+}
+
+.ocr-quota-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.ocr-quota-save-btn {
+  padding: 3px 10px;
+  background: var(--color-green);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.ocr-quota-save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* 评论管理样式 */

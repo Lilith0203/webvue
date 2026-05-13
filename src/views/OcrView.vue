@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import api from '../api'
 
 const files = ref([]) // File[]
@@ -38,6 +38,26 @@ import { useAuthStore } from '../stores/auth'
 const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 const ocrUserEnabled = ref(true)
+
+/** 本月全站共享参考额度（GET /api/ocr/quota），超过仍可识别 */
+const ocrQuota = ref(null)
+
+const fetchOcrQuota = async () => {
+  if (!authStore.isAuthenticated) {
+    ocrQuota.value = null
+    return
+  }
+  try {
+    const res = await api.get('/ocr/quota')
+    if (res.data?.success && typeof res.data.remaining === 'number') {
+      ocrQuota.value = { remaining: res.data.remaining }
+    } else {
+      ocrQuota.value = null
+    }
+  } catch {
+    ocrQuota.value = null
+  }
+}
 
 const canRun = computed(() => {
   if (!isAdmin.value && !ocrUserEnabled.value) return false
@@ -135,7 +155,17 @@ onMounted(() => {
     .catch(() => {
       ocrUserEnabled.value = true
     })
+    .finally(() => {
+      fetchOcrQuota()
+    })
 })
+
+watch(
+  () => authStore.isAuthenticated,
+  () => {
+    fetchOcrQuota()
+  }
+)
 
 onBeforeUnmount(() => {
   window.removeEventListener('paste', handlePaste)
@@ -425,6 +455,11 @@ const runOcr = async () => {
     }
     const ocrRes = await api.post('/ocr', payload)
     if (!ocrRes?.data?.success) throw new Error(ocrRes?.data?.message || 'OCR 识别失败')
+    if (ocrRes.data.quota && typeof ocrRes.data.quota.remaining === 'number') {
+      ocrQuota.value = { remaining: ocrRes.data.quota.remaining }
+    } else {
+      await fetchOcrQuota()
+    }
     resultText.value = postProcessText(ocrRes?.data?.text || '')
     if (!resultText.value) {
       errorMessage.value = '识别完成，但未提取到文字（可尝试切换类型为 Advanced 或 HandWriting）'
@@ -444,6 +479,14 @@ const runOcr = async () => {
 <template>
   <div class="ocr-page">
     <h2 class="title">文字识别（OCR）</h2>
+
+    <div class="ocr-note">
+      <p v-if="authStore.isAuthenticated && ocrQuota" class="ocr-quota-line">
+        本月剩余 {{ ocrQuota.remaining }} 次，建议一次选择多张图片，后台会拼接后上传。
+      </p>
+      <p v-else-if="authStore.isAuthenticated && !ocrQuota" class="ocr-quota-line muted">剩余次数加载中…</p>
+      <p v-else class="ocr-quota-line muted">登录后可查看本月剩余次数；未登录无法使用识别接口。</p>
+    </div>
 
     <div class="panel">
       <div class="left">
@@ -530,7 +573,7 @@ const runOcr = async () => {
           <button class="btn primary" :disabled="!canRun" @click="runOcr">
             {{ recognizing || uploading ? '处理中...' : '开始识别' }}
           </button>
-          <button class="btn" :disabled="uploading || recognizing" @click="clearFile">清空</button>
+          <button class="btn clear" :disabled="uploading || recognizing" @click="clearFile">清空</button>
         </div>
 
         <div v-if="uploading" class="progress">上传中：{{ uploadProgress }}%</div>
@@ -559,6 +602,25 @@ const runOcr = async () => {
 </template>
 
 <style scoped>
+.ocr-note {
+  margin: 10px 0;
+  color: #898989;
+  font-size: 0.9rem;
+}
+
+.ocr-note p {
+  margin: 0.35em 0;
+}
+
+.ocr-quota-line {
+  color: #555;
+}
+
+.ocr-quota-line.muted {
+  color: #999;
+  font-size: 0.85rem;
+}
+
 .ocr-page {
   margin-top: 15px;
   width: 100%;
@@ -603,8 +665,8 @@ const runOcr = async () => {
 }
 .file-picker span {
   display: inline-block;
-  padding: 4px 10px;
-  border-radius: 6px;
+  padding: 3px 10px;
+  border-radius: 4px;
   cursor: pointer;
   background: var(--color-green);
   font-size: 0.85rem;
@@ -679,9 +741,9 @@ const runOcr = async () => {
   gap: 10px;
 }
 .btn {
-  padding: 5px 10px;
+  padding: 4px 10px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 4px;
   background: #fff;
   cursor: pointer;
   font-size: 0.8rem;
@@ -696,8 +758,16 @@ const runOcr = async () => {
   cursor: not-allowed;
 }
 .btn.small {
-  padding: 6px 10px;
+  background-color: var(--color-blue);
+  color: #fff;
 }
+
+.btn.clear {
+  background: var(--color-red);
+  border:none;
+  color: #fff;
+}
+
 .progress {
   margin-top: 10px;
   color: #666;
