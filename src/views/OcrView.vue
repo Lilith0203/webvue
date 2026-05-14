@@ -544,7 +544,7 @@ const runOcr = async () => {
           </label>-->
           <label class="switch">
             <input type="checkbox" v-model="zhPunctFix" />
-            <span>中文标点纠错</span>
+            <span>中文标点纠错和换行</span>
           </label>
         </div>
 
@@ -760,6 +760,7 @@ const runOcr = async () => {
 .btn.small {
   background-color: var(--color-blue);
   color: #fff;
+  border:none;
 }
 
 .btn.clear {
