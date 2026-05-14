@@ -30,8 +30,7 @@ const fetchComments = async (itemId) => {
   try {
     const response = await axios.get(`/comments/${itemId}`, {
       params: {
-        type: 1,
-        approval: 'approved'
+        type: 1
       }
     })
     comments.value = response.data.comments  // 假设返回的评论数据在 comments 字段中
@@ -118,7 +117,7 @@ const goBack = () => {
   })
 }
 
-// 提交评论
+// 提交评论（返回接口 data 供 CommentSection 提示「已发布 / 待展示」）
 const submitComment = async (commentData) => {
   try {
     const response = await axios.post('/comment', {
@@ -130,12 +129,11 @@ const submitComment = async (commentData) => {
     })
     if (response.data.success) {
       await fetchComments(article.value.id) // 重新获取评论
-    } else {
-      alert(response.data.message)
     }
+    return response.data
   } catch (error) {
     console.error('提交评论失败:', error)
-    alert('提交评论失败：' + error.message)
+    return { success: false, message: '提交评论失败：' + (error?.message || '网络错误') }
   }
 }
 

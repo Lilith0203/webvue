@@ -79,16 +79,27 @@ const activeAnnouncementTab = ref('works')
 const currentAnnouncement = ref('')
 const announcementData = ref({})
 
-// 评论管理相关变量
-const pendingComments = ref([]) // 未审核评论列表
-const approvedComments = ref([]) // 已审核评论列表
-const activeTab = ref('pending') // 当前活动的评论标签：pending 或 approved
+// 评论管理：未读 / 已读（登录用户新评论直接展示，仅管理员阅读状态）
+const unreadComments = ref([]) // 未读列表
+const readComments = ref([]) // 已读列表
+const activeTab = ref('unread')
 const isLoading = ref(false) // 加载状态
 
 // 新增：分页相关状态
 const pagination = ref({
   page: 1,
   pageSize: 10,
+  totalCount: 0,
+  totalPages: 0,
+  hasNextPage: false,
+  hasPrevPage: false
+})
+
+// 普通用户：仅本人评论
+const myComments = ref([])
+const myPagination = ref({
+  page: 1,
+  pageSize: 20,
   totalCount: 0,
   totalPages: 0,
   hasNextPage: false,
@@ -265,10 +276,10 @@ const loadComments = async (status, page = 1) => {
       }
     })
     
-    if (status === 'pending') {
-      pendingComments.value = response.data.comments || []
+    if (status === 'unread') {
+      unreadComments.value = response.data.comments || []
     } else {
-      approvedComments.value = response.data.comments || []
+      readComments.value = response.data.comments || []
     }
     
     // 更新分页信息
@@ -279,7 +290,7 @@ const loadComments = async (status, page = 1) => {
       }
     }
   } catch (error) {
-    console.error(`获取${status === 'pending' ? '未审核' : '已审核'}评论失败:`, error)
+    console.error(`获取${status === 'unread' ? '未读' : '已读'}评论失败:`, error)
   } finally {
     isLoading.value = false
   }
@@ -289,14 +300,14 @@ const loadComments = async (status, page = 1) => {
 const switchTab = (tab) => {
   activeTab.value = tab
   pagination.value.page = 1 // 重置页码
-  loadComments(tab === 'pending' ? 'pending' : 'approved', 1)
+  loadComments(tab === 'unread' ? 'unread' : 'read', 1)
 }
 
 // 新增：翻页函数
 const goToPage = (page) => {
   if (page < 1 || page > pagination.value.totalPages) return
   pagination.value.page = page
-  loadComments(activeTab.value === 'pending' ? 'pending' : 'approved', page)
+  loadComments(activeTab.value === 'unread' ? 'unread' : 'read', page)
 }
 
 // 上一页
@@ -313,40 +324,82 @@ const nextPage = () => {
   }
 }
 
-// 审核评论
-const approveComment = async (commentId, isApproved) => {
+const loadMyComments = async (page = 1) => {
+  isLoading.value = true
   try {
-    await axios.post('/comment_approve', {
-      id: commentId,
-      isApproved: isApproved ? 1 : 0
+    const response = await axios.get('/user/my-comments', {
+      params: {
+        page,
+        pageSize: myPagination.value.pageSize
+      }
     })
+    if (response.data?.success) {
+      myComments.value = response.data.comments || []
+      if (response.data.pagination) {
+        myPagination.value = {
+          ...myPagination.value,
+          ...response.data.pagination
+        }
+      }
+    }
+  } catch (error) {
+    console.error('获取我的评论失败:', error)
+    message.alert(error?.response?.data?.message || '加载失败')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const goToMyPage = (page) => {
+  if (page < 1 || page > myPagination.value.totalPages) return
+  myPagination.value.page = page
+  loadMyComments(page)
+}
+
+const prevMyPage = () => {
+  if (myPagination.value.hasPrevPage) {
+    goToMyPage(myPagination.value.page - 1)
+  }
+}
+
+const nextMyPage = () => {
+  if (myPagination.value.hasNextPage) {
+    goToMyPage(myPagination.value.page + 1)
+  }
+}
+
+// 标记已读（游客评论同时公开展示）
+const approveComment = async (commentId) => {
+  try {
+    await axios.post('/comment_approve', { id: commentId })
     
     // 重新加载当前页面的评论
-    loadComments(activeTab.value === 'pending' ? 'pending' : 'approved', pagination.value.page)
+    loadComments(activeTab.value === 'unread' ? 'unread' : 'read', pagination.value.page)
     // 通知顶部栏立刻刷新红点
-    window.dispatchEvent(new Event('pending-comments-refresh'))
+    window.dispatchEvent(new Event('unread-comments-refresh'))
   } catch (error) {
-    console.error('审核评论失败:', error)
-    alert('审核操作失败，请重试')
+    console.error('评论操作失败:', error)
+    alert('操作失败，请重试')
   }
 }
 
 // 删除评论
 const deleteComment = async (commentId) => {
   if (await confirm('确定要删除吗？')) {
-  
     try {
       await axios.post('/comment_delete', {
         id: commentId
       })
-      
-      // 重新加载当前页面的评论
-      loadComments(activeTab.value === 'pending' ? 'pending' : 'approved', pagination.value.page)
-      // 通知顶部栏立刻刷新红点
-      window.dispatchEvent(new Event('pending-comments-refresh'))
+
+      if (isAdmin.value) {
+        loadComments(activeTab.value === 'unread' ? 'unread' : 'read', pagination.value.page)
+        window.dispatchEvent(new Event('unread-comments-refresh'))
+      } else {
+        loadMyComments(myPagination.value.page)
+      }
     } catch (error) {
       console.error('删除评论失败:', error)
-      alert('删除操作失败，请重试')
+      message.alert(error?.response?.data?.message || '删除失败，请重试')
     }
   }
 }
@@ -383,13 +436,15 @@ const goToCommentPage = (type, itemId) => {
   }
 }
 
-// 加载设置、公告和未审核评论
+// 加载设置、公告；评论列表按角色加载
 onMounted(() => {
   if (isAdmin.value) {
     loadSettings()
     loadOcrQuotaForm()
-    loadComments('pending') // 默认加载未审核评论
-    loadAnnouncements() // 加载公告数据
+    loadComments('unread')
+    loadAnnouncements()
+  } else if (authStore.isAuthenticated) {
+    loadMyComments(1)
   }
 })
 </script>
@@ -441,34 +496,34 @@ onMounted(() => {
       <h3>评论管理</h3>
       <div class="comment-tabs">
         <button 
-          :class="['tab-button', { active: activeTab === 'pending' }]"
-          @click="switchTab('pending')"
+          :class="['tab-button', { active: activeTab === 'unread' }]"
+          @click="switchTab('unread')"
         >
-          待审核评论
-          <span v-if="pendingComments.length" class="comment-count">{{ pendingComments.length }}</span>
+          未读评论
+          <span v-if="unreadComments.length" class="comment-count">{{ unreadComments.length }}</span>
         </button>
         <button 
-          :class="['tab-button', { active: activeTab === 'approved' }]"
-          @click="switchTab('approved')"
+          :class="['tab-button', { active: activeTab === 'read' }]"
+          @click="switchTab('read')"
         >
-          已审核评论
+          已读评论
         </button>
       </div>
       
       <div class="comment-list">
         <div v-if="isLoading" class="loading">加载中...</div>
         
-        <div v-else-if="activeTab === 'pending' && pendingComments.length === 0" class="no-comments">
-          没有待审核的评论
+        <div v-else-if="activeTab === 'unread' && unreadComments.length === 0" class="no-comments">
+          没有未读评论
         </div>
         
-        <div v-else-if="activeTab === 'approved' && approvedComments.length === 0" class="no-comments">
-          没有已审核的评论
+        <div v-else-if="activeTab === 'read' && readComments.length === 0" class="no-comments">
+          没有已读评论
         </div>
         
         <div v-else class="comments">
           <div 
-            v-for="comment in activeTab === 'pending' ? pendingComments : approvedComments" 
+            v-for="comment in activeTab === 'unread' ? unreadComments : readComments" 
             :key="comment.id"
             class="comment-item"
           >
@@ -487,15 +542,12 @@ onMounted(() => {
             <div class="comment-content">{{ comment.content }}</div>
             
             <div class="comment-actions">
-              <template v-if="activeTab === 'pending'">
-                <button @click="approveComment(comment.id, true)" class="approve-btn">
-                  通过
-                </button>
-                <button @click="approveComment(comment.id, false)" class="reject-btn">
-                  拒绝
+              <template v-if="activeTab === 'unread'">
+                <button @click="approveComment(comment.id)" class="approve-btn" type="button">
+                  标记已读
                 </button>
               </template>
-              <button @click="deleteComment(comment.id)" class="delete-btn">
+              <button @click="deleteComment(comment.id)" class="delete-btn" type="button">
                 删除
               </button>
             </div>
@@ -510,15 +562,12 @@ onMounted(() => {
                 </div>
                 <div class="comment-content">{{ reply.content }}</div>
                 <div class="comment-actions">
-                  <template v-if="activeTab === 'pending' && reply.isApproved === 0">
-                    <button @click="approveComment(reply.id, true)" class="approve-btn">
-                      通过
-                    </button>
-                    <button @click="approveComment(reply.id, false)" class="reject-btn">
-                      拒绝
+                  <template v-if="activeTab === 'unread'">
+                    <button @click="approveComment(reply.id)" class="approve-btn" type="button">
+                      标记已读
                     </button>
                   </template>
-                  <button @click="deleteComment(reply.id)" class="delete-btn">
+                  <button @click="deleteComment(reply.id)" class="delete-btn" type="button">
                     删除
                   </button>
                 </div>
@@ -594,6 +643,80 @@ onMounted(() => {
 
     </template>
 
+    <template v-else-if="authStore.isAuthenticated">
+      <section class="setting-section">
+        <h3>评论管理</h3>
+        <p class="my-comments-hint">
+          仅显示您<strong>登录后</strong>发表的评论与回复；删除后前台将不再显示。
+        </p>
+
+        <div class="comment-list">
+          <div v-if="isLoading" class="loading">加载中...</div>
+
+          <div v-else-if="!myComments.length" class="no-comments">
+            暂无评论记录
+          </div>
+
+          <div v-else class="comments">
+            <div
+              v-for="comment in myComments"
+              :key="comment.id"
+              class="comment-item"
+            >
+              <div class="comment-header">
+                <span class="comment-author">{{ comment.name }}</span>
+                <span class="comment-time">{{ comment.createdAt }}</span>
+                <span
+                  class="comment-type"
+                  @click="goToCommentPage(comment.type, comment.itemId)"
+                  :class="{ clickable: getCommentLink(comment.type, comment.itemId) }"
+                >
+                  <template v-if="comment.reply">
+                    回复 · {{ getCommentTypeName(comment.type) }}：{{ comment.itemId }}
+                  </template>
+                  <template v-else>
+                    {{ getCommentTypeName(comment.type) }}：{{ comment.itemId }}
+                  </template>
+                </span>
+                <span v-if="Number(comment.isApproved) === 0" class="comment-pending-tag">待公开展示</span>
+              </div>
+
+              <div class="comment-content">{{ comment.content }}</div>
+
+              <div class="comment-actions">
+                <button type="button" class="delete-btn" @click="deleteComment(comment.id)">
+                  删除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="myPagination.totalPages > 1" class="pagination">
+          <button
+            type="button"
+            class="page-btn"
+            :disabled="!myPagination.hasPrevPage"
+            @click="prevMyPage"
+          >
+            上一页
+          </button>
+          <span class="page-info">
+            第 {{ myPagination.page }} 页，共 {{ myPagination.totalPages }} 页
+            （共 {{ myPagination.totalCount }} 条）
+          </span>
+          <button
+            type="button"
+            class="page-btn"
+            :disabled="!myPagination.hasNextPage"
+            @click="nextMyPage"
+          >
+            下一页
+          </button>
+        </div>
+      </section>
+    </template>
+
     <!-- 账号设置（所有用户可见） -->
     <section class="setting-section">
       <h3>账号设置</h3>
@@ -663,6 +786,23 @@ onMounted(() => {
 .header {
   font-size: 1.1rem;
   margin-bottom: 20px;
+}
+
+.my-comments-hint {
+  font-size: 0.85rem;
+  color: #666;
+  margin: 0 0 12px;
+  line-height: 1.45;
+}
+
+.comment-pending-tag {
+  margin-left: 8px;
+  font-size: 0.72rem;
+  color: #c06000;
+  background: #fff3e0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  vertical-align: middle;
 }
 
 .admin-panel {
@@ -752,14 +892,14 @@ onMounted(() => {
 
 .setting-section {
   width: 100%;
-  margin-bottom: 30px;
+  margin-bottom: 10px;
   border-bottom: 1px solid #eee;
   padding-bottom: 20px;
 }
 
 .setting-section h3 {
   font-size: 0.95rem;
-  margin-bottom: 15px;
+  margin-bottom: 10px;
   color: #333;
 }
 
@@ -776,6 +916,7 @@ onMounted(() => {
   width: 100%;
   gap: 30px;
   flex-wrap: wrap;
+  font-size: 0.9rem;
 }
 
 .toggle-group {
@@ -785,8 +926,8 @@ onMounted(() => {
 }
 
 .toggle-button {
-  width: 56px;
-  height: 26px;
+  width: 42px;
+  height: 22px;
   background-color: #ccc;
   border-radius: 15px;
   position: relative;
@@ -795,8 +936,8 @@ onMounted(() => {
 }
 
 .toggle-indicator {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   background-color: white;
   border-radius: 50%;
   position: absolute;
@@ -806,7 +947,7 @@ onMounted(() => {
 }
 
 .toggle-indicator.active {
-  transform: translateX(30px); /* 移动到右侧 */
+  transform: translateX(20px); /* 移动到右侧 */
   background-color: #499e8d; /* 切换开启时的颜色 */
 }
 
@@ -846,14 +987,14 @@ onMounted(() => {
 .ocr-quota-input {
   flex: 1;
   min-width: 0;
-  padding: 6px 10px;
+  padding: 4px 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .ocr-quota-save-btn {
-  padding: 3px 10px;
+  padding: 2px 10px;
   background: var(--color-green);
   color: #fff;
   border: none;
@@ -875,7 +1016,7 @@ onMounted(() => {
 }
 
 .tab-button {
-  padding: 8px 16px;
+  padding: 4px 16px;
   background: none;
   border: none;
   cursor: pointer;
@@ -912,6 +1053,7 @@ onMounted(() => {
   text-align: center;
   padding: 20px;
   color: #666;
+  font-size: 0.85rem;
 }
 
 .comment-item {
@@ -925,11 +1067,12 @@ onMounted(() => {
 .comment-header {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
   flex-wrap: wrap;
 }
 
 .comment-author {
+  font-size: 0.9rem;
   font-weight: bold;
   margin-right: 10px;
 }
@@ -958,7 +1101,8 @@ onMounted(() => {
 }
 
 .comment-content {
-  margin-bottom: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 5px;
   line-height: 1.5;
   word-break: break-word;
 }
@@ -968,26 +1112,21 @@ onMounted(() => {
   gap: 10px;
 }
 
-.approve-btn, .reject-btn, .delete-btn {
-  padding: 2px 7px;
+.approve-btn, .delete-btn {
+  padding: 2px 6px;
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
   font-size: 0.75rem;
 }
 
 .approve-btn {
-  background-color: #4CAF50;
-  color: white;
-}
-
-.reject-btn {
-  background-color: #FF9800;
+  background-color: var(--color-blue);
   color: white;
 }
 
 .delete-btn {
-  background-color: #f44336;
+  background-color: var(--color-red);
   color: white;
 }
 

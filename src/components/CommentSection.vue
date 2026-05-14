@@ -1,10 +1,13 @@
 <script setup>
-import { ref,defineProps, computed, watch } from 'vue'
+import { ref, defineProps, computed } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { message } from '../utils/message'
 import { isValidComment } from '../utils/validation'
+import { jwtDecode } from 'jwt-decode'
 
 const authStore = useAuthStore()
+const route = useRoute()
 const lastCommentTime = ref(0);
 const commentCooldown = 10000; // 10秒冷却时间
 
@@ -27,34 +30,55 @@ const props = defineProps({
 })
   
 const newComment = ref({
-  name: '',
+  name: '游客',
   content: ''
 })
 
 // 回复相关状态
 const replyingTo = ref(null) // 当前正在回复的评论ID
 const replyForm = ref({
-  name: '',
   content: ''
 })
 
 const defaultDisplayName = computed(() => {
-  if (authStore.isAuthenticated) return authStore.user?.username || '游客'
-  return '游客'
+  if (authStore.isAuthenticated) return authStore.user?.username || ''
+  return ''
 })
 
-watch(
-  () => authStore.isAuthenticated,
-  () => {
-    if (!newComment.value.name || newComment.value.name === '游客') {
-      newComment.value.name = defaultDisplayName.value
+/** JWT 中的用户 id，用于判断是否为本人评论 */
+const authedUserId = computed(() => {
+  if (!authStore.token) return null
+  try {
+    const payload = jwtDecode(authStore.token)
+    const id = payload?.id
+    if (typeof id === 'number' && !Number.isNaN(id)) return id
+    if (typeof id === 'string') {
+      const n = parseInt(id, 10)
+      return Number.isNaN(n) ? null : n
     }
-    if (!replyForm.value.name || replyForm.value.name === '游客') {
-      replyForm.value.name = defaultDisplayName.value
-    }
-  },
-  { immediate: true }
+    return null
+  } catch {
+    return null
+  }
+})
+
+const isAdminUser = computed(
+  () => String(authStore.user?.role || '').toLowerCase() === 'admin'
 )
+
+/** 详情页：仅管理员可删任意条；普通用户只能删自己发表的（含 userId 与本人一致） */
+const canDeleteComment = (comment) => {
+  if (!comment || !authStore.isAuthenticated) return false
+  if (isAdminUser.value) return true
+  const uid = authedUserId.value
+  if (uid == null) return false
+  const ownerId =
+    comment.userId != null && comment.userId !== ''
+      ? parseInt(String(comment.userId), 10)
+      : null
+  if (ownerId == null || Number.isNaN(ownerId)) return false
+  return ownerId === uid
+}
 
 // 为每条评论维护展开状态
 const expandedComments = ref({})
@@ -72,13 +96,18 @@ const getTruncatedText = (text, maxLength = COMMENT_TRUNCATE_LENGTH) => {
   return truncated;
 }
   
-// 提交评论
-const submitComment = () => {
-  if (!newComment.value.name || !newComment.value.content) {
-    message.alert('请填写姓名和评论内容')
+// 提交顶级评论：游客可发（填称呼）；登录用户姓名由后端从 JWT 写入
+const submitComment = async () => {
+  if (!newComment.value.content?.trim()) {
+    message.alert('请填写评论内容')
     return
   }
-  
+
+  if (!authStore.isAuthenticated && !newComment.value.name?.trim()) {
+    message.alert('请填写称呼')
+    return
+  }
+
   const currentTime = Date.now();
   if (currentTime - lastCommentTime.value < commentCooldown) {
     message.alert('请稍等再提交评论。');
@@ -87,46 +116,60 @@ const submitComment = () => {
 
   const validation1 = isValidComment(newComment.value.content);
   if (!validation1.valid) {
-    message.alert(validation1.message); // 显示验证错误信息
-    newComment.value.name = ''
+    message.alert(validation1.message);
     newComment.value.content = ''
     return;
   }
-  const validation2 = isValidComment(newComment.value.name);
-  if (!validation2.valid) {
-    message.alert(validation2.message); // 显示验证错误信息
-    newComment.value.name = ''
-    newComment.value.content = ''
-    return;
-  }
-  
-  const commentData = {
-    name: newComment.value.name,
-    content: newComment.value.content,
-    reply: 0  // 初始化回复数组
-  }
-  
-  // 调用父组件的提交评论方法
-  props.onCommentSubmit(commentData)
-  lastCommentTime.value = currentTime; // 更新最后提交时间
 
-  // 显示评论提交成功、等待审核的消息
-  message.alert('评论提交成功，审核通过后将会显示。')
-  
-  // 清空输入框
-  newComment.value.name = defaultDisplayName.value
-  newComment.value.content = ''
+  if (!authStore.isAuthenticated) {
+    const validation2 = isValidComment(newComment.value.name);
+    if (!validation2.valid) {
+      message.alert(validation2.message);
+      newComment.value.name = '游客'
+      newComment.value.content = ''
+      return;
+    }
+  }
+
+  const commentData = {
+    name: authStore.isAuthenticated ? defaultDisplayName.value : newComment.value.name.trim(),
+    content: newComment.value.content,
+    reply: 0
+  }
+
+  const raw = props.onCommentSubmit(commentData)
+  const result = raw && typeof raw.then === 'function' ? await raw : raw
+  lastCommentTime.value = currentTime
+
+  if (result?.success) {
+    message.alert(
+      result.guestPending
+        ? '评论已提交，管理员查看后将公开展示。'
+        : (result.message || '评论已发布')
+    )
+    if (authStore.isAuthenticated) {
+      newComment.value.content = ''
+    } else {
+      newComment.value.name = '游客'
+      newComment.value.content = ''
+    }
+  } else {
+    message.alert(result?.message || '提交失败')
+  }
 }
 
 const commentDelete = async(commentId) => {
   props.onCommentDelete(commentId)
 }
 
-// 开始回复
+// 开始回复（仅登录用户）
 const startReply = (commentId) => {
+  if (!authStore.isAuthenticated) {
+    message.alert('回复他人需要先登录')
+    return
+  }
   replyingTo.value = commentId
   replyForm.value = {
-    name: defaultDisplayName.value,
     content: ''
   }
 }
@@ -135,15 +178,18 @@ const startReply = (commentId) => {
 const cancelReply = () => {
   replyingTo.value = null
   replyForm.value = {
-    name: defaultDisplayName.value,
     content: ''
   }
 }
 
-// 提交回复
-const submitReply = () => {
-  if (!replyForm.value.name || !replyForm.value.content) {
-    message.alert('请填写姓名和回复内容')
+// 提交回复（仅登录用户；不填用户名）
+const submitReply = async () => {
+  if (!authStore.isAuthenticated) {
+    message.alert('请先登录后再回复')
+    return
+  }
+  if (!replyForm.value.content?.trim()) {
+    message.alert('请填写回复内容')
     return
   }
 
@@ -158,26 +204,27 @@ const submitReply = () => {
     message.alert(validation1.message);
     return;
   }
-  const validation2 = isValidComment(replyForm.value.name);
-  if (!validation2.valid) {
-    message.alert(validation2.message);
-    return;
-  }
 
   const replyData = {
-    name: replyForm.value.name,
+    name: defaultDisplayName.value,
     content: replyForm.value.content,
-    reply: replyingTo.value // 回复的评论ID
+    reply: replyingTo.value
   }
 
-  // 调用父组件的提交评论方法
-  props.onCommentSubmit(replyData)
+  const raw = props.onCommentSubmit(replyData)
+  const result = raw && typeof raw.then === 'function' ? await raw : raw
   lastCommentTime.value = currentTime;
 
-  message.alert('回复提交成功，审核通过后将会显示。')
-  
-  // 清空回复表单并关闭回复框
-  cancelReply()
+  if (result?.success) {
+    message.alert(
+      result.guestPending
+        ? '回复已提交，管理员查看后将公开展示。'
+        : (result.message || '回复已发布')
+    )
+    cancelReply()
+  } else {
+    message.alert(result?.message || '提交失败')
+  }
 }
 
 const handleCommentClick = (event, commentId) => {
@@ -191,6 +238,7 @@ const handleCommentClick = (event, commentId) => {
 <template>
   <div class="comments-section">
     <h3 class="comment-title">最新评论.</h3>
+    
     <div class="comments-list">
       <div v-for="comment in comments" :key="comment.id" class="comment-item">
         <div class="comment-header">
@@ -231,7 +279,7 @@ const handleCommentClick = (event, commentId) => {
           </div>
           <div class="op">
             <a v-if="authStore.isAuthenticated" href="#" class="reply-link" @click.prevent="startReply(comment.id)" role="button" tabindex="0">回复</a>
-            <a v-if="authStore.isAuthenticated" 
+            <a v-if="canDeleteComment(comment)" 
               href="#" class="delete-link"
               @click.prevent="commentDelete(comment.id)" role="button" tabindex="0">删除</a>
           </div>
@@ -239,11 +287,8 @@ const handleCommentClick = (event, commentId) => {
         
         <!-- 回复表单 -->
         <div v-if="replyingTo === comment.id" class="reply-form">
-          <h4>回复 {{ comment.name }}：</h4>
           <form @submit.prevent="submitReply">
-            <label for="reply-name">Name：</label>
-            <input v-model="replyForm.name" type="text" id="reply-name" placeholder="登录默认用户名，未登录默认游客（≤10字）" :readonly="authStore.isAuthenticated" required>
-            <label for="reply-content" class="sr-only">回复内容：</label>
+            <label for="reply-content" class="sr-only">回复内容</label>
             <textarea v-model="replyForm.content" id="reply-content" placeholder="添加回复..." rows="3" required></textarea>
             <div class="reply-actions">
               <button type="submit" class="reply-submit">发表回复</button>
@@ -261,7 +306,7 @@ const handleCommentClick = (event, commentId) => {
                 {{ reply.content }}
               </div>
               <div class="reply-op">
-                <a v-if="authStore.isAuthenticated" 
+                <a v-if="canDeleteComment(reply)" 
                   href="#" class="delete-link"
                   @click.prevent="commentDelete(reply.id)" role="button" tabindex="0">删除</a>
               </div>
@@ -270,9 +315,7 @@ const handleCommentClick = (event, commentId) => {
               <div v-if="replyingTo === reply.id" class="nested-reply-form">
                 <h5>回复 {{ reply.name }}：</h5>
                 <form @submit.prevent="submitReply">
-                  <label for="nested-reply-name">Name：</label>
-                  <input v-model="replyForm.name" type="text" id="nested-reply-name" placeholder="登录默认用户名，未登录默认游客（≤10字）" :readonly="authStore.isAuthenticated" required>
-                  <label for="nested-reply-content" class="sr-only">回复内容：</label>
+                  <label for="nested-reply-content" class="sr-only">回复内容</label>
                   <textarea v-model="replyForm.content" id="nested-reply-content" placeholder="添加回复..." rows="2" required></textarea>
                   <div class="reply-actions">
                     <button type="submit" class="reply-submit">发表回复</button>
@@ -286,9 +329,19 @@ const handleCommentClick = (event, commentId) => {
       </div>
     </div>
     <form class="comment-form" @submit.prevent="submitComment">
-      <label for="comment-name">Name：</label>
-      <input v-model="newComment.name" type="text" id="comment-name" placeholder="登录默认用户名，未登录默认游客（≤10字）" :readonly="authStore.isAuthenticated" required>
-      <label for="comment-content" class="sr-only">评论内容：</label>
+      <template v-if="!authStore.isAuthenticated">
+        <div class="comment-name-row">
+          <label for="comment-name">称呼：</label>
+          <input
+            id="comment-name"
+            v-model="newComment.name"
+            type="text"
+            maxlength="64"
+            placeholder="显示在评论前的名字（≤10 字建议）"
+            required
+          >
+        </div>
+      </template>
       <textarea v-model="newComment.content" id="comment-content" placeholder="添加评论..." rows="4" required></textarea>
       <button type="submit" class="comment-submit">发表评论</button>
     </form>
@@ -309,6 +362,32 @@ const handleCommentClick = (event, commentId) => {
   font-size: 1rem;
   font-weight: bold;
   color: #5e5e5e;
+}
+
+.comment-field-label {
+  display: block;
+  font-size: 0.85rem;
+  color: #5e5e5e;
+  margin-bottom: 6px;
+}
+
+.comment-form .comment-name-row {
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+  color: #5e5e5e;
+}
+
+.comment-form .comment-name-row label {
+  display: inline;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.comment-form .comment-name-row input {
+  display: inline-block;
+  width: 12em;
+  max-width: 100%;
+  vertical-align: middle;
 }
 
 .comment-form {

@@ -25,61 +25,69 @@ const handleLoginSuccess = () => {
   // 登录后停留在原页面即可
   showLoginModal.value = false
   // 登录成功后立即刷新红点，避免等待轮询/切回页面
-  startPendingCommentsPolling()
+  startUnreadCommentsPolling()
 }
 
-/** 有待审核评论时在「管理」旁显示红点 */
-const hasPendingComments = ref(false)
-let pendingCommentsPollTimer = null
+/** 有未读评论时在「管理」旁显示红点 */
+const hasUnreadComments = ref(false)
+let unreadCommentsPollTimer = null
 
-const fetchPendingCommentCount = async () => {
+const fetchUnreadCommentCount = async () => {
   if (!authStore.isAuthenticated) {
-    hasPendingComments.value = false
+    hasUnreadComments.value = false
+    return
+  }
+  if (authStore.user?.role !== 'admin') {
+    hasUnreadComments.value = false
     return
   }
   try {
     const res = await axios.get('/comments', {
       params: {
-        approval: 'pending',
+        approval: 'unread',
         page: 1,
         pageSize: 1
       }
     })
     const total = res.data?.pagination?.totalCount ?? 0
-    hasPendingComments.value = total > 0
+    hasUnreadComments.value = total > 0
   } catch {
     // 角标失败不影响使用
   }
 }
 
-const startPendingCommentsPolling = () => {
-  if (pendingCommentsPollTimer) clearInterval(pendingCommentsPollTimer)
-  fetchPendingCommentCount()
-  pendingCommentsPollTimer = setInterval(fetchPendingCommentCount, 3 * 60 * 1000)
+const startUnreadCommentsPolling = () => {
+  if (authStore.user?.role !== 'admin') {
+    hasUnreadComments.value = false
+    return
+  }
+  if (unreadCommentsPollTimer) clearInterval(unreadCommentsPollTimer)
+  fetchUnreadCommentCount()
+  unreadCommentsPollTimer = setInterval(fetchUnreadCommentCount, 3 * 60 * 1000)
 }
 
-const stopPendingCommentsPolling = () => {
-  if (pendingCommentsPollTimer) {
-    clearInterval(pendingCommentsPollTimer)
-    pendingCommentsPollTimer = null
+const stopUnreadCommentsPolling = () => {
+  if (unreadCommentsPollTimer) {
+    clearInterval(unreadCommentsPollTimer)
+    unreadCommentsPollTimer = null
   }
 }
 
 const onVisibilityChange = () => {
   if (document.visibilityState === 'visible') {
-    fetchPendingCommentCount()
+    fetchUnreadCommentCount()
   }
 }
 
-/** 离开管理页后立即刷新待审核数量，红点可马上消失 */
+/** 管理页标记已读/删除后刷新未读数量 */
 let removeRouterAfterEach = null
-let lastPendingRefreshAt = 0
-const refreshPendingDotThrottled = () => {
+let lastUnreadRefreshAt = 0
+const refreshUnreadDotThrottled = () => {
   if (!authStore.isAuthenticated) return
   const now = Date.now()
-  if (now - lastPendingRefreshAt < 800) return
-  lastPendingRefreshAt = now
-  fetchPendingCommentCount()
+  if (now - lastUnreadRefreshAt < 800) return
+  lastUnreadRefreshAt = now
+  fetchUnreadCommentCount()
 }
 const activeMenu = ref('')
 const submenuHeight = ref(0)
@@ -213,9 +221,9 @@ onUnmounted(() => {
   if (menuTimeout.value) {
     clearTimeout(menuTimeout.value)
   }
-  stopPendingCommentsPolling()
+  stopUnreadCommentsPolling()
   document.removeEventListener('visibilitychange', onVisibilityChange)
-  window.removeEventListener('pending-comments-refresh', refreshPendingDotThrottled)
+  window.removeEventListener('unread-comments-refresh', refreshUnreadDotThrottled)
   window.removeEventListener('site-config-refresh', loadSiteConfig)
   removeRouterAfterEach?.()
   removeRouterAfterEach = null
@@ -230,15 +238,15 @@ onMounted(() => {
   loadSiteConfig()
   document.addEventListener('visibilitychange', onVisibilityChange)
   if (authStore.isAuthenticated) {
-    startPendingCommentsPolling()
+    startUnreadCommentsPolling()
   }
   removeRouterAfterEach = router.afterEach((to, from) => {
     // 任意页面切换都刷新一次，保证红点及时同步
-    refreshPendingDotThrottled()
+    refreshUnreadDotThrottled()
   })
 
-  // 管理页审核/删除后会触发事件，顶部栏立即刷新红点
-  window.addEventListener('pending-comments-refresh', refreshPendingDotThrottled)
+  // 管理页操作后会触发事件，顶部栏立即刷新红点
+  window.addEventListener('unread-comments-refresh', refreshUnreadDotThrottled)
   window.addEventListener('site-config-refresh', loadSiteConfig)
 })
 
@@ -246,10 +254,10 @@ watch(
   () => authStore.isAuthenticated,
   (loggedIn) => {
     if (loggedIn) {
-      startPendingCommentsPolling()
+      startUnreadCommentsPolling()
     } else {
-      hasPendingComments.value = false
-      stopPendingCommentsPolling()
+      hasUnreadComments.value = false
+      stopUnreadCommentsPolling()
     }
   }
 )
@@ -275,7 +283,7 @@ watch(() => router.path, (newPath) => {
         v-if="authStore.isAuthenticated"
         type="button"
         @click.prevent="handleAdmin"
-        class="admin-button">管理<span v-if="hasPendingComments" class="admin-pending-dot" title="有待审核评论" aria-hidden="true" />
+        class="admin-button">管理<span v-if="hasUnreadComments" class="admin-pending-dot" title="有未读评论" aria-hidden="true" />
       </button>
 
       <button

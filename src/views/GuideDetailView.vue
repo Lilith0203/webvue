@@ -113,10 +113,9 @@ const fetchComments = async () => {
   errorComments.value = null
   try {
     const res = await axios.get(`/comments/${guide.value.id}`, {
-      params: { 
-        type: 4, // 攻略评论类型
-        approval: 'approved'
-       }
+      params: {
+        type: 4 // 攻略评论类型
+      }
     })
     comments.value = res.data.comments || []
   } catch (e) {
@@ -138,11 +137,10 @@ const submitComment = async (commentData) => {
     })
     if (res.data.success) {
       await fetchComments() // 重新获取评论
-    } else {
-      alert(res.data.message)
     }
+    return res.data
   } catch (e) {
-    alert('提交评论失败')
+    return { success: false, message: '提交评论失败：' + (e?.message || '网络错误') }
   }
 }
 

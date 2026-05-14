@@ -692,7 +692,7 @@ const runOcr = async () => {
   flex: 1;
   border: 1px solid #ddd;
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 4px 10px;
   background: #fff;
   font-size: 0.8rem;
 }
