@@ -482,7 +482,7 @@ const runOcr = async () => {
 
     <div class="ocr-note">
       <p v-if="authStore.isAuthenticated && ocrQuota" class="ocr-quota-line">
-        本月剩余 {{ ocrQuota.remaining }} 次，建议一次选择多张图片，后台会拼接后上传。
+        本月剩余 {{ ocrQuota.remaining }} 次，建议小图一次选择多张，后台会拼接后上传。
       </p>
       <p v-else-if="authStore.isAuthenticated && !ocrQuota" class="ocr-quota-line muted">剩余次数加载中…</p>
       <p v-else class="ocr-quota-line muted">登录后可查看本月剩余次数；未登录无法使用识别接口。</p>

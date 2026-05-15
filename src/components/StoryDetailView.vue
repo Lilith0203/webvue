@@ -1493,10 +1493,13 @@ mark.story-search-highlight {
 
 :deep(.detail-text ul), 
 :deep(.detail-text ol) {
-  font-size: 14px;
-  line-height: 1.6em;
-  margin-bottom: 6px;
+  line-height: 1.6;
+  margin: 0px;
   text-align: left;
+  padding: 0 20px;
+}
+
+:deep(.detail-text li) {
 }
 
 :deep(.detail-text h1) {
