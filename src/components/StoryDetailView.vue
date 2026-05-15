@@ -24,8 +24,80 @@ const story = ref(null)
 const loading = ref(false)
 const error = ref(null)
 const editing = ref(false)
-const detailDraft = ref('')
-const lastSavedDetailDraft = ref('')
+/** 笔记多标签：{ id, title, content }；未启用时仅存一段 Markdown */
+const detailTabs = ref([])
+const detailUsesTabs = ref(false)
+const activeDetailTabIndex = ref(0)
+let detailTabIdSeq = 0
+const genDetailTabId = () => `dt_${Date.now()}_${++detailTabIdSeq}`
+
+const mapParsedTabs = (rawTabs) =>
+  rawTabs.map((tab, i) => ({
+    id: tab.id || genDetailTabId(),
+    title: String(tab.title ?? '').trim().slice(0, 32),
+    content: tab.content != null ? String(tab.content) : ''
+  }))
+
+/** 从 detail 字段加载；仅当 JSON 且多于 1 个标签时启用 Tab 栏 */
+const loadDetailFromStorage = (detail) => {
+  if (detail == null || detail === '') {
+    detailUsesTabs.value = false
+    return [{ id: genDetailTabId(), title: '笔记', content: '' }]
+  }
+  if (typeof detail !== 'string') {
+    detailUsesTabs.value = false
+    return [{ id: genDetailTabId(), title: '笔记', content: String(detail) }]
+  }
+  const trimmed = detail.trim()
+  if (trimmed.startsWith('{"tabs"')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (Array.isArray(parsed.tabs) && parsed.tabs.length > 0) {
+        const tabs = mapParsedTabs(parsed.tabs)
+        detailUsesTabs.value = tabs.length > 1
+        return tabs
+      }
+    } catch {
+      // 非法 JSON，按旧版纯文本处理
+    }
+  }
+  detailUsesTabs.value = false
+  return [{ id: genDetailTabId(), title: '笔记', content: detail }]
+}
+
+/** 仅多标签时存 JSON；单段笔记仍存纯 Markdown */
+const serializeDetailForStorage = (tabs) => {
+  const list = tabs || []
+  if (list.length <= 1) {
+    return list[0]?.content ?? ''
+  }
+  return JSON.stringify({
+    tabs: list.map(({ title, content }) => ({
+      title: String(title ?? '').trim().slice(0, 32),
+      content: content != null ? String(content) : ''
+    }))
+  })
+}
+
+const showDetailTabBar = computed(
+  () => detailUsesTabs.value && detailTabs.value.length > 1
+)
+
+const activeDetailTab = computed(
+  () => detailTabs.value[activeDetailTabIndex.value] || detailTabs.value[0] || null
+)
+
+const activeDetailContent = computed(() => activeDetailTab.value?.content ?? '')
+
+const detailDraft = computed({
+  get: () => activeDetailTab.value?.content ?? '',
+  set: (val) => {
+    const tab = detailTabs.value[activeDetailTabIndex.value]
+    if (tab) tab.content = val
+  }
+})
+
+const lastSavedDetailSerialized = ref('')
 const isAutoSaving = ref(false)
 let autoSaveTimer = null
 const showFullDetail = ref(false)
@@ -170,30 +242,30 @@ const storyContentDisplayHtml = computed(() => {
   return applyHighlightToHtml(html, phrase)
 })
 
-// 重新处理剧情详情内容（当颜色加载完成后调用）
+// 重新处理剧情详情内容（当颜色加载完成后调用，兼容旧逻辑）
 const reprocessStoryDetail = () => {
-  if (story.value && story.value.detail && tagColors.value.length > 0) {
-    story.value.renderedDetail = processMarkdownContent(story.value.detail)
+  if (story.value && activeDetailContent.value && tagColors.value.length > 0) {
+    story.value.renderedDetail = processMarkdownContent(activeDetailContent.value)
   }
 }
 
 const detailLines = computed(() => {
-  const text = story.value?.detail || ''
+  const text = activeDetailContent.value || ''
   return text ? text.split(/\r?\n/) : []
 })
 
 const isDetailTruncated = computed(() => detailLines.value.length > MAX_DETAIL_LINES)
 
 const truncatedDetailText = computed(() => {
-  if (!isDetailTruncated.value) return story.value?.detail || ''
+  if (!isDetailTruncated.value) return activeDetailContent.value || ''
   return detailLines.value.slice(0, MAX_DETAIL_LINES).join('\n')
 })
 
 const renderedDetailForDisplay = computed(() => {
-  const detail = story.value?.detail || ''
+  const detail = activeDetailContent.value || ''
   if (!detail) return ''
   if (showFullDetail.value || !isDetailTruncated.value) {
-    return story.value?.renderedDetail || processMarkdownContent(detail)
+    return processMarkdownContent(detail)
   }
   return processMarkdownContent(truncatedDetailText.value)
 })
@@ -232,10 +304,83 @@ const handleScroll = () => {
 
 // 监听tagColors变化，当颜色加载完成后重新处理内容
 watch(tagColors, (newColors) => {
-  if (newColors.length > 0 && story.value && story.value.detail) {
+  if (newColors.length > 0 && story.value && activeDetailContent.value) {
     reprocessStoryDetail()
   }
 }, { immediate: false })
+
+watch(activeDetailTabIndex, () => {
+  showFullDetail.value = false
+})
+
+const switchDetailTab = (index) => {
+  if (index < 0 || index >= detailTabs.value.length) return
+  activeDetailTabIndex.value = index
+  showFullDetail.value = false
+}
+
+const enableDetailTabs = () => {
+  if (detailTabs.value.length === 0) {
+    detailTabs.value.push({
+      id: genDetailTabId(),
+      title: '标签1',
+      content: ''
+    })
+  }
+  if (detailTabs.value.length === 1) {
+    detailTabs.value.push({
+      id: genDetailTabId(),
+      title: '标签2',
+      content: ''
+    })
+  }
+  detailUsesTabs.value = true
+  activeDetailTabIndex.value = 0
+}
+
+const addDetailTab = () => {
+  if (!detailUsesTabs.value) {
+    enableDetailTabs()
+    return
+  }
+  const n = detailTabs.value.length + 1
+  detailTabs.value.push({
+    id: genDetailTabId(),
+    title: `标签${n}`,
+    content: ''
+  })
+  activeDetailTabIndex.value = detailTabs.value.length - 1
+}
+
+const removeDetailTab = async (index) => {
+  if (detailTabs.value.length <= 1) return
+  const tab = detailTabs.value[index]
+  if (!tab) return
+  const label = tab.title?.trim()
+  const hint = label ? `「${label}」` : `标签 ${index + 1}`
+  if (!(await confirm(`确定删除${hint}吗？`))) return
+
+  detailTabs.value.splice(index, 1)
+  if (activeDetailTabIndex.value >= detailTabs.value.length) {
+    activeDetailTabIndex.value = detailTabs.value.length - 1
+  }
+  if (detailTabs.value.length <= 1) {
+    detailUsesTabs.value = false
+  }
+}
+
+const updateDetailTabTitle = (index, title) => {
+  const tab = detailTabs.value[index]
+  if (!tab) return
+  tab.title = String(title ?? '').trim().slice(0, 32)
+}
+
+const cancelEditDetail = () => {
+  detailTabs.value = loadDetailFromStorage(story.value?.detail)
+  activeDetailTabIndex.value = 0
+  showFullDetail.value = false
+  editing.value = false
+}
 
 const relationTypeOptions = [
   { value: 'related', label: '关联' },
@@ -251,11 +396,11 @@ const fetchStory = async () => {
     const res = await axios.get(`/stories/${route.params.id}`)
     story.value = res.data.data
     showFullDetail.value = false
-    detailDraft.value = story.value.detail || ''
-    lastSavedDetailDraft.value = detailDraft.value
-    // 只有当tagColors已经加载完成时才处理内容
-    if (story.value.detail && tagColors.value.length > 0) {
-      story.value.renderedDetail = processMarkdownContent(story.value.detail)
+    detailTabs.value = loadDetailFromStorage(story.value.detail)
+    activeDetailTabIndex.value = 0
+    lastSavedDetailSerialized.value = serializeDetailForStorage(detailTabs.value)
+    if (activeDetailContent.value && tagColors.value.length > 0) {
+      story.value.renderedDetail = processMarkdownContent(activeDetailContent.value)
     }
     await fetchComments()
   } catch (e) {
@@ -274,14 +419,17 @@ const saveDetail = async () => {
   error.value = null
   try {
     // 只更新笔记内容，其余字段保持不变
+    const serialized = serializeDetailForStorage(detailTabs.value)
+    if (detailTabs.value.length <= 1) {
+      detailUsesTabs.value = false
+    }
     await axios.put(`/stories/${story.value.id}`, {
-      detail: detailDraft.value
+      detail: serialized
     })
-    story.value.detail = detailDraft.value
-    lastSavedDetailDraft.value = detailDraft.value
-    // 更新渲染后的内容，确保tagColors已加载
-    if (story.value.detail && tagColors.value.length > 0) {
-      story.value.renderedDetail = processMarkdownContent(story.value.detail)
+    story.value.detail = serialized
+    lastSavedDetailSerialized.value = serialized
+    if (activeDetailContent.value && tagColors.value.length > 0) {
+      story.value.renderedDetail = processMarkdownContent(activeDetailContent.value)
     }
     editing.value = false
   } catch (e) {
@@ -297,18 +445,18 @@ const autoSaveDetail = async () => {
   if (!editing.value) return
   if (!story.value?.id) return
   if (loading.value || isAutoSaving.value) return
-  if (detailDraft.value === lastSavedDetailDraft.value) return
+  const serialized = serializeDetailForStorage(detailTabs.value)
+  if (serialized === lastSavedDetailSerialized.value) return
 
   isAutoSaving.value = true
   try {
-    // 自动保存时同样只更新笔记内容
     await axios.put(`/stories/${story.value.id}`, {
-      detail: detailDraft.value
+      detail: serialized
     })
-    story.value.detail = detailDraft.value
-    lastSavedDetailDraft.value = detailDraft.value
-    if (story.value.detail && tagColors.value.length > 0) {
-      story.value.renderedDetail = processMarkdownContent(story.value.detail)
+    story.value.detail = serialized
+    lastSavedDetailSerialized.value = serialized
+    if (activeDetailContent.value && tagColors.value.length > 0) {
+      story.value.renderedDetail = processMarkdownContent(activeDetailContent.value)
     }
   } catch (e) {
     // 自动保存失败不打断用户编辑，仅记录
@@ -321,7 +469,7 @@ const autoSaveDetail = async () => {
 watch(editing, (isEditing) => {
   // 进入编辑时，建立基线，启动定时自动保存
   if (isEditing) {
-    lastSavedDetailDraft.value = detailDraft.value
+    lastSavedDetailSerialized.value = serializeDetailForStorage(detailTabs.value)
     if (autoSaveTimer) clearInterval(autoSaveTimer)
     autoSaveTimer = setInterval(autoSaveDetail, 5 * 60 * 1000)
   } else {
@@ -1015,22 +1163,81 @@ onBeforeUnmount(() => {
         </div>
         <div class="detail-section">
           <div class="detail-header">
-            <h2>笔记</h2>
-            <button
-              v-if="!editing && isAdmin"
-              class="btn btn-edit"
-              @click="editing=true"
-            ><i class="iconfont icon-edit"></i></button>
+            <h2>笔记.</h2>
+            <div class="detail-header__actions">
+              <div v-if="editing" class="edit-actions">
+                <button class="btn btn-confirm" @click="saveDetail" :disabled="loading" type="button">
+                  <i class="iconfont icon-ok"></i>
+                </button>
+                <button class="btn btn-cancel" @click="cancelEditDetail" type="button">
+                  <i class="iconfont icon-cancel-test"></i>
+                </button>
+              </div>
+              <button
+                v-else-if="isAdmin"
+                class="btn btn-edit"
+                type="button"
+                @click="editing=true"
+              ><i class="iconfont icon-edit"></i></button>
+            </div>
           </div>
           <div v-if="editing" class="edit-area">
+            <div v-if="showDetailTabBar" class="detail-tabs detail-tabs--edit">
+              <template v-for="(tab, index) in detailTabs" :key="tab.id">
+                <button
+                  type="button"
+                  :class="['tab-button', { active: activeDetailTabIndex === index }]"
+                  @click="switchDetailTab(index)"
+                >
+                  <span
+                    v-if="activeDetailTabIndex === index"
+                    class="detail-tab-title-grow"
+                  >
+                    <span class="detail-tab-title-sizer" aria-hidden="true">{{
+                      tab.title ? `${tab.title}\u200b` : '标签标题'
+                    }}</span>
+                    <input
+                      class="detail-tab-title-input"
+                      :value="tab.title"
+                      maxlength="32"
+                      placeholder="标签标题"
+                      @click.stop
+                      @input="updateDetailTabTitle(index, $event.target.value)"
+                    >
+                  </span>
+                  <span v-else class="detail-tab-label">{{ tab.title || `标签${index + 1}` }}</span>
+                  <span
+                    v-if="detailTabs.length > 1 && activeDetailTabIndex === index"
+                    class="detail-tab-remove"
+                    role="button"
+                    tabindex="0"
+                    title="删除当前标签页"
+                    @click.stop="removeDetailTab(index)"
+                    @keydown.enter.prevent="removeDetailTab(index)"
+                    @keydown.space.prevent="removeDetailTab(index)"
+                  >×</span>
+                </button>
+              </template>
+              <button type="button" class="tab-button tab-button--add" title="添加标签页" @click="addDetailTab">
+                <i class="iconfont icon-tianjia"></i>
+              </button>
+            </div>
+            <button
+              v-else
+              type="button"
+              class="detail-enable-tabs-btn"
+              @click="enableDetailTabs"
+            >
+              <i class="iconfont icon-tianjia"></i>
+            </button>
             <label for="detail-textarea" class="sr-only">编辑笔记内容</label>
-            <textarea 
-              v-model="detailDraft" 
-              rows="20" 
+            <textarea
+              v-model="detailDraft"
+              rows="20"
               class="detail-textarea"
               id="detail-textarea"
             ></textarea>
-            
+
             <!-- 详情图片上传区域 -->
             <div class="detail-images-upload">
               <div 
@@ -1066,12 +1273,23 @@ onBeforeUnmount(() => {
               <button class="btn btn-confirm" @click="saveDetail" :disabled="loading" type="button">
                 <i class="iconfont icon-ok"></i>
               </button>
-              <button class="btn btn-cancel" @click="editing=false" type="button">
+              <button class="btn btn-cancel" @click="cancelEditDetail" type="button">
                 <i class="iconfont icon-cancel-test"></i>
               </button>
             </div>
           </div>
           <div v-else>
+            <div v-if="showDetailTabBar" class="detail-tabs">
+              <button
+                v-for="(tab, index) in detailTabs"
+                :key="tab.id"
+                type="button"
+                :class="['tab-button', { active: activeDetailTabIndex === index }]"
+                @click="switchDetailTab(index)"
+              >
+                {{ tab.title || `标签${index + 1}` }}
+              </button>
+            </div>
             <div class="detail-text">
               <div
                 class="detail-text-content"
@@ -1083,7 +1301,7 @@ onBeforeUnmount(() => {
         </div>
         <div class="relation-section">
           <div class="relation-header">
-            <h3>关联剧情</h3>
+            <h3>关联剧情.</h3>
             <button v-if="isAdmin" class="btn btn-edit" @click="openAddRelationForm" type="button">
               <i class="iconfont icon-tianjia"></i>
             </button>
@@ -1207,7 +1425,7 @@ onBeforeUnmount(() => {
     <!-- 剧情导航区域 -->
     <div v-if="storyOrder" class="story-navigation">
       <div class="nav-header">
-        <h3>剧情导航</h3>
+        <h3>剧情导航.</h3>
         <div class="nav-info">
           <span v-if="getCurrentSetName()" class="nav-set-name">
             {{ getCurrentSetName() }}合集，
@@ -1409,7 +1627,7 @@ mark.story-search-highlight {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 .story-image-area {
   width: 80px;
@@ -1438,7 +1656,16 @@ mark.story-search-highlight {
 .detail-header {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.detail-header__actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 5px;
 }
 .detail-header h2 {
   font-size: 1rem;
@@ -1448,6 +1675,128 @@ mark.story-search-highlight {
   display: flex;
   align-items: center;
 }
+
+/* 与 Admin 评论管理 tab 一致 */
+.detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  max-width: 100%;
+}
+
+.detail-tabs .tab-button {
+  padding: 4px 10px;
+  margin: 0 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  position: relative;
+  color: #666;
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-tabs .tab-button:hover {
+  color: #444;
+}
+
+.detail-tabs .tab-button.active {
+  color: var(--color-blue);
+  border-bottom: 2px solid var(--color-blue);
+  margin-bottom: -1px;
+}
+
+.detail-tabs--edit .tab-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: none;
+}
+
+.detail-tab-title-grow {
+  display: inline-grid;
+  vertical-align: middle;
+  max-width: 12em;
+  min-width: 0;
+}
+
+.detail-tab-title-sizer {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 12em;
+  font: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  pointer-events: none;
+}
+
+.detail-tab-title-input {
+  grid-area: 1 / 1;
+  width: 4em;
+  min-width: 0;
+  max-width: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: inherit;
+  padding: 0;
+  outline: none;
+  line-height: inherit;
+}
+
+.detail-tab-label {
+  pointer-events: none;
+}
+
+.detail-tabs .tab-button--add {
+  flex-shrink: 0;
+  max-width: none;
+  padding: 5px 5px;
+}
+
+.detail-tabs .tab-button--add i {
+  font-size: 1.05rem;
+}
+
+.detail-tab-remove {
+  flex-shrink: 0;
+  margin: 0 -4px 0 0;
+  padding: 0 4px;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #c0392b;
+  cursor: pointer;
+  user-select: none;
+}
+
+.detail-tab-remove:hover {
+  color: #a93226;
+}
+
+.detail-enable-tabs-btn {
+  align-self: flex-start;
+  padding: 4px 0;
+  border: none;
+  background: none;
+  color: #499e8d;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.detail-enable-tabs-btn:hover {
+  color: #3d8577;
+}
+
 .detail-text {
   white-space: pre-wrap;
   padding: 10px 10px;
@@ -1497,9 +1846,6 @@ mark.story-search-highlight {
   margin: 0px;
   text-align: left;
   padding: 0 20px;
-}
-
-:deep(.detail-text li) {
 }
 
 :deep(.detail-text h1) {
@@ -1610,7 +1956,7 @@ mark.story-search-highlight {
 .edit-area {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 5px;
 }
 
 /* 详情图片上传相关样式 */
@@ -1652,11 +1998,6 @@ mark.story-search-highlight {
   cursor: pointer;
 }
 
-.detail-images-upload-label .iconfont {
-  font-size: 24px;
-  color: #999;
-}
-
 .upload-status {
   display: flex;
   align-items: center;
@@ -1684,7 +2025,6 @@ mark.story-search-highlight {
 }
 .edit-actions {
   display: flex;
-  gap: 5px;
   justify-content: flex-end;
 }
 .btn {
@@ -1702,18 +2042,18 @@ mark.story-search-highlight {
   box-sizing: border-box;
 }
 .btn-edit {
-  font-size: 1rem;
   padding: 3px 12px;
-  line-height: 1.5;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
   color: #fff;
   border: none;
-  border-radius: 4px;
-  transition: background 0.2s;
   cursor: pointer;
+}
+
+.btn-edit i{
+  font-size: 1.1rem;
 }
 
 .btn-confirm {
