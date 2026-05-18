@@ -1658,7 +1658,6 @@ mark.story-search-highlight {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 6px;
 }
 
 .detail-header__actions {
@@ -1685,7 +1684,7 @@ mark.story-search-highlight {
 }
 
 .detail-tabs .tab-button {
-  padding: 4px 10px;
+  padding: 5px 10px 4px;
   margin: 0 3px;
   background: none;
   border: none;
