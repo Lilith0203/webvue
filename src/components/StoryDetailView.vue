@@ -1497,8 +1497,8 @@ onBeforeUnmount(() => {
 
 .back-to-top {
   position: fixed;
-  right: 20px;
-  bottom: 30%;
+  right: 5px;
+  bottom: 20%;
   width: 30px;
   height: 30px;
   background: transparent;
