@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import axios from '../api'
 import { message } from '../utils/message'
 import { confirm } from '../utils/confirm'
@@ -11,11 +11,63 @@ const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 // 账号设置
+const profileNeedsPasswordSetup = ref(false)
 const profileOldPassword = ref('')
 const profileNewUsername = ref('')
 const profileNewPassword = ref('')
 const profileNewPassword2 = ref('')
 const profileSaving = ref(false)
+
+const resetProfileForm = () => {
+  profileNeedsPasswordSetup.value = false
+  profileOldPassword.value = ''
+  profileNewUsername.value = ''
+  profileNewPassword.value = ''
+  profileNewPassword2.value = ''
+}
+
+const fetchProfile = async () => {
+  if (!authStore.isAuthenticated) return
+  try {
+    const res = await axios.get('/user/profile')
+    if (res.data?.success) {
+      profileNeedsPasswordSetup.value = !!res.data.data?.needsPasswordSetup
+    }
+  } catch {
+    profileNeedsPasswordSetup.value = false
+  }
+}
+
+/** 切换账号时 Admin 可能未卸载，需按当前登录用户重新加载 */
+const reloadAccountSection = () => {
+  resetProfileForm()
+  fetchProfile()
+}
+
+const reloadRoleData = () => {
+  if (isAdmin.value) {
+    loadSettings()
+    loadOcrQuotaForm()
+    loadComments('unread')
+    loadAnnouncements()
+  } else if (authStore.isAuthenticated) {
+    loadMyComments(1)
+  }
+}
+
+watch(
+  () => [authStore.isAuthenticated, authStore.user?.username],
+  ([authed, username], [wasAuthed, wasUsername]) => {
+    if (!authed) {
+      resetProfileForm()
+      return
+    }
+    if (username !== wasUsername) {
+      reloadAccountSection()
+      reloadRoleData()
+    }
+  }
+)
 
 const saveProfile = async () => {
   if (profileSaving.value) return
@@ -23,17 +75,24 @@ const saveProfile = async () => {
   const newUsername = (profileNewUsername.value || '').trim()
   const newPassword = profileNewPassword.value || ''
   const newPassword2 = profileNewPassword2.value || ''
+  const firstSetup = profileNeedsPasswordSetup.value
 
-  if (!newUsername && !newPassword) {
+  if (firstSetup) {
+    if (!newPassword) {
+      message.alert('请设置新密码（至少 6 位）')
+      return
+    }
+  } else if (!newUsername && !newPassword) {
     message.alert('请填写要修改的内容')
     return
   }
+
   if (newPassword && newPassword.length < 6) {
     message.alert('新密码至少 6 位')
     return
   }
-  if ((newUsername || newPassword) && !oldPassword) {
-    message.alert('修改用户信息需要输入旧密码')
+  if (!firstSetup && (newUsername || newPassword) && !oldPassword) {
+    message.alert('修改用户名或密码需要输入旧密码')
     return
   }
   if (newPassword && newPassword !== newPassword2) {
@@ -43,11 +102,14 @@ const saveProfile = async () => {
 
   profileSaving.value = true
   try {
-    const res = await axios.post('/user/profile/update', {
-      oldPassword,
+    const payload = {
       newUsername: newUsername || undefined,
       newPassword: newPassword || undefined
-    })
+    }
+    if (!firstSetup && oldPassword) {
+      payload.oldPassword = oldPassword
+    }
+    const res = await axios.post('/user/profile/update', payload)
     if (!res.data?.success) throw new Error(res.data?.message || '保存失败')
 
     const token = res.data?.data?.token
@@ -56,11 +118,14 @@ const saveProfile = async () => {
     if (token && user) {
       authStore.setAuth({ username: user, role: role || authStore.user?.role || 'user' }, token)
     }
+    if (res.data?.data?.needsPasswordSetup === false) {
+      profileNeedsPasswordSetup.value = false
+    }
 
     profileOldPassword.value = ''
     profileNewPassword.value = ''
     profileNewPassword2.value = ''
-    message.alert('保存成功')
+    message.alert(firstSetup ? '密码设置成功' : '保存成功')
   } catch (e) {
     message.alert(e?.response?.data?.message || e?.message || '保存失败')
   } finally {
@@ -438,14 +503,10 @@ const goToCommentPage = (type, itemId) => {
 
 // 加载设置、公告；评论列表按角色加载
 onMounted(() => {
-  if (isAdmin.value) {
-    loadSettings()
-    loadOcrQuotaForm()
-    loadComments('unread')
-    loadAnnouncements()
-  } else if (authStore.isAuthenticated) {
-    loadMyComments(1)
+  if (authStore.isAuthenticated) {
+    reloadAccountSection()
   }
+  reloadRoleData()
 })
 </script>
 
@@ -720,6 +781,9 @@ onMounted(() => {
     <!-- 账号设置（所有用户可见） -->
     <section class="setting-section">
       <h3>账号设置</h3>
+      <p v-if="profileNeedsPasswordSetup" class="profile-setup-hint">
+        首次登录请在此设置新密码，无需填写旧密码；设置成功后，今后修改密码需验证旧密码。
+      </p>
       <div class="account-form">
         <div class="account-row">
           <div class="account-item">
@@ -748,7 +812,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="account-row">
+        <div v-if="!profileNeedsPasswordSetup" class="account-row">
           <div class="account-item">
             <div class="account-label">旧密码</div>
             <div class="account-control">
@@ -761,7 +825,12 @@ onMounted(() => {
           <div class="account-item">
             <div class="account-label">新密码</div>
             <div class="account-control">
-              <input v-model="profileNewPassword" class="input" type="password" placeholder="至少 6 位（可选）" />
+              <input
+                v-model="profileNewPassword"
+                class="input"
+                type="password"
+                :placeholder="profileNeedsPasswordSetup ? '至少 6 位（必填）' : '至少 6 位（可选）'"
+              />
             </div>
           </div>
           <div class="account-item">
@@ -774,7 +843,7 @@ onMounted(() => {
 
         <div class="account-actions">
           <button class="primary-btn" type="button" :disabled="profileSaving" @click="saveProfile">
-            {{ profileSaving ? '保存中...' : '保存修改' }}
+            {{ profileSaving ? '保存中...' : (profileNeedsPasswordSetup ? '设置密码' : '保存修改') }}
           </button>
         </div>
       </div>
@@ -793,6 +862,17 @@ onMounted(() => {
   color: #666;
   margin: 0 0 12px;
   line-height: 1.45;
+}
+
+.profile-setup-hint {
+  font-size: 0.85rem;
+  color: #c06000;
+  background: #fff8f0;
+  border: 1px solid #ffe0b2;
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin: 0 0 12px;
+  line-height: 1.5;
 }
 
 .comment-pending-tag {

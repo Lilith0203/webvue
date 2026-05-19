@@ -124,8 +124,8 @@ const toggleSortBySize = () => {
   }
 }
 
-// 修改重置搜索方法，也重置排序
-const resetSearch = () => {
+// 修改重置搜索方法，也重置排序并重新拉取列表
+const resetSearch = async () => {
   searchForm.value = {
     id: '',
     name: '',
@@ -139,6 +139,7 @@ const resetSearch = () => {
   displayLimit.value = 50  // 重置显示数量
   sortBy.value = null      // 重置排序方式
   sortDirection.value = 'asc' // 重置排序方向
+  await fetchMaterialData()
 }
 
 // 计算当前显示的材料

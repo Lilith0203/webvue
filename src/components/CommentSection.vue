@@ -291,7 +291,7 @@ const handleCommentClick = (event, commentId) => {
             <label for="reply-content" class="sr-only">回复内容</label>
             <textarea v-model="replyForm.content" id="reply-content" placeholder="添加回复..." rows="3" required></textarea>
             <div class="reply-actions">
-              <button type="submit" class="reply-submit">发表回复</button>
+              <button type="submit" class="reply-submit">发布</button>
               <button type="button" class="reply-cancel" @click="cancelReply">取消</button>
             </div>
           </form>
@@ -318,7 +318,7 @@ const handleCommentClick = (event, commentId) => {
                   <label for="nested-reply-content" class="sr-only">回复内容</label>
                   <textarea v-model="replyForm.content" id="nested-reply-content" placeholder="添加回复..." rows="2" required></textarea>
                   <div class="reply-actions">
-                    <button type="submit" class="reply-submit">发表回复</button>
+                    <button type="submit" class="reply-submit">发布</button>
                     <button type="button" class="reply-cancel" @click="cancelReply">取消</button>
                   </div>
                 </form>
@@ -578,8 +578,6 @@ const handleCommentClick = (event, commentId) => {
 /* 回复表单样式 */
 .reply-form {
   margin-top: 10px;
-  padding: 10px;
-  background-color: #f8f8f8;
   border-radius: 6px;
 }
 
@@ -622,10 +620,10 @@ const handleCommentClick = (event, commentId) => {
   background-color: var(--color-blue);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
   padding: 2px 7px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 
 .reply-submit:hover {
@@ -636,10 +634,10 @@ const handleCommentClick = (event, commentId) => {
   background-color: #999;
   color: white;
   border: none;
-  border-radius: 4px;
-  padding: 2px 7px 3px;
+  border-radius: 3px;
+  padding: 2px 7px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
 }
 
 .reply-cancel:hover {
