@@ -3002,13 +3002,13 @@ const checkAndFixActiveSet = () => {
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
-  align-items: flex-start; /* 改为 flex-start */
+  align-items: center;
   z-index: 1000;
-  padding: 20px 0;
-  /* 删除 overflow-y: auto */
-  /* 移动端键盘优化 */
-  height: 100vh; /* 兼容性 */
-  height: 100dvh; /* 动态视口高度，支持现代浏览器 */
+  padding: 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  height: 100vh;
+  height: 100dvh;
 }
 
 .modal-content {
@@ -3017,13 +3017,13 @@ const checkAndFixActiveSet = () => {
   padding: 15px 20px 30px;
   width: 400px;
   max-width: 90%;
-  max-height: calc(100vh - 140px); /* 调整最大高度 */
-  max-height: calc(100dvh - 140px); /* 动态视口高度 */
+  max-height: calc(100vh - 40px);
+  max-height: calc(100dvh - 40px);
   overflow-y: auto;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-  margin-top: 15px; /* 添加固定的顶部边距 */
-  /* 移动端键盘优化 */
-  -webkit-overflow-scrolling: touch; /* iOS 滚动优化 */
+  margin: auto;
+  flex-shrink: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-content h3 {
@@ -3389,6 +3389,7 @@ input[type="datetime-local"] {
 }
 
 .search-input-wrapper input {
+  font-size: 0.8rem;
   padding: 4px 6px;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -3481,7 +3482,8 @@ input[type="datetime-local"] {
     }
 
     .modal-content {
-      max-height: calc(100vh - 70px);
+      max-height: calc(100vh - 40px);
+      max-height: calc(100dvh - 40px);
     }
 }
 
@@ -3490,14 +3492,14 @@ input[type="datetime-local"] {
 /* 移动端键盘弹出优化 */
 @media (max-width: 768px) {
   .modal-overlay {
-    padding: 10px 0;
-    align-items: flex-start;
+    padding: 10px;
+    align-items: center;
   }
   
   .modal-content {
     width: 95%;
     max-width: 95%;
-    max-height: calc(100dvh - 80px);
+    max-height: calc(100dvh - 20px);
   }
   
   /* 确保模态框内容可以正常滚动 */

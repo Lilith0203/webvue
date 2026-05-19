@@ -31,7 +31,32 @@ const compressRepeats = ref(false)
 const zhPunctFix = ref(true)
 
 const resultText = ref('')
-const errorMessage = ref('')
+/** 识别结果区展示的是提示/错误（非 OCR 正文） */
+const resultIsHint = ref(false)
+
+const showResultHint = (msg) => {
+  resultText.value = msg
+  resultIsHint.value = true
+}
+
+const formatOcrError = (err) => {
+  const parts = [
+    err?.response?.data?.message,
+    err?.message,
+    err?.response?.data?.code,
+    err?.response?.status
+  ].filter((v) => v != null && String(v).trim() !== '')
+  const raw = parts.join(' ')
+
+  if (/illegalImageSize|8192|must not be less than 5px|greater than 8192/i.test(raw)) {
+    return '图片尺寸超出 OCR 限制：宽和高均需在 5～8192 像素之间。请减少一次选择的张数，或裁剪过长截图后重试。'
+  }
+  if (String(err?.response?.status) === '416' && /image/i.test(raw)) {
+    return '图片尺寸超出 OCR 限制：宽和高均需在 5～8192 像素之间。请减少一次选择的张数，或裁剪过长截图后重试。'
+  }
+
+  return raw || 'OCR 识别失败'
+}
 
 import { useAuthStore } from '../stores/auth'
 
@@ -65,8 +90,8 @@ const canRun = computed(() => {
 })
 
 const replaceFiles = (list) => {
-  errorMessage.value = ''
   resultText.value = ''
+  resultIsHint.value = false
   if (!Array.isArray(list) || list.length === 0) return
 
   // revoke old previews
@@ -85,7 +110,7 @@ const replaceFiles = (list) => {
   }
 
   if (accepted.length === 0) {
-    errorMessage.value = '请选择图片文件（单张不超过 8MB）'
+    showResultHint('请选择图片文件（单张不超过 8MB）')
     return
   }
 
@@ -103,8 +128,8 @@ const onPickFile = (e) => {
 
 const addFiles = (list) => {
   if (!Array.isArray(list) || list.length === 0) return
-  errorMessage.value = ''
   resultText.value = ''
+  resultIsHint.value = false
 
   const nextFiles = [...files.value]
   const nextPreviews = [...previewUrls.value]
@@ -116,7 +141,7 @@ const addFiles = (list) => {
     nextPreviews.push(URL.createObjectURL(f))
   }
   if (nextFiles.length === files.value.length) {
-    errorMessage.value = '未检测到可用图片（单张不超过 8MB）'
+    showResultHint('未检测到可用图片（单张不超过 8MB）')
     return
   }
   files.value = nextFiles
@@ -149,7 +174,7 @@ onMounted(() => {
       const v = res?.data?.data?.ocr_user_enabled
       ocrUserEnabled.value = v !== false
       if (!isAdmin.value && !ocrUserEnabled.value) {
-        errorMessage.value = '管理员已关闭普通用户文字识别功能'
+        showResultHint('管理员已关闭普通用户文字识别功能')
       }
     })
     .catch(() => {
@@ -180,7 +205,7 @@ const clearFile = () => {
   activeIndex.value = 0
   uploadProgress.value = 0
   resultText.value = ''
-  errorMessage.value = ''
+  resultIsHint.value = false
 }
 
 const removeAt = (idx) => {
@@ -398,7 +423,7 @@ const mergeImagesToSingleFile = async (fileList) => {
     ctx2.fillRect(0, 0, w2, h2)
     ctx2.drawImage(canvas, 0, 0, w2, h2)
     blob = await canvasToJpegBlob(c2, Math.max(0.65, quality))
-  }
+0  }
 
   if (!blob) throw new Error('合并失败：无法生成图片')
   if (blob.size > MAX_BYTES) {
@@ -410,8 +435,8 @@ const mergeImagesToSingleFile = async (fileList) => {
 
 const runOcr = async () => {
   if (files.value.length === 0) return
-  errorMessage.value = ''
   resultText.value = ''
+  resultIsHint.value = false
 
   recognizing.value = true
   runningIndex.value = 0
@@ -460,12 +485,15 @@ const runOcr = async () => {
     } else {
       await fetchOcrQuota()
     }
-    resultText.value = postProcessText(ocrRes?.data?.text || '')
-    if (!resultText.value) {
-      errorMessage.value = '识别完成，但未提取到文字（可尝试切换类型为 Advanced 或 HandWriting）'
+    const text = postProcessText(ocrRes?.data?.text || '')
+    if (!text) {
+      showResultHint('识别完成，但未提取到文字（可尝试切换类型为 Advanced 或 HandWriting）')
+    } else {
+      resultIsHint.value = false
+      resultText.value = text
     }
   } catch (err) {
-    errorMessage.value = err?.response?.data?.message || err?.message || 'OCR 识别失败'
+    showResultHint(formatOcrError(err))
   } finally {
     recognizing.value = false
     uploading.value = false
@@ -590,12 +618,12 @@ const runOcr = async () => {
 
         <textarea
           class="result-text"
+          :class="{ 'result-text--hint': resultIsHint }"
           v-model="resultText"
           placeholder="识别结果会显示在这里"
           rows="16"
+          @input="resultIsHint = false"
         />
-
-        <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
       </div>
     </div>
   </div>
@@ -829,9 +857,9 @@ const runOcr = async () => {
   resize: vertical;
   font-size: 0.9rem;
 }
-.error {
-  margin-top: 10px;
-  color: #d55355;
+
+.result-text--hint {
+  color: #c0392b;
 }
 
 @media (max-width: 768px) {
