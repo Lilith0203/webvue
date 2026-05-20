@@ -375,6 +375,51 @@ const updateDetailTabTitle = (index, title) => {
   tab.title = String(title ?? '').trim().slice(0, 32)
 }
 
+const detailTabDragFrom = ref(null)
+const detailTabDropTarget = ref(null)
+
+const moveDetailTab = (fromIndex, toIndex) => {
+  const list = detailTabs.value
+  if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return
+  if (fromIndex >= list.length || toIndex >= list.length) return
+  const activeId = list[activeDetailTabIndex.value]?.id
+  const [item] = list.splice(fromIndex, 1)
+  list.splice(toIndex, 0, item)
+  const nextActive = list.findIndex((t) => t.id === activeId)
+  if (nextActive >= 0) activeDetailTabIndex.value = nextActive
+}
+
+const onDetailTabDragStart = (e, index) => {
+  detailTabDragFrom.value = index
+  e.dataTransfer.setData('text/plain', String(index))
+  e.dataTransfer.effectAllowed = 'move'
+}
+
+const onDetailTabDragOver = (e, index) => {
+  e.preventDefault()
+  e.dataTransfer.dropEffect = 'move'
+  detailTabDropTarget.value = index
+}
+
+const onDetailTabDragLeave = () => {
+  detailTabDropTarget.value = null
+}
+
+const onDetailTabDrop = (e, toIndex) => {
+  e.preventDefault()
+  const raw = e.dataTransfer.getData('text/plain')
+  const from = detailTabDragFrom.value ?? parseInt(raw, 10)
+  if (!Number.isFinite(from)) return
+  moveDetailTab(from, toIndex)
+  detailTabDragFrom.value = null
+  detailTabDropTarget.value = null
+}
+
+const onDetailTabDragEnd = () => {
+  detailTabDragFrom.value = null
+  detailTabDropTarget.value = null
+}
+
 const cancelEditDetail = () => {
   detailTabs.value = loadDetailFromStorage(story.value?.detail)
   activeDetailTabIndex.value = 0
@@ -1186,9 +1231,27 @@ onBeforeUnmount(() => {
               <template v-for="(tab, index) in detailTabs" :key="tab.id">
                 <button
                   type="button"
-                  :class="['tab-button', { active: activeDetailTabIndex === index }]"
+                  :class="[
+                    'tab-button',
+                    {
+                      active: activeDetailTabIndex === index,
+                      'tab-button--drag-over': detailTabDropTarget === index
+                    }
+                  ]"
                   @click="switchDetailTab(index)"
+                  @dragover.prevent="onDetailTabDragOver($event, index)"
+                  @dragleave="onDetailTabDragLeave"
+                  @drop.prevent="onDetailTabDrop($event, index)"
                 >
+                  <span
+                    v-if="detailTabs.length > 1"
+                    class="detail-tab-drag-handle"
+                    draggable="true"
+                    title="拖动调整顺序"
+                    @dragstart="onDetailTabDragStart($event, index)"
+                    @dragend="onDetailTabDragEnd"
+                    @click.stop
+                  >⋮⋮</span>
                   <span
                     v-if="activeDetailTabIndex === index"
                     class="detail-tab-title-grow"
@@ -1679,23 +1742,28 @@ mark.story-search-highlight {
 .detail-tabs {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   max-width: 100%;
 }
 
 .detail-tabs .tab-button {
-  padding: 5px 10px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
   margin: 0 3px;
   background: none;
   border: none;
   cursor: pointer;
   font-size: 0.9rem;
+  line-height: 1.25;
   position: relative;
   color: #666;
   max-width: 10em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .detail-tabs .tab-button:hover {
@@ -1705,19 +1773,45 @@ mark.story-search-highlight {
 .detail-tabs .tab-button.active {
   color: var(--color-blue);
   border-bottom: 2px solid var(--color-blue);
-  margin-bottom: -1px;
 }
 
 .detail-tabs--edit .tab-button {
-  display: inline-flex;
-  align-items: center;
   gap: 6px;
   max-width: none;
+  padding-left: 4px;
+}
+
+.detail-tabs--edit .tab-button.tab-button--drag-over {
+  color: var(--color-blue);
+  background: rgba(74, 157, 217, 0.08);
+  border-radius: 4px 4px 0 0;
+}
+
+.detail-tab-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  flex-shrink: 0;
+  padding: 0 2px;
+  font-size: 0.85rem;
+  line-height: 1;
+  color: #aaa;
+  cursor: pointer;
+  user-select: none;
+  letter-spacing: -1px;
+}
+
+.detail-tab-drag-handle:active {
+  cursor: pointer;
+}
+
+.detail-tab-drag-handle:hover {
+  color: #777;
 }
 
 .detail-tab-title-grow {
   display: inline-grid;
-  vertical-align: middle;
+  align-self: center;
   max-width: 12em;
   min-width: 0;
 }
@@ -1750,10 +1844,13 @@ mark.story-search-highlight {
   font-size: inherit;
   padding: 0;
   outline: none;
-  line-height: inherit;
+  line-height: 1.25;
 }
 
 .detail-tab-label {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1.25;
   pointer-events: none;
 }
 
@@ -1768,9 +1865,12 @@ mark.story-search-highlight {
 }
 
 .detail-tab-remove {
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
   flex-shrink: 0;
   margin: 0 -4px 0 0;
-  padding: 0 4px;
+  padding: 0 3px;
   font-size: 1.1rem;
   line-height: 1;
   color: #c0392b;
