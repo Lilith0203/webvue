@@ -99,6 +99,8 @@ const detailDraft = computed({
 
 const lastSavedDetailSerialized = ref('')
 const isAutoSaving = ref(false)
+const detailSaving = ref(false)
+const detailSaveError = ref(null)
 let autoSaveTimer = null
 const showFullDetail = ref(false)
 const MAX_DETAIL_LINES = 100
@@ -424,7 +426,17 @@ const cancelEditDetail = () => {
   detailTabs.value = loadDetailFromStorage(story.value?.detail)
   activeDetailTabIndex.value = 0
   showFullDetail.value = false
+  detailSaveError.value = null
   editing.value = false
+}
+
+const formatDetailSaveError = (e) => {
+  const msg = e?.response?.data?.message
+  if (msg) return msg
+  if (/too long|Data too long|ER_DATA_TOO_LONG/i.test(String(e?.message || ''))) {
+    return '笔记内容过长，请联系管理员检查数据库字段类型'
+  }
+  return '保存失败，请稍后重试'
 }
 
 const relationTypeOptions = [
@@ -457,30 +469,35 @@ const fetchStory = async () => {
 
 const saveDetail = async () => {
   if (!isAdmin.value) {
-    error.value = '无权限：仅管理员可编辑笔记'
+    detailSaveError.value = '无权限：仅管理员可编辑笔记'
     return
   }
-  loading.value = true
-  error.value = null
+  detailSaving.value = true
+  detailSaveError.value = null
   try {
     // 只更新笔记内容，其余字段保持不变
     const serialized = serializeDetailForStorage(detailTabs.value)
     if (detailTabs.value.length <= 1) {
       detailUsesTabs.value = false
     }
-    await axios.put(`/stories/${story.value.id}`, {
+    const res = await axios.put(`/stories/${story.value.id}`, {
       detail: serialized
     })
+    if (res.data?.success === false) {
+      throw new Error(res.data?.message || '保存失败')
+    }
     story.value.detail = serialized
     lastSavedDetailSerialized.value = serialized
     if (activeDetailContent.value && tagColors.value.length > 0) {
       story.value.renderedDetail = processMarkdownContent(activeDetailContent.value)
     }
+    detailSaveError.value = null
     editing.value = false
   } catch (e) {
-    error.value = '保存失败'
+    detailSaveError.value = formatDetailSaveError(e)
+    // 保存失败时保持 editing，避免丢失未保存内容
   } finally {
-    loading.value = false
+    detailSaving.value = false
   }
 }
 
@@ -489,7 +506,7 @@ const autoSaveDetail = async () => {
   if (!isAdmin.value) return
   if (!editing.value) return
   if (!story.value?.id) return
-  if (loading.value || isAutoSaving.value) return
+  if (detailSaving.value || isAutoSaving.value) return
   const serialized = serializeDetailForStorage(detailTabs.value)
   if (serialized === lastSavedDetailSerialized.value) return
 
@@ -514,6 +531,7 @@ const autoSaveDetail = async () => {
 watch(editing, (isEditing) => {
   // 进入编辑时，建立基线，启动定时自动保存
   if (isEditing) {
+    detailSaveError.value = null
     lastSavedDetailSerialized.value = serializeDetailForStorage(detailTabs.value)
     if (autoSaveTimer) clearInterval(autoSaveTimer)
     autoSaveTimer = setInterval(autoSaveDetail, 5 * 60 * 1000)
@@ -1211,10 +1229,10 @@ onBeforeUnmount(() => {
             <h2>笔记.</h2>
             <div class="detail-header__actions">
               <div v-if="editing" class="edit-actions">
-                <button class="btn btn-confirm" @click="saveDetail" :disabled="loading" type="button">
+                <button class="btn btn-confirm" @click="saveDetail" :disabled="detailSaving" type="button">
                   <i class="iconfont icon-ok"></i>
                 </button>
-                <button class="btn btn-cancel" @click="cancelEditDetail" type="button">
+                <button class="btn btn-cancel" @click="cancelEditDetail" :disabled="detailSaving" type="button">
                   <i class="iconfont icon-cancel-test"></i>
                 </button>
               </div>
@@ -1227,6 +1245,7 @@ onBeforeUnmount(() => {
             </div>
           </div>
           <div v-if="editing" class="edit-area">
+            <p v-if="detailSaveError" class="detail-save-error" role="alert">{{ detailSaveError }}</p>
             <div v-if="showDetailTabBar" class="detail-tabs detail-tabs--edit">
               <template v-for="(tab, index) in detailTabs" :key="tab.id">
                 <button
@@ -1333,10 +1352,10 @@ onBeforeUnmount(() => {
             </div>
             
             <div class="edit-actions">
-              <button class="btn btn-confirm" @click="saveDetail" :disabled="loading" type="button">
+              <button class="btn btn-confirm" @click="saveDetail" :disabled="detailSaving" type="button">
                 <i class="iconfont icon-ok"></i>
               </button>
-              <button class="btn btn-cancel" @click="cancelEditDetail" type="button">
+              <button class="btn btn-cancel" @click="cancelEditDetail" :disabled="detailSaving" type="button">
                 <i class="iconfont icon-cancel-test"></i>
               </button>
             </div>
@@ -2056,6 +2075,17 @@ mark.story-search-highlight {
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.detail-save-error {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: #c0392b;
+  background: #fff5f5;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
 }
 
 /* 详情图片上传相关样式 */
