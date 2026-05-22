@@ -12,8 +12,6 @@ const route = useRoute()
 const materialData = ref(null)
 const loading = ref(false)
 const error = ref(null)
-const editingRow = ref(null) // 新增：跟踪正在编辑的行
-const editForm = ref({}) // 新增：存储编辑的临时数据
 //类型树数据
 const typeTree = ref([])
 const typeMap = ref(new Map()) // 存储id和typeName的映射
@@ -92,9 +90,16 @@ const handleFileUpload = async (event, rowId) => {
       }
     })
 
-    // 更新编辑表单中的图片URL
-    if (editForm.value && editingRow.value === rowId) {
-      editForm.value.pic = response.data.url
+    if (rowId === 'new') {
+      newMaterialForm.value.pic = response.data.url
+    } else if (
+      isMaterialModalOpen.value &&
+      materialModalMode.value === 'edit' &&
+      editingMaterialId.value === rowId
+    ) {
+      newMaterialForm.value.pic = response.data.url
+    } else if (batchEditDrafts.value[rowId]) {
+      batchEditDrafts.value[rowId].pic = response.data.url
     }
     uploadProgress.value = 0
   } catch (error) {
@@ -109,19 +114,153 @@ const openImageViewer = (url) => {
   }
 }
 
-// 添加排序相关的状态
+// 列表排序：尺寸为前端排序；添加/更新时间为后端排序
 const sortBy = ref(null)
 const sortDirection = ref('asc')
+const isTimeSort = (field) => field === 'createdAt' || field === 'updatedAt'
 
-// 优化尺寸排序
-const toggleSortBySize = () => {
-  if (sortBy.value === 'size') {
-    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
-    if (sortDirection.value === 'asc') sortBy.value = null;
+const setListSort = async (field) => {
+  const initialDir = field === 'size' ? 'asc' : 'desc'
+  let needRefetch = false
+
+  if (sortBy.value === field) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+    if (sortDirection.value === initialDir) {
+      sortBy.value = null
+      needRefetch = isTimeSort(field)
+    } else if (isTimeSort(field)) {
+      needRefetch = true
+    }
   } else {
-    sortBy.value = 'size';
-    sortDirection.value = 'asc';
+    sortBy.value = field
+    sortDirection.value = initialDir
+    needRefetch = isTimeSort(field)
   }
+
+  if (needRefetch) {
+    await fetchMaterialData()
+  }
+}
+
+const matchesSearchFilter = (item) => {
+  if (!item) return false
+  return (
+    (!searchForm.value.id || item.id.toString() === searchForm.value.id) &&
+    (!searchForm.value.name || item.name.toLowerCase().includes(searchForm.value.name.toLowerCase())) &&
+    (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
+    (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
+    (!searchForm.value.shape || item.shape.toLowerCase().includes(searchForm.value.shape.toLowerCase())) &&
+    (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase())) &&
+    (!searchForm.value.shop || item.shop.toLowerCase().includes(searchForm.value.shop.toLowerCase())) &&
+    (!searchForm.value.size || (item.size || '').toLowerCase().includes(searchForm.value.size.toLowerCase()))
+  )
+}
+
+const parseSizeForSort = (str) => {
+  if (!str) return [Infinity, Infinity]
+  const match = str.match(/^\s*(\d+(?:\.\d+)?)\s*[\*×]\s*(\d+(?:\.\d+)?)(?:\s*mm)?/i)
+  if (match) {
+    return [parseFloat(match[1]), parseFloat(match[2])]
+  }
+  const num = str.match(/\d+(?:\.\d+)?/)
+  return num ? [parseFloat(num[0]), -1] : [Infinity, Infinity]
+}
+
+const applySizeSort = (list) => {
+  const sorted = [...list]
+  sorted.sort((a, b) => {
+    const [a1, a2] = parseSizeForSort(a.size || '')
+    const [b1, b2] = parseSizeForSort(b.size || '')
+    if (a1 !== b1) return sortDirection.value === 'asc' ? a1 - b1 : b1 - a1
+    if (a2 !== b2) return sortDirection.value === 'asc' ? a2 - b2 : b2 - a2
+    const sa = (a.size || '').replace(/\s/g, '').toLowerCase()
+    const sb = (b.size || '').replace(/\s/g, '').toLowerCase()
+    return sa.localeCompare(sb)
+  })
+  return sorted
+}
+
+const formatExportDateTime = (value) => {
+  if (!value) return ''
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleString('zh-CN')
+}
+
+const xmlEscape = (value) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+
+const materialToExcelRow = (row) => [
+  row.id,
+  row.name,
+  typeMap.value.get(row.type) || row.type,
+  row.substance ?? '',
+  row.size ?? '',
+  row.shape ?? '',
+  row.color ?? '',
+  row.price ?? '',
+  row.stock ?? '',
+  row.shop ?? '',
+  row.note ?? '',
+  row.link ?? '',
+  row.pic ?? '',
+  formatExportDateTime(row.createdAt),
+  formatExportDateTime(row.updatedAt)
+]
+
+const exportMaterialsExcel = () => {
+  if (!authStore.isAuthenticated) {
+    error.value = '请先登录后再导出'
+    return
+  }
+  const list = filteredMaterials.value
+  if (!list.length) {
+    error.value = '当前筛选结果为空，无可导出数据'
+    return
+  }
+
+  const headers = [
+    'ID', '名称', '类型', '材质', '尺寸', '形状', '颜色',
+    '价格', '库存', '商店', '备注', '链接', '图片', '添加时间', '更新时间'
+  ]
+  const headerRow = headers
+    .map((h) => `<Cell><Data ss:Type="String">${xmlEscape(h)}</Data></Cell>`)
+    .join('')
+  const dataRows = list
+    .map((row) => {
+      const cells = materialToExcelRow(row)
+        .map((v) => `<Cell><Data ss:Type="String">${xmlEscape(v)}</Data></Cell>`)
+        .join('')
+      return `<Row>${cells}</Row>`
+    })
+    .join('')
+
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="材料">
+  <Table>
+   <Row>${headerRow}</Row>
+   ${dataRows}
+  </Table>
+ </Worksheet>
+</Workbook>`
+
+  const blob = new Blob(['\ufeff' + xml], { type: 'application/vnd.ms-excel;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_')
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `materials_${stamp}.xls`
+  a.click()
+  URL.revokeObjectURL(url)
+  error.value = null
 }
 
 // 修改重置搜索方法，也重置排序并重新拉取列表
@@ -142,72 +281,23 @@ const resetSearch = async () => {
   await fetchMaterialData()
 }
 
+// 筛选后的全部材料（导出用，不限条数）
+const filteredMaterials = computed(() => {
+  if (!materialData.value) return []
+  return materialData.value.filter(matchesSearchFilter)
+})
+
 // 计算当前显示的材料
 const displayedMaterials = computed(() => {
-  if (!materialData.value) return []
-  
-  // 先应用搜索过滤
-  const filtered = materialData.value.filter(item => {
-    return (
-      (!searchForm.value.id || item.id.toString() === searchForm.value.id) &&
-      (!searchForm.value.name || item.name.toLowerCase().includes(searchForm.value.name.toLowerCase())) &&
-      (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
-      (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
-      (!searchForm.value.shape || item.shape.toLowerCase().includes(searchForm.value.shape.toLowerCase())) &&
-      (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase())) &&
-      (!searchForm.value.shop || item.shop.toLowerCase().includes(searchForm.value.shop.toLowerCase())) &&
-      (!searchForm.value.size || item.size.toLowerCase().includes(searchForm.value.size.toLowerCase()))
-    )
-  })
-  
-  // 应用排序
-  let result = [...filtered]
+  let result = filteredMaterials.value
   if (sortBy.value === 'size') {
-    result.sort((a, b) => {
-      const parseSize = (str) => {
-        if (!str) return [Infinity, Infinity];
-        // 支持“*”或“×”，允许空格，第二个数字后可有单位
-        const match = str.match(/^\s*(\d+(?:\.\d+)?)\s*[\*×]\s*(\d+(?:\.\d+)?)(?:\s*mm)?/i);
-        if (match) {
-          return [parseFloat(match[1]), parseFloat(match[2])];
-        }
-        const num = str.match(/\d+(?:\.\d+)?/);
-        return num ? [parseFloat(num[0]), -1] : [Infinity, Infinity];
-      };
-      const [a1, a2] = parseSize(a.size || '');
-      const [b1, b2] = parseSize(b.size || '');
-
-      if (a1 !== b1) return sortDirection.value === 'asc' ? a1 - b1 : b1 - a1;
-      if (a2 !== b2) return sortDirection.value === 'asc' ? a2 - b2 : b2 - a2;
-      // 如果数字都相同，比较去空格、小写后的原始字符串
-      const sa = (a.size || '').replace(/\s/g, '').toLowerCase();
-      const sb = (b.size || '').replace(/\s/g, '').toLowerCase();
-      return sa.localeCompare(sb);
-    });
+    result = applySizeSort(result)
   }
-
-  // 然后限制显示数量
   return result.slice(0, displayLimit.value)
 })
 
 // 是否还有更多材料可以显示
-const hasMore = computed(() => {
-  if (!materialData.value) return false
-  
-  const filteredCount = materialData.value.filter(item => {
-    return (
-      (!searchForm.value.id || item.id.toString() === searchForm.value.id) &&
-      (!searchForm.value.name || item.name.toLowerCase().includes(searchForm.value.name.toLowerCase())) &&
-      (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
-      (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
-      (!searchForm.value.shape || item.shape.toLowerCase().includes(searchForm.value.shape.toLowerCase())) &&
-      (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase())) &&
-      (!searchForm.value.shop || item.shop.toLowerCase().includes(searchForm.value.shop.toLowerCase()))
-    )
-  }).length
-  
-  return filteredCount > displayLimit.value
-})
+const hasMore = computed(() => filteredMaterials.value.length > displayLimit.value)
 
 // 显示更多材料
 const loadMore = () => {
@@ -288,7 +378,13 @@ const columns = {
   actions: { label: '操作', editable: false }
 }
 
-const isAddingMaterial = ref(false)
+const batchEditMode = ref(false)
+const selectedMaterialIds = ref(new Set())
+const batchEditDrafts = ref({})
+const activeTypeDropdownRowId = ref(null)
+const isMaterialModalOpen = ref(false)
+const materialModalMode = ref('add')
+const editingMaterialId = ref(null)
 const newMaterialForm = ref({
   name: '',
   type: '',
@@ -301,6 +397,7 @@ const newMaterialForm = ref({
   shop: '',
   note: '',
   link: '',
+  pic: '',
 })
 
 // 重置表单
@@ -316,8 +413,11 @@ const resetForm = () => {
     stock: '',
     shop: '',
     note: '',
-    link: ''
+    link: '',
+    pic: ''
   }
+  uploadError.value = null
+  uploadProgress.value = 0
 }
 
 // 列显示设置
@@ -340,8 +440,9 @@ const toggleColumn = (columnKey) => {
 // 计算当前可见的列
 const visibleColumnsConfig = computed(() => {
   return Object.fromEntries(
-    Object.entries(columns).filter(([key]) => 
-      visibleColumns.value.includes(key)
+    Object.entries(columns).filter(([key]) =>
+      visibleColumns.value.includes(key) &&
+      !(batchEditMode.value && key === 'actions')
     )
   )
 })
@@ -512,56 +613,256 @@ const toggleType = (option) => {
 
 // 控制下拉框显示
 const isTypeDropdownVisible = ref(false)
-const isEditTypeDropdownVisible = ref(false)
 
-// 选择类型
-const selectType = (value, mode) => {
-  if (mode === 'new') {
+// 选择类型（new / modal 使用弹窗表单，edit 使用行内编辑）
+const selectType = (value, mode, rowId = null) => {
+  if (mode === 'new' || mode === 'modal') {
     newMaterialForm.value.type = value
     isTypeDropdownVisible.value = false
-  } else if (mode === 'edit') {
-    editForm.value.type = value
-    isEditTypeDropdownVisible.value = false
+  } else if (mode === 'edit' && rowId != null && batchEditDrafts.value[rowId]) {
+    batchEditDrafts.value[rowId].type = value
+    activeTypeDropdownRowId.value = null
   }
 }
+
+const toggleRowTypeDropdown = (rowId) => {
+  activeTypeDropdownRowId.value =
+    activeTypeDropdownRowId.value === rowId ? null : rowId
+}
+
+const isRowEditing = (row) =>
+  batchEditMode.value &&
+  Object.prototype.hasOwnProperty.call(batchEditDrafts.value, row.id)
 
 //判断是否有编辑权限
 const canEdit = computed(() => {
   return authStore.isAuthenticated
 })
 
+const clearBatchEditDrafts = () => {
+  batchEditDrafts.value = {}
+  activeTypeDropdownRowId.value = null
+}
+
+const materialModalTitle = computed(() =>
+  materialModalMode.value === 'add' ? '新增材料' : '编辑材料'
+)
+
+const modalPicUploadId = computed(() =>
+  materialModalMode.value === 'edit' && editingMaterialId.value != null
+    ? editingMaterialId.value
+    : 'new'
+)
+
+const closeMaterialModal = () => {
+  isMaterialModalOpen.value = false
+  materialModalMode.value = 'add'
+  editingMaterialId.value = null
+  resetForm()
+}
+
+const openAddModal = () => {
+  materialModalMode.value = 'add'
+  editingMaterialId.value = null
+  resetForm()
+  isMaterialModalOpen.value = true
+}
+
+const openEditModal = (row) => {
+  if (!row) return
+  materialModalMode.value = 'edit'
+  editingMaterialId.value = row.id
+  newMaterialForm.value = {
+    name: row.name || '',
+    type: row.type || '',
+    substance: row.substance || '',
+    size: row.size || '',
+    shape: row.shape || '',
+    color: row.color || '',
+    price: row.price || '',
+    stock: row.stock || '',
+    shop: row.shop || '',
+    note: row.note || '',
+    link: row.link || '',
+    pic: row.pic || ''
+  }
+  formErrors.value = {}
+  uploadError.value = null
+  uploadProgress.value = 0
+  isTypeDropdownVisible.value = false
+  isMaterialModalOpen.value = true
+}
+
+const selectedCount = computed(() => selectedMaterialIds.value.size)
+
+const selectedMaterialRows = computed(() =>
+  displayedMaterials.value.filter((m) => selectedMaterialIds.value.has(m.id))
+)
+
+const batchEditingCount = computed(() => Object.keys(batchEditDrafts.value).length)
+
 const startEdit = (row) => {
-  if (!canEdit.value) return
-  editingRow.value = row.id
-  editForm.value = { ...row }
+  if (!canEdit.value || !row) return
+  if (batchEditMode.value) {
+    if (!batchEditDrafts.value[row.id]) {
+      batchEditDrafts.value = { ...batchEditDrafts.value, [row.id]: { ...row } }
+    }
+    return
+  }
+  openEditModal(row)
 }
 
-const cancelEdit = () => {
-  editingRow.value = null
-  editForm.value = {}
+const cancelBatchEdits = () => {
+  clearBatchEditDrafts()
 }
 
-// 修改获取材料数据的方法
-const fetchMaterialData = async () => {
-  loading.value = true
+const toggleBatchEditMode = () => {
+  batchEditMode.value = !batchEditMode.value
+  if (batchEditMode.value) {
+    closeMaterialModal()
+  } else {
+    selectedMaterialIds.value = new Set()
+    clearBatchEditDrafts()
+  }
+}
+
+const startBatchEditSelected = () => {
+  const rows = selectedMaterialRows.value
+  if (!rows.length) {
+    error.value = '请先勾选要编辑的材料'
+    return
+  }
+  const drafts = {}
+  rows.forEach((row) => {
+    drafts[row.id] = { ...row }
+  })
+  batchEditDrafts.value = drafts
   error.value = null
+}
+
+const saveBatchEdits = async () => {
+  if (!canEdit.value) return
+  const materials = Object.values(batchEditDrafts.value)
+  if (!materials.length) {
+    error.value = '没有正在编辑的材料'
+    return
+  }
 
   try {
-    const response = await axios.post(`/material`, {
-      showAll: showOutOfStock.value // 添加参数控制是否显示所有材料
-    })
-    materialData.value = response.data.materials
-  } catch (err) {
-    // 未登录（401）或无权限时：按“空列表”处理，不显示报错
-    if (err?.response?.status === 401) {
-      materialData.value = []
-      error.value = null
-    } else {
-      error.value = "获取数据失败：" + err.message
+    loading.value = true
+    error.value = null
+    const response = await axios.post('/batchUpdateMaterial', { materials })
+    const { updated = 0, failed = [] } = response.data || {}
+    await fetchMaterialData({ silent: true })
+    clearBatchEditDrafts()
+
+    if (failed.length) {
+      error.value = response.data?.message || `已更新 ${updated} 条，${failed.length} 条失败`
+      console.warn('批量更新失败明细：', failed)
     }
+  } catch (err) {
+    error.value = '批量保存失败：' + (err.response?.data?.message || err.message)
   } finally {
     loading.value = false
   }
+}
+
+const toggleSelectMaterial = (id) => {
+  const next = new Set(selectedMaterialIds.value)
+  if (next.has(id)) {
+    next.delete(id)
+  } else {
+    next.add(id)
+  }
+  selectedMaterialIds.value = next
+}
+
+const allDisplayedSelected = computed(() => {
+  const list = displayedMaterials.value
+  return list.length > 0 && list.every((r) => selectedMaterialIds.value.has(r.id))
+})
+
+const toggleSelectAllDisplayed = () => {
+  if (allDisplayedSelected.value) {
+    selectedMaterialIds.value = new Set()
+  } else {
+    selectedMaterialIds.value = new Set(displayedMaterials.value.map((r) => r.id))
+  }
+}
+
+// 获取材料列表（silent：后台刷新，不挡表格）
+const fetchMaterialData = async ({ silent = false } = {}) => {
+  if (!authStore.isAuthenticated) {
+    materialData.value = []
+    return
+  }
+
+  if (!silent) {
+    loading.value = true
+    error.value = null
+  }
+
+  try {
+    const body = {
+      showAll: showOutOfStock.value
+    }
+    if (isTimeSort(sortBy.value)) {
+      body.sortBy = sortBy.value
+      body.sortOrder = sortDirection.value.toUpperCase()
+    }
+    const response = await axios.post(`/material`, body)
+    materialData.value = response.data.materials
+  } catch (err) {
+    if (err?.response?.status === 401) {
+      materialData.value = []
+      if (!silent) error.value = null
+    } else if (!silent) {
+      error.value = '获取数据失败：' + err.message
+    }
+  } finally {
+    if (!silent) loading.value = false
+  }
+}
+
+// 类型树 + 材料列表并行加载
+const loadMaterialPageData = async () => {
+  if (!authStore.isAuthenticated) {
+    materialData.value = []
+    typeTree.value = []
+    typeMap.value = new Map()
+    error.value = null
+    return
+  }
+
+  loading.value = true
+  error.value = null
+  try {
+    await Promise.all([
+      fetchTypeTree(),
+      fetchMaterialData({ silent: true })
+    ])
+  } catch (err) {
+    error.value = '加载失败：' + (err?.response?.data?.message || err.message)
+  } finally {
+    loading.value = false
+  }
+}
+
+const upsertMaterialRow = (row) => {
+  if (!row?.id) return
+  const list = materialData.value ? [...materialData.value] : []
+  const index = list.findIndex((item) => item.id === row.id)
+  if (index >= 0) {
+    list[index] = { ...list[index], ...row }
+  } else {
+    list.push(row)
+  }
+  materialData.value = list
+}
+
+const removeMaterialRow = (id) => {
+  if (!materialData.value) return
+  materialData.value = materialData.value.filter((item) => item.id !== id)
 }
 
 // 监听 showOutOfStock 变化，重新获取材料
@@ -574,40 +875,23 @@ watch(
   () => authStore.isAuthenticated,
   (loggedIn) => {
     if (loggedIn) {
-      fetchTypeTree()
-      fetchMaterialData()
+      loadMaterialPageData()
     } else {
       materialData.value = []
       typeTree.value = []
       typeMap.value = new Map()
       error.value = null
+      loading.value = false
     }
   },
   { immediate: true }
 )
 
-const updateMaterialItem = async (row) => {
-  if (!canEdit.value) return
-  try {
-    loading.value = true
-    await axios.post(`/updateMaterial`, editForm.value)
-    await fetchMaterialData() // 刷新数据
-    editingRow.value = null
-    editForm.value = {}
-  } catch (err) {
-    error.value = "更新失败：" + err.message
-  } finally {
-    loading.value = false
-  }
-}
-
-// 添加新材料
-const addMaterial = async () => {
+// 弹窗保存（新增 / 单条编辑）
+const saveMaterialFromModal = async () => {
   if (!canEdit.value) return
 
-  // 重置错误
   formErrors.value = {}
-  // 验证颜色字段
   if (!newMaterialForm.value.color) {
     formErrors.value.color = '请输入颜色'
     return
@@ -615,12 +899,35 @@ const addMaterial = async () => {
 
   try {
     loading.value = true
-    await axios.post('/addMaterial', newMaterialForm.value)
-    await fetchMaterialData() // 刷新数据
-    isAddingMaterial.value = false
-    resetForm()
+    let response
+    if (materialModalMode.value === 'add') {
+      response = await axios.post('/addMaterial', newMaterialForm.value)
+    } else {
+      response = await axios.post('/updateMaterial', {
+        id: editingMaterialId.value,
+        ...newMaterialForm.value
+      })
+    }
+    if (materialModalMode.value === 'add') {
+      const created = response?.data?.data
+      const hiddenByStock =
+        !showOutOfStock.value &&
+        (created?.stock === '0' || created?.stock === '无')
+      if (created?.id && !hiddenByStock) {
+        upsertMaterialRow(created)
+      } else {
+        await fetchMaterialData({ silent: true })
+      }
+    } else {
+      upsertMaterialRow({
+        id: editingMaterialId.value,
+        ...newMaterialForm.value
+      })
+    }
+    closeMaterialModal()
   } catch (err) {
-    error.value = "添加失败：" + err.message
+    error.value =
+      (materialModalMode.value === 'add' ? '添加失败：' : '更新失败：') + err.message
   } finally {
     loading.value = false
   }
@@ -631,10 +938,10 @@ const openCopyMaterialModal = async (row) => {
   if (!row) return;
   
   try {
-    // 打开新建模态框并预填充内容
-    isAddingMaterial.value = true;
-    
-    // 预填充表单数据
+    materialModalMode.value = 'add'
+    editingMaterialId.value = null
+    isMaterialModalOpen.value = true
+
     newMaterialForm.value = {
       name: row.name,
       type: row.type || '',
@@ -646,7 +953,8 @@ const openCopyMaterialModal = async (row) => {
       stock: row.stock || '',
       shop: row.shop || '',
       note: row.note || '',
-      link: row.link || ''
+      link: row.link || '',
+      pic: row.pic || ''
     };
     
     // 重置错误状态
@@ -669,9 +977,9 @@ const deleteMaterial = async (row) => {
   try {
     loading.value = true
     await axios.post('/deleteMaterial', { id: row.id })
-    await fetchMaterialData() // 刷新数据
+    removeMaterialRow(row.id)
   } catch (err) {
-    error.value = "删除失败：" + err.message
+    error.value = '删除失败：' + err.message
   } finally {
     loading.value = false
   }
@@ -685,21 +993,11 @@ onMounted(async() => {
     const target = e.target
     if (!target.closest('.type-selector')) {
       isTypeDropdownVisible.value = false
-      isEditTypeDropdownVisible.value = false
+      activeTypeDropdownRowId.value = null
     }
   })
   loadColumnSettings()
-  // 未登录：不请求数据，直接显示空列表
-  if (authStore.isAuthenticated) {
-    await fetchTypeTree()
-    await fetchMaterialData()
-  } else {
-    materialData.value = []
-    typeTree.value = []
-    typeMap.value = new Map()
-    error.value = null
-  }
-  
+
   // 检查URL查询参数中的ID
   if (route.query.id) {
     searchForm.value.id = route.query.id.toString()
@@ -713,8 +1011,15 @@ const getTypeName = (typeId) => {
 
 // 删除图片
 const removeImage = (rowId) => {
-  if (editingRow.value === rowId) {
-    editForm.value.pic = '';
+  if (
+    rowId === 'new' ||
+    (materialModalMode.value === 'edit' && editingMaterialId.value === rowId)
+  ) {
+    newMaterialForm.value.pic = ''
+    return
+  }
+  if (batchEditDrafts.value[rowId]) {
+    batchEditDrafts.value[rowId].pic = ''
   }
 }
 
@@ -776,32 +1081,72 @@ const goToMaterialById = (materialId) => {
 
       <!-- 添加新材料按钮 -->
       <div v-if="canEdit" class="add-material">
-        <button 
-          class="add-btn"
-          @click="isAddingMaterial = true">
+        <button
+          v-if="!batchEditMode"
+          class="batch-edit-btn"
+          @click="toggleBatchEditMode">
+          批量编辑
+        </button>
+        <button v-if="!batchEditMode" class="add-btn" @click="openAddModal">
           新增
+        </button>
+        <button
+          v-if="!batchEditMode"
+          type="button"
+          class="export-btn"
+          :disabled="!authStore.isAuthenticated"
+          @click="exportMaterialsExcel">
+          导出
         </button>
       </div>
     </div>
 
-    <!-- 新增材料表单 -->
-    <div v-if="isAddingMaterial" class="modal-overlay">
+    <!-- 新增 / 编辑材料弹窗 -->
+    <div v-if="isMaterialModalOpen" class="modal-overlay">
       <div class="modal-content">
         <div class="modal-header">
-          <h3>新增材料</h3>
-          <button 
-            class="close-btn"
-            @click="isAddingMaterial = false">
+          <h3>{{ materialModalTitle }}</h3>
+          <button class="close-btn" @click="closeMaterialModal">
             ×
           </button>
         </div>
         
         <div class="form-grid">
           <div v-for="(config, key) in columns" :key="key" class="form-item"
-            :style="{display: (key!=='pic' && key!=='id' && key!=='actions')?'block':'none'}">
-            <template v-if="key !== 'id'">
-              <label v-if="key !== 'actions'">{{ config.label }}</label>
-              <template v-if="key === 'type'">
+            :style="{ display: (key !== 'id' && key !== 'actions') ? 'block' : 'none' }">
+            <template v-if="key !== 'id' && key !== 'actions'">
+              <label>{{ config.label }}</label>
+              <template v-if="key === 'pic'">
+                <div class="image-upload">
+                  <div v-if="newMaterialForm.pic" class="image-preview-container">
+                    <img
+                      v-image="newMaterialForm.pic"
+                      class="preview-image"
+                      @click="openImageViewer(newMaterialForm.pic)">
+                    <button
+                      type="button"
+                      class="delete-image-btn"
+                      @click="removeImage(modalPicUploadId)">
+                      x
+                    </button>
+                  </div>
+                  <div class="upload-controls">
+                    <button
+                      type="button"
+                      class="upload-btn"
+                      @click="triggerFileInput(modalPicUploadId)">
+                      {{ newMaterialForm.pic ? '更换图片' : '选择图片' }}
+                    </button>
+                    <div v-if="uploadProgress" class="upload-progress">
+                      上传中... {{ uploadProgress }}%
+                    </div>
+                    <div v-if="uploadError" class="upload-error">
+                      {{ uploadError }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+              <template v-else-if="key === 'type'">
                 <div class="type-selector">
                   <div 
                     class="type-input" 
@@ -858,7 +1203,7 @@ const goToMaterialById = (materialId) => {
                 <!-- 显示错误信息 -->
                 <span v-if="formErrors.color" class="error-text">{{ formErrors.color }}</span>
               </template>
-              <template v-else-if="key !== 'actions'">
+              <template v-else>
                 <input
                   v-model="newMaterialForm[key]"
                   :type="config.type || 'text'"
@@ -869,8 +1214,8 @@ const goToMaterialById = (materialId) => {
         </div>
         
         <div class="form-actions">
-          <button class="save-btn" @click="addMaterial">保存</button>
-          <button class="cancel-btn" @click="isAddingMaterial = false">取消</button>
+          <button class="save-btn" @click="saveMaterialFromModal">保存</button>
+          <button class="cancel-btn" @click="closeMaterialModal">取消</button>
         </div>
       </div>
     </div>
@@ -891,7 +1236,7 @@ const goToMaterialById = (materialId) => {
         <input 
           v-model="searchForm.name"
           type="text"
-          placeholder="请输入名称">
+          placeholder="">
       </div>
       
       <div class="search-item" ref="typeDropdownRef">
@@ -940,7 +1285,7 @@ const goToMaterialById = (materialId) => {
         <input 
           v-model="searchForm.substance"
           type="text"
-          placeholder="请输入材质">
+          placeholder="">
       </div>
       
       <div class="search-item">
@@ -948,7 +1293,7 @@ const goToMaterialById = (materialId) => {
         <input 
           v-model="searchForm.shape"
           type="text"
-          placeholder="请输入形状">
+          placeholder="">
       </div>
       
       <div class="search-item">
@@ -956,44 +1301,89 @@ const goToMaterialById = (materialId) => {
         <input 
           v-model="searchForm.color"
           type="text"
-          placeholder="请输入颜色">
+          placeholder="">
       </div>
       <div class="search-item">
         <label>店铺：</label>
         <input 
           v-model="searchForm.shop"
           type="text"
-          placeholder="请输入店铺">
+          placeholder="">
       </div>
       <div class="search-item">
         <label>尺寸：</label>
         <input 
           v-model="searchForm.size"
           type="text"
-          placeholder="请输入尺寸">
+          placeholder="">
       </div>
       
       <div class="search-actions">
         <label class="stock-toggle">
           <input type="checkbox" v-model="showOutOfStock">
-          <span>显示无库存材料</span>
+          <span>显示无库存</span>
         </label>
         
-        <!-- 添加排序选项 -->
+        <button class="reset-btn" @click="resetSearch"><i class="iconfont icon-shuaxin"></i></button>
+      </div>
+    </div>
+
+    <div class="material-list-toolbar">
+      <div class="sort-row">
+        <span class="toolbar-label">排序：</span>
         <div class="sort-options">
-          <button 
-            class="sort-btn" 
-            :class="{ 'active': sortBy === 'size' }"
-            @click="toggleSortBySize">
-            按尺寸排序 
-            <span v-if="sortBy === 'size'">
-              {{ sortDirection === 'asc' ? '↑' : '↓' }}
-            </span>
+          <button
+            class="sort-btn"
+            :class="{ active: sortBy === 'size' }"
+            @click="setListSort('size')">
+            按尺寸
+            <span v-if="sortBy === 'size'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+          </button>
+          <button
+            class="sort-btn"
+            :class="{ active: sortBy === 'createdAt' }"
+            @click="setListSort('createdAt')">
+            添加时间
+            <span v-if="sortBy === 'createdAt'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+          </button>
+          <button
+            class="sort-btn"
+            :class="{ active: sortBy === 'updatedAt' }"
+            @click="setListSort('updatedAt')">
+            更新时间
+            <span v-if="sortBy === 'updatedAt'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
           </button>
         </div>
-        
-        <button class="reset-btn" @click="resetSearch">重置</button>
       </div>
+    </div>
+
+    <div v-if="batchEditMode" class="batch-actions-bar">
+      <span class="batch-selected-count">已选 <strong>{{ selectedCount }}</strong> 条</span>
+      <button
+        type="button"
+        class="batch-action-btn"
+        :disabled="selectedCount === 0"
+        @click="startBatchEditSelected">
+        编辑选中
+      </button>
+      <span v-if="batchEditingCount" class="batch-progress">正在编辑 {{ batchEditingCount }} 条</span>
+      <button
+        type="button"
+        class="batch-action-btn primary"
+        :disabled="batchEditingCount === 0 || loading"
+        @click="saveBatchEdits">
+        保存
+      </button>
+      <button
+        type="button"
+        class="batch-action-btn"
+        :disabled="batchEditingCount === 0"
+        @click="cancelBatchEdits">
+        取消编辑
+      </button>
+      <button type="button" class="batch-action-btn exit" @click="toggleBatchEditMode">
+        退出
+      </button>
     </div>
 
     <div class="material-table">
@@ -1005,15 +1395,31 @@ const goToMaterialById = (materialId) => {
           <table v-if="displayedMaterials.length">
             <thead>
               <tr>
+                <th v-if="batchEditMode" class="batch-check-col">
+                  <input
+                    type="checkbox"
+                    :checked="allDisplayedSelected"
+                    @change="toggleSelectAllDisplayed">
+                </th>
                 <th v-for="(config, key) in visibleColumnsConfig" :key="key">
                   {{ config.label }}
                 </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in displayedMaterials" :key="row.id">
+              <tr
+                v-for="row in displayedMaterials"
+                :key="row.id"
+                :class="{ 'batch-selected': batchEditMode && selectedMaterialIds.has(row.id) }"
+                @dblclick="batchEditMode && startEdit(row)">
                 <!-- 显示模式 -->
-                <template v-if="editingRow !== row.id">
+                <template v-if="!isRowEditing(row)">
+                  <td v-if="batchEditMode" class="batch-check-col">
+                    <input
+                      type="checkbox"
+                      :checked="selectedMaterialIds.has(row.id)"
+                      @change="toggleSelectMaterial(row.id)">
+                  </td>
                   <td v-for="(config, key) in visibleColumnsConfig" :key="key">
                     <!-- 如果是操作列 -->
                     <template v-if="key === 'type'">
@@ -1045,44 +1451,50 @@ const goToMaterialById = (materialId) => {
                   </td>
                 </template>
 
-                <!-- 编辑模式 -->
+                <!-- 批量编辑：表格内联编辑 -->
                 <template v-else>
+                  <td class="batch-check-col">
+                    <input
+                      type="checkbox"
+                      :checked="selectedMaterialIds.has(row.id)"
+                      disabled>
+                  </td>
                   <td v-for="(config, key) in visibleColumnsConfig" :key="key">
-                    <!-- 在表格显示中使用类型名称 -->
-                    <template v-if="key === 'type' && editingRow === row.id">
+                    <template v-if="key === 'type'">
                       <div class="type-selector">
-                        <div 
-                          class="type-input" 
-                          @click="isEditTypeDropdownVisible = !isEditTypeDropdownVisible">
-                          <span v-if="editForm[key]">{{ getTypeName(editForm[key]) }}</span>
+                        <div
+                          class="type-input"
+                          @click="toggleRowTypeDropdown(row.id)">
+                          <span v-if="batchEditDrafts[row.id][key]">
+                            {{ getTypeName(batchEditDrafts[row.id][key]) }}
+                          </span>
                           <span v-else class="placeholder">请选择类型</span>
                           <span class="arrow">▼</span>
                         </div>
 
-                        <div 
-                          v-show="isEditTypeDropdownVisible" 
+                        <div
+                          v-show="activeTypeDropdownRowId === row.id"
                           class="type-dropdown">
-                          <div 
-                            v-for="option in typeOptions" 
+                          <div
+                            v-for="option in typeOptions"
                             :key="option.value"
                             v-show="isVisible(option)"
                             class="type-option"
-                            :class="{ 
-                              'selected': editForm[key] === option.value,
+                            :class="{
+                              selected: batchEditDrafts[row.id][key] === option.value,
                               [`level-${option.level}`]: true
                             }"
                             :style="{ paddingLeft: `${option.level * 20 + 10}px` }">
-                            <!-- 展开/收起箭头 -->
-                            <span 
+                            <span
                               v-if="hasChildren(option)"
                               class="expand-arrow"
                               @click.stop="toggleExpand(option.path)">
                               {{ expandedTypes.has(option.path) ? '▼' : '▶' }}
                             </span>
                             <span v-else class="expand-placeholder"></span>
-                                        
-                            <!-- 选项内容 -->
-                            <div class="type-content" @click.stop="selectType(option.value, 'edit')">
+                            <div
+                              class="type-content"
+                              @click.stop="selectType(option.value, 'edit', row.id)">
                               <span>{{ option.label }}</span>
                             </div>
                           </div>
@@ -1092,38 +1504,26 @@ const goToMaterialById = (materialId) => {
 
                     <template v-else-if="key === 'pic' && config.editable">
                       <div class="image-upload">
-                        <!-- 显示当前图片 -->
-                        <div v-if="editForm[key]" class="image-preview-container">
-                          <img 
-                            v-image="editForm[key]" 
+                        <div
+                          v-if="batchEditDrafts[row.id][key]"
+                          class="image-preview-container">
+                          <img
+                            v-image="batchEditDrafts[row.id][key]"
                             class="preview-image"
-                            @click="openImageViewer(editForm[key])">
-                          
-                          <!-- 添加删除按钮 -->
-                          <button 
-                            type="button" 
-                            class="delete-image-btn" 
+                            @click="openImageViewer(batchEditDrafts[row.id][key])">
+                          <button
+                            type="button"
+                            class="delete-image-btn"
                             @click="removeImage(row.id)">
                             x
                           </button>
                         </div>
-                      
-                        <!-- 上传控件 -->
                         <div class="upload-controls">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            ref="fileInput"
-                            class="file-input"
-                            @change="handleFileUpload"
-                            style="display: none;">
-                          <button 
-                            class="upload-btn" 
+                          <button
+                            class="upload-btn"
                             @click="triggerFileInput(row.id)">
-                            {{ editForm[key] ? '更换图片' : '选择图片' }}
+                            {{ batchEditDrafts[row.id][key] ? '更换图片' : '上传' }}
                           </button>
-                      
-                          <!-- 显示上传进度或错误 -->
                           <div v-if="uploadProgress" class="upload-progress">
                             上传中... {{ uploadProgress }}%
                           </div>
@@ -1133,29 +1533,21 @@ const goToMaterialById = (materialId) => {
                         </div>
                       </div>
                     </template>
-                                
-                    <!-- 如果是操作列 -->
-                    <template v-else-if="key === 'actions'">
-                      <div class="action-buttons">
-                        <button class="save-btn" @click="updateMaterialItem(row)">保存</button>
-                        <button class="cancel-btn" @click="cancelEdit">取消</button>
-                      </div>
-                    </template>
-                                
+
                     <template v-else-if="config.editable">
                       <input
                         v-if="config.type === 'number'"
-                        v-model.number="editForm[key]"
+                        v-model.number="batchEditDrafts[row.id][key]"
                         type="number"
                         class="form-input">
                       <input
                         v-else
-                        v-model="editForm[key]"
+                        v-model="batchEditDrafts[row.id][key]"
                         :type="config.type || 'text'"
                         class="form-input">
                     </template>
                     <template v-else>
-                      {{ editForm[key] }}
+                      {{ batchEditDrafts[row.id][key] }}
                     </template>
                   </td>
                 </template>
@@ -1230,7 +1622,7 @@ const goToMaterialById = (materialId) => {
 
 .material-table {
   font-size: 0.8rem;
-  margin: 20px 0;
+  margin: 10px 0;
   overflow-x: auto;
 }
 
@@ -1355,7 +1747,7 @@ a:hover {
   background-color: #666;
   color: white;
   display: inline-block;
-  margin-right: 5px;
+  margin-right: 0;
   border-radius: 4px;
   border: none;
 }
@@ -1475,7 +1867,7 @@ a:hover {
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
   margin-bottom: 10px;
 }
@@ -1495,13 +1887,13 @@ a:hover {
   display: flex;
   justify-content: center;
   gap: 6px;
-  margin: 10px 0 20px;
+  margin: 15px 0 0px;
 }
 
 .form-input,
 .form-textarea {
   width: 100%;
-  padding: 4px 8px;
+  padding: 5px 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 0.8rem;
@@ -1513,6 +1905,28 @@ a:hover {
 }
 
 /* 按钮样式 */
+.add-material {
+  display: flex;
+  align-items: center;
+  gap: 0px;
+}
+
+.batch-edit-btn {
+  font-size: 0.8rem;
+  background-color: #f0f0f0;
+  color: #333;
+  padding: 3px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.batch-edit-btn.active {
+  background-color: var(--color-red);
+  color: white;
+  border: none;
+}
+
 .add-btn {
   font-size: 0.8rem;
   background-color: var(--color-green);
@@ -1521,6 +1935,94 @@ a:hover {
   border: none;
   border-radius: 4px;
   cursor: pointer;
+}
+
+.export-btn {
+  font-size: 0.8rem;
+  background-color: var(--color-blue);
+  color: white;
+  padding: 3px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.export-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.export-btn:disabled {
+  background-color: #c0c4cc;
+  cursor: not-allowed;
+}
+
+.batch-check-col {
+  width: 36px;
+  text-align: center;
+}
+
+.batch-check-col input[type='checkbox'] {
+  cursor: pointer;
+}
+
+tr.batch-selected {
+  background-color: #ecf5ff;
+}
+
+.batch-actions-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: #e8f4ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.batch-selected-count {
+  color: #303133;
+}
+
+.batch-selected-count strong {
+  color: var(--color-blue);
+}
+
+.batch-action-btn {
+  padding: 2px 10px 3px;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.batch-action-btn.primary {
+  background: var(--color-blue);
+  color: #fff;
+  border-color: var(--color-blue);
+}
+
+.batch-action-btn.primary:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.batch-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.batch-action-btn.exit {
+  background: var(--color-red);
+  color: #fff;
+  border: none;
+}
+
+.batch-progress {
+  color: var(--color-blue);
+  font-weight: 500;
 }
 
 .save-btn {
@@ -1570,7 +2072,6 @@ td:last-child {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-  margin-bottom: 1rem;
   padding: 1rem;
   background-color: #f5f7fa;
   border-radius: 4px;
@@ -1592,7 +2093,7 @@ td:last-child {
   border: 1px solid #dcdfe6;
   border-radius: 4px;
   font-size: 12px;
-  width: 120px;
+  width: 80px;
 }
 
 .search-item input.id-search {
@@ -1606,17 +2107,11 @@ td:last-child {
 }
 
 .reset-btn {
-  padding: 3px 10px 4px;
-  background-color: #909399;
-  color: white;
+  padding: 0;
+  background-color: transparent;
   border: none;
-  border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
-}
-
-.reset-btn:hover {
-  background-color: #82848a;
+  margin-left: 10px;
 }
 
 .type-selector {
@@ -1847,13 +2342,13 @@ td .type-input {
 }
 
 .upload-btn {
-  padding: 3px 5px;
+  padding: 2px 5px 3px;
   background-color: var(--color-blue);
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .upload-progress {
@@ -1890,13 +2385,11 @@ td .type-input {
 /* 排序按钮样式 */
 .sort-options {
   display: flex;
-  gap: 8px;
-  margin: 0 10px;
 }
 
 .sort-btn {
-  padding: 3px 8px 4px;
-  background-color: #f0f0f0;
+  padding: 2px 8px 3px;
+  background-color: #f4f4f4;
   border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
@@ -1910,9 +2403,9 @@ td .type-input {
 }
 
 .sort-btn.active {
-  background-color: #42b883;
+  background-color: var(--color-green);
   color: white;
-  border-color: #42b883;
+  border: none;
 }
 
 /* 调整搜索操作区域的布局 */
@@ -1921,5 +2414,46 @@ td .type-input {
   align-items: center;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.material-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 0 1rem 0.75rem;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+}
+
+.sort-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.toolbar-label {
+  font-size: 12px;
+  color: #606266;
+  white-space: nowrap;
+}
+
+.toolbar-btn {
+  padding: 3px 12px 4px;
+  background-color: var(--color-blue);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background-color: #66b1ff;
+}
+
+.toolbar-btn:disabled {
+  background-color: #c0c4cc;
+  cursor: not-allowed;
 }
 </style>
