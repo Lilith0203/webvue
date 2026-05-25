@@ -7,6 +7,11 @@ import ImagePreview from './ImagePreview.vue'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
 import { marked } from 'marked'
+import {
+  showCustomTooltip,
+  hideCustomTooltip,
+  handleTooltipTouch
+} from '../utils/customTooltip'
 
 const route = useRoute()
 const router = useRouter()
@@ -428,6 +433,30 @@ const cancelEditDetail = () => {
   showFullDetail.value = false
   detailSaveError.value = null
   editing.value = false
+}
+
+const detailRefreshing = ref(false)
+
+/** 进入编辑前拉取服务端最新笔记，避免使用页面上的旧内容 */
+const startEditDetail = async () => {
+  if (!isAdmin.value || !story.value?.id) return
+  detailSaveError.value = null
+  detailRefreshing.value = true
+  try {
+    const res = await axios.get(`/stories/${story.value.id}`)
+    const latestDetail = res.data?.data?.detail
+    story.value.detail = latestDetail
+    detailTabs.value = loadDetailFromStorage(latestDetail)
+    activeDetailTabIndex.value = 0
+    if (activeDetailContent.value && tagColors.value.length > 0) {
+      story.value.renderedDetail = processMarkdownContent(activeDetailContent.value)
+    }
+    editing.value = true
+  } catch {
+    detailSaveError.value = '获取最新笔记失败，请稍后重试'
+  } finally {
+    detailRefreshing.value = false
+  }
 }
 
 const formatDetailSaveError = (e) => {
@@ -1188,7 +1217,13 @@ onBeforeUnmount(() => {
         <div class="story-header">
           <h1 class="story-title">
             {{ story.title }}
-            <i v-if="story.isRecommended" class="iconfont icon-tuijian recommended-icon"></i>
+            <i
+              v-if="story.isRecommended"
+              class="iconfont icon-tuijian recommended-icon"
+              @mouseenter="showCustomTooltip($event, story.recReasons || '')"
+              @mouseleave="hideCustomTooltip()"
+              @touchstart.prevent="handleTooltipTouch($event, story.recReasons || '')"
+            ></i>
           </h1>
         </div>
         <div class="meta meta-time">
@@ -1240,10 +1275,16 @@ onBeforeUnmount(() => {
                 v-else-if="isAdmin"
                 class="btn btn-edit"
                 type="button"
-                @click="editing=true"
+                :disabled="detailRefreshing"
+                @click="startEditDetail"
               ><i class="iconfont icon-edit"></i></button>
             </div>
           </div>
+          <p
+            v-if="!editing && detailSaveError"
+            class="detail-save-error"
+            role="alert"
+          >{{ detailSaveError }}</p>
           <div v-if="editing" class="edit-area">
             <p v-if="detailSaveError" class="detail-save-error" role="alert">{{ detailSaveError }}</p>
             <div v-if="showDetailTabBar" class="detail-tabs detail-tabs--edit">
@@ -1648,6 +1689,7 @@ mark.story-search-highlight {
   display: inline-flex;
   align-items: center;
   vertical-align: middle;
+  cursor: default;
 }
 .meta {
   color: #888;

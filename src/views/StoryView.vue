@@ -6,6 +6,11 @@ import { useRouter, useRoute } from 'vue-router'
 import { message } from '../utils/message'
 import { confirm } from '../utils/confirm'
 import { sanitizeExternalStoryLink } from '../utils/sanitizeExternalLink'
+import {
+  showCustomTooltip,
+  hideCustomTooltip,
+  handleTooltipTouch
+} from '../utils/customTooltip'
 
 import ImagePreview from '../components/ImagePreview.vue'
 import Announcement from '../components/Announcement.vue'
@@ -1538,77 +1543,6 @@ const navigateToStoryDetail = (storyId) => {
   router.push(`/story/${storyId}?${baseQuery}${qParam}`)
 }
 
-const showCustomTooltip = (event, content) => {
-  if (!content || !content.trim()) return
-  // 检查文本中是否包含链接格式 [文本](链接)
-  if (content.includes('[') && content.includes('](') && content.includes(')')) {
-    // 如果包含链接，不显示tooltip，让链接正常工作
-    return;
-  }
-  
-  // 如果已存在并且点击的是同一个元素，则移除
-  const existingTooltip = document.querySelector('.custom-tooltip');
-  if (existingTooltip) {
-    // 判断是否点在同一个元素上
-    if (existingTooltip.__owner === event.target) {
-      existingTooltip.remove();
-      return;
-    } else {
-      existingTooltip.remove();
-    }
-  }
-
-  // 创建tooltip
-  const tooltip = document.createElement('div');
-  tooltip.className = 'custom-tooltip';
-  tooltip.textContent = content;
-  tooltip.style.position = 'absolute';
-  tooltip.style.background = 'rgba(0,0,0,0.85)';
-  tooltip.style.color = '#fff';
-  tooltip.style.padding = '4px 12px';
-  tooltip.style.borderRadius = '3px';
-  tooltip.style.fontSize = '0.85rem';
-  tooltip.style.lineHeight = '1.5';
-  tooltip.style.whiteSpace = 'pre-wrap';
-  tooltip.style.zIndex = 9999;
-  tooltip.style.maxWidth = '80vw';
-  tooltip.style.opacity = '0.85';
-
-  // 定位到点击位置
-  const rect = event.target.getBoundingClientRect();
-  tooltip.style.left = rect.left + window.scrollX + 'px';
-  tooltip.style.top = rect.bottom + window.scrollY + 4 + 'px';
-
-  // 记录归属元素
-  tooltip.__owner = event.target;
-
-  document.body.appendChild(tooltip);
-
-  // 点击其它地方关闭
-  const removeTooltip = (e) => {
-    if (!tooltip.contains(e.target) && e.target !== event.target) {
-      tooltip.remove();
-      document.removeEventListener('click', removeTooltip, true);
-    }
-  };
-  setTimeout(() => {
-    document.addEventListener('click', removeTooltip, true);
-  }, 0);
-};
-
-const hideCustomTooltip = () => {
-  const existingTooltip = document.querySelector('.custom-tooltip')
-  if (existingTooltip) existingTooltip.remove()
-}
-
-// 处理移动端触摸事件显示tooltip
-const handleTooltipTouch = (event, content) => {
-  // 阻止事件冒泡，避免触发标题的点击事件
-  event.stopPropagation()
-  // 显示tooltip
-  showCustomTooltip(event, content)
-  // 触摸后，点击其他地方时关闭（已在showCustomTooltip中实现）
-}
 
 // 打开复制剧情模态框
 const openCopyStoryModal = async (story) => {
