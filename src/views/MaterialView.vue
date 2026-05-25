@@ -2071,7 +2071,7 @@ td:last-child {
 .search-form {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 12px;
   padding: 1rem;
   background-color: #f5f7fa;
   border-radius: 4px;

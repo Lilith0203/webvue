@@ -11,6 +11,11 @@ import { confirm } from '../utils/confirm'
 import { message } from '../utils/message'
 import { refreshImageUrl, refreshVideoUrl } from '../utils/image'
 import { getTagColor, getTextColor, initTagColors } from '../utils/tags'
+import {
+  parseWorkVariants,
+  variantLabel,
+  formatVariantPrice
+} from '../utils/workVariants'
 
 // 修改 marked 渲染器配置
 const renderer = new marked.Renderer()
@@ -42,7 +47,14 @@ const currentWork = ref(null)
 const comments = ref([])  // 存储评论
 const loadingComments = ref(false)
 const errorComments = ref(null)
-const materials = ref([])  // 存储材料信息
+const materials = ref([])
+const activeVariantIndex = ref(0)
+const workVariants = computed(() =>
+  work.value ? parseWorkVariants(work.value) : []
+)
+const activeVariant = computed(
+  () => workVariants.value[activeVariantIndex.value] || null
+)
 
 // 合集相关
 const allSets = ref([])  // 所有合集列表
@@ -161,31 +173,25 @@ const fetchWorkDetail = async () => {
     }
     
     currentImageIndex.value = 0
-      
-    // 如果有材料信息，获取材料详情
-    if (work.value && work.value.materials && work.value.materials.length > 0) {
-      fetchMaterials(work.value.materials)
-    }
+    activeVariantIndex.value = 0
+    await loadActiveVariantMaterials()
   } catch (error) {
     console.error('获取作品详情失败:', error)
   }
 }
   
-// 获取材料信息
 const fetchMaterials = async (materialsData) => {
+  if (!materialsData?.length) {
+    materials.value = []
+    return
+  }
   try {
-    // 提取材料ID列表
-    const materialIds = materialsData.map(m => 
+    const materialIds = materialsData.map((m) =>
       typeof m === 'object' ? m.id : m
     )
-    
-    const response = await axios.post('/material', {
-      ids: materialIds
-    })
-    
-    // 合并材料信息和数量
-    materials.value = response.data.materials.map(material => {
-      const materialData = materialsData.find(m => 
+    const response = await axios.post('/material', { ids: materialIds })
+    materials.value = response.data.materials.map((material) => {
+      const materialData = materialsData.find((m) =>
         (typeof m === 'object' ? m.id : m) === material.id
       )
       return {
@@ -195,7 +201,22 @@ const fetchMaterials = async (materialsData) => {
     })
   } catch (error) {
     console.error('获取材料信息失败:', error)
+    materials.value = []
   }
+}
+
+const loadActiveVariantMaterials = async () => {
+  const variant = activeVariant.value
+  if (!variant?.materials?.length) {
+    materials.value = []
+    return
+  }
+  await fetchMaterials(variant.materials)
+}
+
+const switchVariant = async (index) => {
+  activeVariantIndex.value = index
+  await loadActiveVariantMaterials()
 }
   
 // 开始编辑
@@ -697,28 +718,45 @@ onMounted(async() => {
           
           <div class="description" v-html="work.renderedContent"></div>  
 
-          <!-- 价格信息 -->
-          <div v-if="work.price" class="price-info">
-            <a 
-              v-if="work.link && work.link.trim()" 
-              :href="work.link" 
-              target="_blank" 
+          <div v-if="workVariants.length > 1" class="variant-tabs">
+            <button
+              v-for="(variant, index) in workVariants"
+              :key="index"
+              type="button"
+              class="variant-tab"
+              :class="{ active: activeVariantIndex === index }"
+              @click="switchVariant(index)">
+              {{ variantLabel(variant, index) }}
+            </button>
+          </div>
+
+          <div
+            v-if="activeVariant && (activeVariant.price !== '' && activeVariant.price != null)"
+            class="price-info">
+            <a
+              v-if="work.link && work.link.trim()"
+              :href="work.link"
+              target="_blank"
               rel="noopener noreferrer"
               class="shop-link"
               title="点击跳转到购买链接">
               <i class="iconfont icon-shoumai"></i>
-              <span class="price-value">¥{{ formatPrice(work.price) }}</span>
+              <span class="price-value">¥{{ formatVariantPrice(activeVariant.price) }}</span>
               <span>（点击购买）</span>
             </a>
             <div v-else class="price-display">
               <i class="iconfont icon-shoumai"></i>
-              <span class="price-value">¥{{ formatPrice(work.price) }}</span>
+              <span class="price-value">¥{{ formatVariantPrice(activeVariant.price) }}</span>
             </div>
           </div>
 
-          <!-- 材料信息 -->
           <div v-if="materials.length > 0" class="materials-section">
-            <h3>材料信息</h3>
+            <h3>
+              材料信息
+              <span v-if="workVariants.length > 1" class="variant-subtitle">
+                — {{ variantLabel(activeVariant, activeVariantIndex) }}
+              </span>
+            </h3>
             <div class="materials-list">
               <div 
                 v-for="material in materials" 
@@ -1019,6 +1057,34 @@ onMounted(async() => {
   padding: 10px 10px 15px;
   background-color: var(--color-background-soft);
   border-radius: 8px;
+}
+
+.variant-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.variant-tab {
+  padding: 6px 14px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #f5f7fa;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.variant-tab.active {
+  background: var(--color-blue, #409eff);
+  color: #fff;
+  border-color: var(--color-blue, #409eff);
+}
+
+.variant-subtitle {
+  font-size: 13px;
+  font-weight: normal;
+  color: #909399;
 }
 
 .materials-section h3 {

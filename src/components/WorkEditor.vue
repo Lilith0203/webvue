@@ -4,6 +4,11 @@ import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from '../api'
 import { message } from '../utils/message'
 import { marked } from 'marked'
+import {
+  createEmptyVariant,
+  parseWorkVariants,
+  variantLabel
+} from '../utils/workVariants'
 
 const dragIndex = ref(null)
 const dragTarget = ref(null)
@@ -79,6 +84,8 @@ const showPreview = ref(false)
 const typeTree = ref([])
 const typeMap = ref(new Map()) // 存储id和typeName的映射
 
+const activeVariantIndex = ref(0)
+
 const initFormData = () => {
   return {
     id: props.work?.id || null,
@@ -86,11 +93,10 @@ const initFormData = () => {
     description: props.work?.description || '',
     pictures: [...(props.work?.pictures || [])],
     tags: [...(props.work?.tags || [])],
-    materials: [...(props.work?.materials || [])],
+    variants: [createEmptyVariant()],
     video: props.work?.video || '',
     link: props.work?.link || '',
-    price: props.work?.price || '',
-    status: props.work?.status !== undefined ? props.work.status : 0 // 0: 未完成, 1: 已完成
+    status: props.work?.status !== undefined ? props.work.status : 0
   }
 }
 
@@ -474,29 +480,14 @@ const confirmAddMaterial = () => {
         selectedMaterials.value[materialIndex].quantity = parseInt(materialQuantity.value)
       }
       
-      // 更新formData.materials
-      const formDataIndex = formData.materials.findIndex(m => 
-        typeof m === 'object' ? m.id === editingMaterial.value.id : m === editingMaterial.value.id
-      )
-      if (formDataIndex >= 0) {
-        formData.materials[formDataIndex] = { 
-          id: editingMaterial.value.id, 
-          quantity: parseInt(materialQuantity.value) 
-        }
-      }
+      syncActiveVariantFromUI()
     } else {
-      // 添加新材料
       const materialWithQuantity = {
         ...editingMaterial.value,
         quantity: parseInt(materialQuantity.value)
       }
       selectedMaterials.value.push(materialWithQuantity)
-      
-      // 更新formData.materials为新格式
-      formData.materials.push({ 
-        id: editingMaterial.value.id, 
-        quantity: parseInt(materialQuantity.value) 
-      })
+      syncActiveVariantFromUI()
     }
     
     // 重置状态
@@ -522,9 +513,66 @@ const cancelAddMaterial = () => {
 // 移除材料
 const removeMaterial = (material) => {
   selectedMaterials.value = selectedMaterials.value.filter(m => m.id !== material.id)
-  formData.materials = formData.materials.filter(m => 
-    typeof m === 'object' ? m.id !== material.id : m !== material.id
-  )
+  syncActiveVariantFromUI()
+}
+
+const syncActiveVariantFromUI = () => {
+  const variant = formData.variants[activeVariantIndex.value]
+  if (!variant) return
+  variant.materials = selectedMaterials.value.map((m) => ({
+    id: m.id,
+    quantity: parseInt(m.quantity, 10) || 1
+  }))
+}
+
+const loadSelectedMaterialsForVariant = async () => {
+  const variant = formData.variants[activeVariantIndex.value]
+  if (!variant?.materials?.length) {
+    selectedMaterials.value = []
+    return
+  }
+  try {
+    const materialIds = variant.materials.map((m) =>
+      typeof m === 'object' ? m.id : m
+    )
+    const response = await axios.post('/material', { ids: materialIds })
+    selectedMaterials.value = response.data.materials.map((material) => {
+      const materialData = variant.materials.find((m) =>
+        (typeof m === 'object' ? m.id : m) === material.id
+      )
+      return {
+        ...material,
+        quantity: typeof materialData === 'object' ? materialData.quantity : 1
+      }
+    })
+  } catch (error) {
+    console.error('获取已选材料失败:', error)
+    selectedMaterials.value = []
+  }
+}
+
+const switchVariant = async (index) => {
+  if (index === activeVariantIndex.value) return
+  syncActiveVariantFromUI()
+  activeVariantIndex.value = index
+  await loadSelectedMaterialsForVariant()
+}
+
+const addVariant = async () => {
+  syncActiveVariantFromUI()
+  formData.variants.push(createEmptyVariant())
+  activeVariantIndex.value = formData.variants.length - 1
+  selectedMaterials.value = []
+}
+
+const removeVariant = async (index) => {
+  if (formData.variants.length <= 1) return
+  syncActiveVariantFromUI()
+  formData.variants.splice(index, 1)
+  if (activeVariantIndex.value >= formData.variants.length) {
+    activeVariantIndex.value = formData.variants.length - 1
+  }
+  await loadSelectedMaterialsForVariant()
 }
 
 // 切换材料选择器
@@ -538,71 +586,26 @@ const toggleMaterialSelector = () => {
 
 // 初始化表单
 const initForm = async () => {
-  if (props.work) {
-    // 处理materials字段，兼容旧数据格式
-    let materials = props.work.materials || []
-    if (materials.length > 0 && typeof materials[0] === 'number') {
-      // 旧格式：转换为新格式
-      materials = materials.map(id => ({ id, quantity: 1 }))
-    }
-    
-    // 直接更新formData，确保响应式更新
+  if (props.work && (props.work.id || props.work.name)) {
     formData.id = props.work.id || null
     formData.name = props.work.name || ''
     formData.description = props.work.description || ''
     formData.tags = [...(props.work.tags || [])]
     formData.pictures = [...(props.work.pictures || [])]
-    formData.materials = [...materials]
+    formData.variants = parseWorkVariants(props.work).map((v) => ({
+      name: v.name,
+      price: v.price,
+      materials: [...v.materials]
+    }))
     formData.video = props.work.video || ''
     formData.link = props.work.link || ''
-    formData.price = props.work.price || ''
     formData.status = props.work.status !== undefined ? props.work.status : 0
-    
-    // 同时更新form.value以保持一致性
-    form.value = {
-      id: formData.id,
-      name: formData.name,
-      description: formData.description,
-      tags: formData.tags,
-      pictures: formData.pictures,
-      materials: formData.materials,
-      video: formData.video,
-      link: formData.link,
-      price: formData.price,
-      status: formData.status
-    }
-    
-    // 加载已选材料信息
-    if (materials.length > 0) {
-      await loadSelectedMaterials()
-    }
-  }
-}
-
-// 加载已选材料信息
-const loadSelectedMaterials = async () => {
-  try {
-    // 提取材料ID列表
-    const materialIds = formData.materials.map(m => 
-      typeof m === 'object' ? m.id : m
-    )
-    
-    const response = await axios.post('/material', {
-      ids: materialIds
-    })
-    
-    // 合并材料信息和数量
-    selectedMaterials.value = response.data.materials.map(material => {
-      const materialData = formData.materials.find(m => 
-        (typeof m === 'object' ? m.id : m) === material.id
-      )
-      return {
-        ...material,
-        quantity: typeof materialData === 'object' ? materialData.quantity : 1
-      }
-    })
-  } catch (error) {
-    console.error('获取已选材料失败:', error)
+    activeVariantIndex.value = 0
+    await loadSelectedMaterialsForVariant()
+  } else {
+    Object.assign(formData, initFormData())
+    activeVariantIndex.value = 0
+    selectedMaterials.value = []
   }
 }
 
@@ -616,16 +619,15 @@ const validatePrice = (value) => {
   return priceRegex.test(value)
 }
 
-// 处理价格输入
-const handlePriceInput = (event) => {
+// 处理规格价格输入
+const handleVariantPriceInput = (event, index) => {
   const value = event.target.value
-  
-  // 只允许输入数字和小数点
+  const variant = formData.variants[index]
+  if (!variant) return
   if (/^$|^\d+\.?\d{0,2}$/.test(value)) {
-    formData.price = value
+    variant.price = value
   } else {
-    // 如果输入无效，恢复到上一个有效值
-    event.target.value = formData.price
+    event.target.value = variant.price
   }
 }
 
@@ -670,22 +672,29 @@ const handleSubmit = async () => {
     const url = props.mode === 'create' ? '/works/add' : `/works/edit`
     const method = 'post'
 
-    // 验证价格
-    if (formData.price && !validatePrice(formData.price)) {
-      message.alert('请输入有效的价格，最多两位小数')
-      return
+    syncActiveVariantFromUI()
+
+    for (let i = 0; i < formData.variants.length; i++) {
+      const p = formData.variants[i].price
+      if (p && !validatePrice(p)) {
+        message.alert(`规格「${variantLabel(formData.variants[i], i)}」请输入有效价格`)
+        return
+      }
     }
-    
-    // 确保发送的数据格式正确
+
     const submitData = {
-      ...formData,
       id: props.mode === 'create' ? null : formData.id,
+      name: formData.name,
+      description: formData.description,
       pictures: formData.pictures || [],
       tags: formData.tags || [],
-      materials: formData.materials || [],
+      variants: formData.variants.map((v) => ({
+        name: v.name,
+        price: v.price === '' ? '' : v.price,
+        materials: v.materials || []
+      })),
       video: formData.video || '',
       link: formData.link || '',
-      price: formData.price || 0,
       status: formData.status !== undefined ? parseInt(formData.status) : 0
     }
     
@@ -980,36 +989,64 @@ const handleKeydown = (event) => {
           </div>
 
           <div class="form-item">
-            <label>链接</label>
-            <input 
-              v-model="formData.link" 
-              type="url" 
-              placeholder="请输入购买链接（可选）"
+            <label>购买链接</label>
+            <input
+              v-model="formData.link"
+              type="url"
+              placeholder="请输入购买链接（可选，全作品共用）"
               class="link-input">
           </div>
 
-          <div class="form-item">
-            <label>价格</label>
-            <div class="price-input">
-              <span class="currency-symbol">¥</span>
-              <input 
-                v-model="formData.price" 
-                type="text" 
-                placeholder="请输入价格（可选）"
-                @input="handlePriceInput"
-                class="price-field">
+          <div class="form-item variants-section">
+            <div class="variants-header">
+              <label>规格（价格与材料）</label>
+              <button type="button" class="add-variant-btn" @click="addVariant">+ 添加规格</button>
             </div>
-            <div class="price-hint">留空表示价格待定</div>
-            
-            <!-- 材料成本显示 -->
-            <div v-if="calculateMaterialCost > 0" class="cost-info">
-              <span class="cost-label">材料成本:</span>
-              <span class="cost-value">¥{{ formatPrice(calculateMaterialCost) }}</span>
+
+            <div class="variant-tabs">
+              <button
+                v-for="(variant, index) in formData.variants"
+                :key="index"
+                type="button"
+                class="variant-tab"
+                :class="{ active: activeVariantIndex === index }"
+                @click="switchVariant(index)">
+                {{ variantLabel(variant, index) }}
+                <span
+                  v-if="formData.variants.length > 1"
+                  class="variant-tab-remove"
+                  @click.stop="removeVariant(index)">×</span>
+              </button>
             </div>
-          </div>
-  
-          <div class="form-item">
-            <label>材料信息</label>
+
+            <div v-if="formData.variants[activeVariantIndex]" class="variant-panel">
+              <div class="variant-name-row">
+                <label>规格名称</label>
+                <input
+                  v-model="formData.variants[activeVariantIndex].name"
+                  type="text"
+                  placeholder="如：标准版、大号（可选）"
+                  class="form-input">
+              </div>
+
+              <div class="variant-price-row">
+                <label>价格</label>
+                <div class="price-input">
+                  <span class="currency-symbol">¥</span>
+                  <input
+                    :value="formData.variants[activeVariantIndex].price"
+                    type="text"
+                    placeholder="留空表示价格待定"
+                    class="price-field"
+                    @input="handleVariantPriceInput($event, activeVariantIndex)">
+                </div>
+                <div v-if="calculateMaterialCost > 0" class="cost-info">
+                  <span class="cost-label">本规格材料成本:</span>
+                  <span class="cost-value">¥{{ formatPrice(calculateMaterialCost) }}</span>
+                </div>
+              </div>
+
+              <label class="materials-sub-label">材料信息</label>
             <div class="selected-materials">
               <div v-for="material in selectedMaterials" :key="material.id" class="material-tag">
                 <div class="material-content" @click="editMaterialQuantity(material)">
@@ -1165,6 +1202,7 @@ const handleKeydown = (event) => {
                   没有找到匹配的材料
                 </div>
               </div>
+            </div>
             </div>
           </div>
 
@@ -1688,6 +1726,83 @@ const handleKeydown = (event) => {
 
 .price-field {
   padding-left: 25px !important;
+}
+
+.variants-section .variants-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.variants-section .variants-header label {
+  margin-bottom: 0;
+}
+
+.add-variant-btn {
+  padding: 2px 10px;
+  font-size: 12px;
+  border: 1px solid var(--color-blue, #409eff);
+  background: #fff;
+  color: var(--color-blue, #409eff);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.variant-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.variant-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #f5f7fa;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.variant-tab.active {
+  background: var(--color-blue, #409eff);
+  color: #fff;
+  border-color: var(--color-blue, #409eff);
+}
+
+.variant-tab-remove {
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.variant-panel {
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.variant-name-row,
+.variant-price-row {
+  margin-bottom: 12px;
+}
+
+.variant-name-row label,
+.variant-price-row label,
+.materials-sub-label {
+  display: block;
+  font-size: 12px;
+  color: #606266;
+  margin-bottom: 4px;
+}
+
+.materials-sub-label {
+  margin-top: 4px;
 }
 
 .price-hint {
