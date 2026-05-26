@@ -382,10 +382,16 @@ watch(searchKeyword, () => {
 
 .work-tags .tag {
   font-size: 11px;
-  padding: 2px 6px;
+  padding: 0 6px;
   background: #f0f0f0;
   border-radius: 4px;
   color: #666;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 20px;
 }
 
 .selector-footer {

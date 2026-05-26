@@ -308,13 +308,16 @@ const handleRemoveFromSet = (event, id) => {
 }
 
 .tag {
-  padding-right: 8px;
+  padding: 0 8px;
   border-radius: 4px;
   font-size: 0.75rem;
+  line-height: 1;
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   height: 20px;
 }
 

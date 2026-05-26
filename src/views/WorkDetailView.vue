@@ -3,7 +3,6 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
-import { jwtDecode } from 'jwt-decode'
 import WorkEditor from '../components/WorkEditor.vue'
 import { marked } from 'marked'
 import CommentSection from '../components/CommentSection.vue'
@@ -21,21 +20,25 @@ import {
 const renderer = new marked.Renderer()
 
 const authStore = useAuthStore()
-//判断是否有编辑权限
-const canEdit = computed(() => {
-    return authStore.isAuthenticated && authStore.user?.role === 'admin'
+
+const isAdmin = computed(
+  () => authStore.isAuthenticated && authStore.user?.role === 'admin'
+)
+/** 管理员专属：推荐、合集管理、下载源文件等 */
+const canEdit = computed(() => isAdmin.value)
+
+const authedUserId = computed(() => authStore.userId)
+
+const isOwnWork = computed(() => {
+  if (!work.value || authedUserId.value == null) return false
+  const ownerId = parseInt(work.value.userId, 10)
+  return !Number.isNaN(ownerId) && ownerId === authedUserId.value
 })
 
-const authedUserId = computed(() => {
-  if (!authStore.token) return null
-  try {
-    const decoded = jwtDecode(authStore.token)
-    const id = decoded && decoded.id
-    return typeof id === 'number' ? id : (typeof id === 'string' ? parseInt(id, 10) : null)
-  } catch (e) {
-    return null
-  }
-})
+/** 管理员或作品作者可编辑自己的作品 */
+const canManageWork = computed(
+  () => isAdmin.value || (authStore.isAuthenticated && isOwnWork.value)
+)
   
 const router = useRouter()
 const route = useRoute()
@@ -220,8 +223,9 @@ const switchVariant = async (index) => {
 }
   
 // 开始编辑
-const startEdit = (work) => {
-  currentWork.value = work
+const startEdit = (workItem) => {
+  if (!canManageWork.value) return
+  currentWork.value = workItem
   editorMode.value = 'edit'
   showEditor.value = true
 }
@@ -393,11 +397,21 @@ const clickTag = (tag) => {
   })
 }
 
-// 跳转到材料详情页：仅允许跳转到“自己的材料”
+const materialOwnerId = (material) => {
+  if (!material?.userId) return null
+  const id = parseInt(material.userId, 10)
+  return Number.isNaN(id) ? null : id
+}
+
+/** 已登录且材料归属当前用户时可跳转 */
+const canOpenMaterial = (material) => {
+  const uid = authedUserId.value
+  const ownerId = materialOwnerId(material)
+  return uid != null && ownerId != null && ownerId === uid
+}
+
 const goToMaterial = (material) => {
-  const userId = authedUserId.value
-  if (!userId) return
-  if (!material || material.userId !== userId) return
+  if (!canOpenMaterial(material)) return
 
   const url = router.resolve({
     path: '/material',
@@ -592,7 +606,7 @@ onMounted(async() => {
         <a @click="handleBack()" class="a-back"><i class="iconfont icon-back"></i></a>
         <div class="header">
           <h2>{{ work.id }} {{ work.name }}</h2>
-          <div v-if="canEdit" @click="startEdit(work)"><i class="iconfont icon-edit"></i></div>
+          <div v-if="canManageWork" @click="startEdit(work)"><i class="iconfont icon-edit"></i></div>
         </div>
 
         <!-- 交互区域 -->
@@ -669,7 +683,7 @@ onMounted(async() => {
             </button>
             <!-- 下载按钮 -->
             <button 
-              v-if="canEdit" 
+              v-if="canManageWork" 
               class="download-btn" 
               @click="downloadCurrentMedia"
               title="下载当前文件">
@@ -762,8 +776,9 @@ onMounted(async() => {
                 
                 <span
                   class="material-name"
-                  @click="goToMaterial(material)"
-                  :title="(authedUserId && material.userId === authedUserId) ? '点击查看材料详情' : ''"
+                  :class="{ 'material-name--link': canOpenMaterial(material) }"
+                  @click="canOpenMaterial(material) && goToMaterial(material)"
+                  :title="canOpenMaterial(material) ? '点击查看材料详情' : ''"
                 >{{ material.name }}</span>
                 <span class="material-quantity">×{{ material.quantity }}</span>
                 <span v-if="material.substance" class="material-info">{{ material.substance }}</span>
@@ -1034,13 +1049,16 @@ onMounted(async() => {
 }
   
 .tag {
-  padding: 1px 8px;
+  padding: 0 8px;
   border-radius: 4px;
   font-size: 12px;
+  line-height: 1;
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   height: 20px;
 }
   
@@ -1064,12 +1082,18 @@ onMounted(async() => {
 }
 
 .variant-tab {
-  padding: 2px 10px;
+  padding: 0 10px;
   border: 1px solid #dcdfe6;
   border-radius: 2px;
   background: #f5f7fa;
   cursor: pointer;
   font-size: 0.8rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 24px;
 }
 
 .variant-tab.active {
@@ -1108,7 +1132,16 @@ onMounted(async() => {
 
 .material-name {
   font-weight: bold;
+  cursor: default;
+}
+
+.material-name--link {
   cursor: pointer;
+  color: var(--color-blue);
+}
+
+.material-name--link:hover {
+  text-decoration: underline;
 }
 
 .material-quantity {

@@ -1322,10 +1322,16 @@ const handleKeydown = (event) => {
 }
 
 .tag {
-  padding: 2px 5px;
+  padding: 0 6px;
   background-color: #f0f0f0;
   border-radius: 4px;
   font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 22px;
 }
   
 .remove {

@@ -108,11 +108,12 @@ const handleLogin = async () => {
     }
 
     const serverUser = response.data?.data?.user
+    const serverId = response.data?.data?.id
     const serverRole = response.data?.data?.role
-    // 存储token
+    // 存储 token 与用户 id（私人模式作品列表依赖 id）
     authStore.setAuth(
       {
-        // 用服务端返回的真实用户名（保持大小写一致）
+        id: serverId,
         username: serverUser || username.value,
         role: serverRole || 'user'
       },

@@ -70,6 +70,21 @@ export const useAuthStore = defineStore('auth', {
     },
 
     getters: {
-        username: (state) => state.user?.username || ''
+        username: (state) => state.user?.username || state.user?.name || '',
+        /** 用户 id：优先 store，否则从 JWT 解析（兼容旧登录数据） */
+        userId: (state) => {
+            if (state.user?.id != null) {
+                const n = parseInt(state.user.id, 10)
+                if (!Number.isNaN(n)) return n
+            }
+            if (!state.token) return null
+            try {
+                const decoded = jwtDecode(state.token)
+                const n = parseInt(decoded?.id, 10)
+                return Number.isNaN(n) ? null : n
+            } catch {
+                return null
+            }
+        }
     }
 })

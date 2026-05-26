@@ -10,10 +10,67 @@ import { getTagColor, getTextColor, initTagColors } from '../utils/tags'
 import Announcement from '../components/Announcement.vue'
 
 const authStore = useAuthStore()
-//判断是否有编辑权限
-const canEdit = computed(() => {
-    return authStore.isAuthenticated && authStore.user?.role === 'admin'
-})
+
+const PAGE_VIEW_STORAGE_KEY = 'workPageViewMode'
+const pageViewMode = ref('public')
+
+const isAdmin = computed(
+  () => authStore.isAuthenticated && authStore.user?.role === 'admin'
+)
+/** 管理员：与现网一致，可管理全站 */
+const canEdit = computed(() => isAdmin.value)
+/** 已登录非管理员可进入私人模式 */
+const canUsePrivateMode = computed(
+  () => authStore.isAuthenticated && !isAdmin.value
+)
+const isPrivateMode = computed(
+  () => canUsePrivateMode.value && pageViewMode.value === 'private'
+)
+/** 私人模式下可发布/编辑自己的作品 */
+const canManageWorks = computed(() => canEdit.value || isPrivateMode.value)
+
+const currentUserId = computed(() => authStore.userId)
+
+const canOperateWork = (work) => {
+  if (canEdit.value) return true
+  if (!isPrivateMode.value || !work) return false
+  const uid = currentUserId.value
+  if (!uid) return false
+  return parseInt(work.userId, 10) === uid
+}
+
+const listScopeParams = () =>
+  isPrivateMode.value ? { scope: 'mine' } : { scope: 'public' }
+
+/** 私人模式：接口已 scope=mine；有 userId 时再按归属过滤一层 */
+const applyPrivateWorkFilter = (list) => {
+  if (!isPrivateMode.value) return list || []
+  const uid = currentUserId.value
+  if (!uid) return list || []
+  return (list || []).filter((w) => {
+    const ownerId = parseInt(w.userId, 10)
+    return !Number.isNaN(ownerId) && ownerId === uid
+  })
+}
+
+const switchPageViewMode = (mode) => {
+  if (mode === 'private' && !canUsePrivateMode.value) return
+  if (mode === pageViewMode.value) return
+  pageViewMode.value = mode
+  localStorage.setItem(PAGE_VIEW_STORAGE_KEY, mode)
+  resetListForModeChange()
+}
+
+const resetListForModeChange = () => {
+  works.value = []
+  incompleteWorks.value = []
+  currentPage.value = 1
+  showRecommended.value = false
+  selectedTags.value = []
+  fetchWorks()
+  fetchIncompleteWorks()
+  fetchTags()
+}
 
 const currentPage = ref(1)
 const pageSize = ref(18)
@@ -68,6 +125,7 @@ const toggleTag = (tag) => {
 
 // 打开新建编辑器
 const openCreateEditor = () => {
+  if (!canManageWorks.value) return
   currentWork.value = null
   editorMode.value = 'create'
   showEditor.value = true
@@ -75,6 +133,7 @@ const openCreateEditor = () => {
 
 // 打开编辑编辑器
 const openEditEditor = (work) => {
+  if (!canOperateWork(work)) return
   currentWork.value = work
   editorMode.value = 'edit'
   showEditor.value = true
@@ -134,6 +193,7 @@ const worksListParams = (extra = {}) => ({
   keyword: searchKeyword.value || undefined,
   includeInteraction: 1,
   clientId: getClientId(),
+  ...listScopeParams(),
   ...extra
 })
 
@@ -329,6 +389,7 @@ const fetchTopWorks = async () => {
         type: 2,
         page: 1,
         size: 100,
+        scope: 'public',
         includeInteraction: 1,
         clientId: getClientId()
       }
@@ -362,7 +423,7 @@ const fetchWorks = async () => {
       (searchKeyword.value && searchKeyword.value.trim())
     const interactionIncludedFlag = { value: false }
 
-    if (currentPage.value === 1 && !hasFilter) {
+    if (currentPage.value === 1 && !hasFilter && !isPrivateMode.value) {
       const [worksResponse, topWorks] = await Promise.all([
         axios.get('/works', { params: worksListParams() }),
         fetchTopWorks()
@@ -378,21 +439,30 @@ const fetchWorks = async () => {
         2,
         interactionIncludedFlag.value
       )
-      works.value = [...topWorks, ...worksWithInteraction]
+      works.value = applyPrivateWorkFilter([
+        ...topWorks,
+        ...worksWithInteraction
+      ])
       totalPages.value = Math.ceil(worksResponse.data.count / pageSize.value)
       totalItems.value = worksResponse.data.count
     } else {
       const response = await axios.get('/works', { params: worksListParams() })
-      works.value = await fetchInteractionBatch(
+      const batch = await fetchInteractionBatch(
         response.data.works,
         2,
         !!response.data.interactionIncluded
       )
+      works.value = applyPrivateWorkFilter(batch)
       totalPages.value = Math.ceil(response.data.count / pageSize.value)
       totalItems.value = response.data.count
     }
   } catch (error) {
     console.error('获取作品列表失败:', error)
+    if (isPrivateMode.value) {
+      works.value = []
+      totalPages.value = 1
+      totalItems.value = 0
+    }
   } finally {
     loading.value = false
   }
@@ -410,17 +480,20 @@ const fetchIncompleteWorks = async () => {
         size: 100,
         status: 0,
         includeInteraction: 1,
-        clientId: getClientId()
+        clientId: getClientId(),
+        ...listScopeParams()
       }
     })
 
-    incompleteWorks.value = await fetchInteractionBatch(
+    const batch = await fetchInteractionBatch(
       response.data.works,
       2,
       !!response.data.interactionIncluded
     )
+    incompleteWorks.value = applyPrivateWorkFilter(batch)
   } catch (error) {
     console.error('获取未完成作品列表失败:', error)
+    if (isPrivateMode.value) incompleteWorks.value = []
   } finally {
     loadingIncomplete.value = false
   }
@@ -519,6 +592,7 @@ const goToDetail = (id) => {
   sessionStorage.setItem('workSelectedTags', JSON.stringify(selectedTags.value))
   sessionStorage.setItem('workSearchKeyword', searchKeyword.value || '')
   sessionStorage.setItem('workShowRecommended', showRecommended.value.toString())
+  sessionStorage.setItem('workPageViewMode', pageViewMode.value)
   sessionStorage.setItem('workListScrollPosition', window.scrollY.toString())
   
   router.push(`/works/${id}?from=list`)
@@ -532,7 +606,9 @@ const formatDate = (date) => {
 // 获取所有标签
 const fetchTags = async () => {
   try {
-    const response = await axios.get('/worktags')
+    const response = await axios.get('/worktags', {
+      params: listScopeParams()
+    })
     allTags.value = response.data.data.tags
   } catch (error) {
     console.error('获取标签失败:', error)
@@ -628,6 +704,7 @@ const getWorkTagStyle = (tag) => {
 
 // 切换推荐作品视图
 const toggleRecommendedView = async () => {
+  if (isPrivateMode.value) return
   showRecommended.value = !showRecommended.value
   
   if (showRecommended.value) {
@@ -647,7 +724,8 @@ const fetchRecommendedWorks = async () => {
       params: {
         type: 2,
         page: recommendedPage.value,
-        size: pageSize.value
+        size: pageSize.value,
+        scope: 'public'
       }
     })
     
@@ -704,8 +782,36 @@ const getSetCoverUrl = (url) => {
   return `${url}?x-oss-process=image/resize,w_600`
 }
 
+watch(
+  () => authStore.isAuthenticated,
+  (loggedIn) => {
+    if (!loggedIn && pageViewMode.value === 'private') {
+      pageViewMode.value = 'public'
+      localStorage.setItem(PAGE_VIEW_STORAGE_KEY, 'public')
+      resetListForModeChange()
+    }
+  }
+)
+
+watch(canUsePrivateMode, (ok) => {
+  if (!ok && pageViewMode.value === 'private') {
+    pageViewMode.value = 'public'
+    localStorage.setItem(PAGE_VIEW_STORAGE_KEY, 'public')
+    resetListForModeChange()
+  }
+})
+
 onMounted(async () => {
   await initTagColors() // 初始化标签颜色
+
+  if (canUsePrivateMode.value) {
+    const saved = localStorage.getItem(PAGE_VIEW_STORAGE_KEY)
+    if (saved === 'private' || saved === 'public') {
+      pageViewMode.value = saved
+    }
+  } else {
+    pageViewMode.value = 'public'
+  }
   
   // 检查是否是从详情页返回
   const isFromDetail = route.query.from === 'detail'
@@ -746,6 +852,16 @@ onMounted(async () => {
       }
       if (savedShowRecommended) {
         showRecommended.value = savedShowRecommended === 'true'
+      }
+      const savedViewMode = sessionStorage.getItem('workPageViewMode')
+      if (
+        canUsePrivateMode.value &&
+        (savedViewMode === 'private' || savedViewMode === 'public')
+      ) {
+        pageViewMode.value = savedViewMode
+      }
+      if (pageViewMode.value === 'private') {
+        showRecommended.value = false
       }
     }
   } else {
@@ -855,7 +971,7 @@ onMounted(async () => {
   <!-- 列表内容 -->
   <template v-else>
       <!-- 合集模块（独立模块，放在作品展示标题之上） -->
-      <div v-if="worksSets.length >= 0" class="works-sets-module">
+      <div v-if="!isPrivateMode && worksSets.length >= 0" class="works-sets-module">
         <div class="module-header">
           <h3 class="module-title">作品合集</h3>
           <button v-if="canEdit" class="add-set-btn" @click="openCreateSetEditor">
@@ -890,7 +1006,27 @@ onMounted(async () => {
       </div>
 
       <div class="header">
-        <h2>所有作品</h2>
+        <div class="header-title-row">
+          <h2>{{ isPrivateMode ? '我的作品' : '所有作品' }}</h2>
+          <div v-if="canUsePrivateMode" class="view-mode-switch">
+            <button
+              type="button"
+              class="view-mode-btn"
+              :class="{ active: pageViewMode === 'public' }"
+              @click="switchPageViewMode('public')"
+            >
+              默认模式
+            </button>
+            <button
+              type="button"
+              class="view-mode-btn"
+              :class="{ active: pageViewMode === 'private' }"
+              @click="switchPageViewMode('private')"
+            >
+              私人模式
+            </button>
+          </div>
+        </div>
         <div class="header-actions">
           <!-- 搜索框 -->
           <div class="search-container" :class="{ 'is-searching': isSearching }">
@@ -906,12 +1042,14 @@ onMounted(async () => {
               <i class="iconfont icon-sousuo"></i>
             </button>
           </div>
-          <button v-if="canEdit" class="add-btn" @click="openCreateEditor">发布</button>
+          <button v-if="canManageWorks" class="add-btn" @click="openCreateEditor">发布</button>
         </div>
       </div>
       <div class="filter-tags">
-        <!-- 推荐标签 -->
-        <a href="#" 
+        <!-- 推荐标签（仅默认模式 / 管理员视图） -->
+        <a
+          v-if="!isPrivateMode"
+          href="#" 
           class="tag recommended-tag" 
           :class="{ active: showRecommended }"
           @click.prevent="toggleRecommendedView">
@@ -1000,7 +1138,7 @@ onMounted(async () => {
             <div class="update-time">
               <span>更新时间: {{ formatDate(work.updatedAt) }}</span>
               <!-- 操作按钮 -->
-              <div class="actions" v-if="canEdit">
+              <div class="actions" v-if="canOperateWork(work)">
                 <button @click="openEditEditor(work)"><i class="iconfont icon-edit"></i></button>
                 <button @click="deleteWork(work.id)"><i class="iconfont icon-ashbin"></i></button>
               </div>
@@ -1059,7 +1197,7 @@ onMounted(async () => {
         <p>暂无推荐作品</p>
       </div>
       
-      <!-- 未完成作品列表（只在非推荐视图下显示） -->
+      <!-- 未完成作品列表（非推荐视图；私人模式仅自己的） -->
       <div v-if="!showRecommended && incompleteWorks.length > 0" class="incomplete-works-section">
         <h3 class="incomplete-title">未完成拍照</h3>
         <div class="work-grid">
@@ -1118,7 +1256,7 @@ onMounted(async () => {
               <div class="update-time">
                 <span>更新时间: {{ formatDate(work.updatedAt) }}</span>
                 <!-- 操作按钮 -->
-                <div class="actions" v-if="canEdit">
+                <div class="actions" v-if="canOperateWork(work)">
                   <button @click="openEditEditor(work)"><i class="iconfont icon-edit"></i></button>
                   <button @click="deleteWork(work.id)"><i class="iconfont icon-ashbin"></i></button>
                 </div>
@@ -1126,6 +1264,13 @@ onMounted(async () => {
             </div>
           </div>
         </div>
+      </div>
+
+      <div
+        v-if="isPrivateMode && !loading && works.length === 0 && incompleteWorks.length === 0"
+        class="private-empty-hint"
+      >
+        <p>暂无作品，点击「发布」添加你的第一件作品。</p>
       </div>
     </template>
 </template>
@@ -1153,9 +1298,51 @@ onMounted(async () => {
   margin-top: 10px;
 }
 
+.header-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
 .header h2 {
   font-size: 1rem;
   font-weight: bold;
+  margin: 0;
+}
+
+.view-mode-switch {
+  display: inline-flex;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.view-mode-btn {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.view-mode-btn.active {
+  background: var(--color-blue, #4a90d9);
+  color: #fff;
+}
+
+.view-mode-btn:not(.active):hover {
+  background: #ebebeb;
+}
+
+.private-empty-hint {
+  text-align: center;
+  padding: 40px 16px;
+  color: #888;
+  font-size: 0.9rem;
 }
 
 .header-actions {
@@ -1378,18 +1565,21 @@ onMounted(async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin: 4px 0;
+  margin: 2px 0;
 }
 
 .tag {
-  padding: 2px 8px;
+  padding: 0 8px;
   border-radius: 4px;
   font-size: 0.8rem;
+  line-height: 1;
   cursor: pointer;
   transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
-  height: 20px;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 22px;
 }
 
 .tag:hover {
@@ -1408,7 +1598,7 @@ onMounted(async () => {
 }
 
 .tags .tag {
-  padding: 0 4px 0 0;
+  padding: 0 6px;
   /* 颜色通过 getTagStyle 函数动态设置 */
 }
 
@@ -1424,8 +1614,10 @@ onMounted(async () => {
   text-decoration: none;
   position: relative;
   padding-right: 8px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .filter-tags .tag.active {

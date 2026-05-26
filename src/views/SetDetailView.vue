@@ -483,9 +483,15 @@ onMounted(async () => {
 }
 
 .set-tags .tag {
-  padding: 1px 7px;
+  padding: 0 7px;
   border-radius: 4px;
   font-size: 0.75rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 20px;
   cursor: pointer;
   transition: all 0.2s ease;
 }
