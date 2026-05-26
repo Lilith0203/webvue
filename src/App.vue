@@ -148,19 +148,24 @@ const menuConfig = computed(() => [
 // 社交媒体配置
 const socialLinks = [
   {
+    name: '微信',
+    icon: 'iconfont icon-weixin',
+    qrCode: '/images/weixin.jpg'
+  },
+  {
     name: 'B站',
     icon: 'iconfont icon-bzhan',
     qrCode: '/images/bilibili.jpg'
   },
   {
-    name: '小红书',
-    icon: 'iconfont icon-xiaohongshu',
-    qrCode: '/images/xiaohongshu.png'
-  },
-  {
     name: '微博',
     icon: 'iconfont icon-weibo',
     qrCode: '/images/weibo.jpg'
+  },
+  {
+    name: '小红书',
+    icon: 'iconfont icon-xiaohongshu',
+    qrCode: '/images/xiaohongshu.png'
   }
 ]
 
@@ -556,7 +561,7 @@ nav a .iconfont {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  margin: 0 3px 0 0;
 }
 
 .social-icon i {

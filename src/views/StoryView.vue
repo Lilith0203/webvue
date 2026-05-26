@@ -238,9 +238,13 @@ const isMenuExpanded = (setId) => {
   return expandedMenus.value[setId] === true
 }
 
-// 切换菜单展开状态
+// 切换菜单展开状态（手风琴：同时只展开一个父合集）
 const toggleMenu = (setId) => {
-  expandedMenus.value[setId] = !expandedMenus.value[setId]
+  const isOpen = expandedMenus.value[setId] === true
+  expandedMenus.value = {}
+  if (!isOpen) {
+    expandedMenus.value[setId] = true
+  }
 }
 
 // 切换简略模式
@@ -1465,10 +1469,34 @@ const formatStoryContent = (content) => {
   
   // 处理每个段落，转换链接格式
   return paragraphs.map(paragraph => {
-    // 转换链接格式 [文本](链接)
-    const withLinks = paragraph.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="story-link">$1</a>');
-    return `<p>${withLinks}</p>`;
-  }).join('');
+    const withLinks = paragraph.replace(
+      /\[([^\]]+)\]\(([^)]+)\)/g,
+      (_, text, url) => {
+        const href = sanitizeExternalStoryLink(url)
+        return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="story-link">${text}</a>`
+      }
+    )
+    return `<p>${withLinks}</p>`
+  }).join('')
+}
+
+/** 列表摘要：悬停/点击显示完整正文（用 formatStoryContent 渲染，与列表一致且可点链接） */
+const showStoryContentTooltip = (event, content) => {
+  if (!content?.trim()) return
+  if (event.type === 'click' && event.target.closest('a')) return
+  showCustomTooltip(event, content, {
+    allowLinks: true,
+    html: formatStoryContent(content)
+  })
+}
+
+const handleStoryContentTooltipTouch = (event, content) => {
+  if (event.target.closest('a')) return
+  if (!content?.trim()) return
+  handleTooltipTouch(event, content, {
+    allowLinks: true,
+    html: formatStoryContent(content)
+  })
 }
 
 // 添加清除搜索的方法
@@ -1961,7 +1989,10 @@ const checkAndFixActiveSet = () => {
                       <div 
                         v-if="story.content"
                         class="story-content-text"
-                        @click="showCustomTooltip($event, story.content)"
+                        @mouseenter="showStoryContentTooltip($event, story.content)"
+                        @mouseleave="hideCustomTooltip()"
+                        @click="showStoryContentTooltip($event, story.content)"
+                        @touchstart.prevent="handleStoryContentTooltipTouch($event, story.content)"
                         v-html="formatStoryContent(story.content)"
                       ></div>
                       
@@ -3421,7 +3452,22 @@ input[type="datetime-local"] {
     }
 }
 
-.custom-tooltip { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.custom-tooltip {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+:global(.custom-tooltip--html) {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+:global(.custom-tooltip--html p) {
+  margin: 0 0 0.5em;
+}
+
+:global(.custom-tooltip--html p:last-child) {
+  margin-bottom: 0;
+}
 
 /* 移动端键盘弹出优化 */
 @media (max-width: 768px) {

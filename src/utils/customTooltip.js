@@ -1,14 +1,28 @@
 /** 悬停/触摸显示自定义 tooltip（剧情列表、详情等共用） */
 
-export function showCustomTooltip(event, content) {
-  if (!content || !content.trim()) return
-  if (content.includes('[') && content.includes('](') && content.includes(')')) {
-    return
+export function showCustomTooltip(event, content, options = {}) {
+  const html = options.html
+  const allowLinks = options.allowLinks === true
+
+  if (html) {
+    if (!String(html).trim()) return
+  } else {
+    if (!content || !content.trim()) return
+    if (
+      !allowLinks &&
+      content.includes('[') &&
+      content.includes('](') &&
+      content.includes(')')
+    ) {
+      return
+    }
   }
+
+  const anchor = event.currentTarget || event.target
 
   const existingTooltip = document.querySelector('.custom-tooltip')
   if (existingTooltip) {
-    if (existingTooltip.__owner === event.target) {
+    if (existingTooltip.__owner === anchor) {
       existingTooltip.remove()
       return
     }
@@ -16,8 +30,14 @@ export function showCustomTooltip(event, content) {
   }
 
   const tooltip = document.createElement('div')
-  tooltip.className = 'custom-tooltip'
-  tooltip.textContent = content
+  tooltip.className = html
+    ? 'custom-tooltip custom-tooltip--html'
+    : 'custom-tooltip'
+  if (html) {
+    tooltip.innerHTML = html
+  } else {
+    tooltip.textContent = content
+  }
   tooltip.style.position = 'absolute'
   tooltip.style.background = 'rgba(0,0,0,0.85)'
   tooltip.style.color = '#fff'
@@ -25,21 +45,21 @@ export function showCustomTooltip(event, content) {
   tooltip.style.borderRadius = '3px'
   tooltip.style.fontSize = '0.85rem'
   tooltip.style.lineHeight = '1.5'
-  tooltip.style.whiteSpace = 'pre-wrap'
+  tooltip.style.whiteSpace = html ? 'normal' : 'pre-wrap'
   tooltip.style.zIndex = '9999'
   tooltip.style.maxWidth = '80vw'
   tooltip.style.opacity = '0.85'
   tooltip.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'
 
-  const rect = event.target.getBoundingClientRect()
+  const rect = anchor.getBoundingClientRect()
   tooltip.style.left = rect.left + window.scrollX + 'px'
   tooltip.style.top = rect.bottom + window.scrollY + 4 + 'px'
 
-  tooltip.__owner = event.target
+  tooltip.__owner = anchor
   document.body.appendChild(tooltip)
 
   const removeTooltip = (e) => {
-    if (!tooltip.contains(e.target) && e.target !== event.target) {
+    if (!tooltip.contains(e.target) && e.target !== anchor) {
       tooltip.remove()
       document.removeEventListener('click', removeTooltip, true)
     }
@@ -54,7 +74,7 @@ export function hideCustomTooltip() {
   if (existingTooltip) existingTooltip.remove()
 }
 
-export function handleTooltipTouch(event, content) {
+export function handleTooltipTouch(event, content, options = {}) {
   event.stopPropagation()
-  showCustomTooltip(event, content)
+  showCustomTooltip(event, content, options)
 }
