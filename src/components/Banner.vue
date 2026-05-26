@@ -40,7 +40,7 @@ h3 {
   background-size: 100% auto;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   .greetings h1,
   .greetings h3 {
     text-align: left;

@@ -654,12 +654,43 @@ const modalPicUploadId = computed(() =>
     : 'new'
 )
 
+let materialModalScrollY = 0
+
+const lockBodyScrollForModal = () => {
+  materialModalScrollY = window.scrollY
+  document.body.style.position = 'fixed'
+  document.body.style.top = `-${materialModalScrollY}px`
+  document.body.style.left = '0'
+  document.body.style.right = '0'
+  document.body.style.width = '100%'
+  document.body.style.overflow = 'hidden'
+}
+
+const unlockBodyScrollForModal = () => {
+  document.body.style.position = ''
+  document.body.style.top = ''
+  document.body.style.left = ''
+  document.body.style.right = ''
+  document.body.style.width = ''
+  document.body.style.overflow = ''
+  window.scrollTo(0, materialModalScrollY)
+}
+
 const closeMaterialModal = () => {
   isMaterialModalOpen.value = false
   materialModalMode.value = 'add'
   editingMaterialId.value = null
   resetForm()
 }
+
+watch(isMaterialModalOpen, (open) => {
+  if (open) lockBodyScrollForModal()
+  else unlockBodyScrollForModal()
+})
+
+onUnmounted(() => {
+  if (isMaterialModalOpen.value) unlockBodyScrollForModal()
+})
 
 const openAddModal = () => {
   materialModalMode.value = 'add'
@@ -1102,15 +1133,21 @@ const goToMaterialById = (materialId) => {
     </div>
 
     <!-- 新增 / 编辑材料弹窗 -->
-    <div v-if="isMaterialModalOpen" class="modal-overlay">
-      <div class="modal-content">
+    <div
+      v-if="isMaterialModalOpen"
+      class="modal-overlay"
+      @click.self="closeMaterialModal"
+      @touchmove.prevent
+    >
+      <div class="modal-content" @click.stop @touchmove.stop>
         <div class="modal-header">
           <h3>{{ materialModalTitle }}</h3>
-          <button class="close-btn" @click="closeMaterialModal">
+          <button class="close-btn" type="button" @click="closeMaterialModal">
             ×
           </button>
         </div>
-        
+
+        <div class="modal-body">
         <div class="form-grid">
           <div v-for="(config, key) in columns" :key="key" class="form-item"
             :style="{ display: (key !== 'id' && key !== 'actions') ? 'block' : 'none' }">
@@ -1118,31 +1155,39 @@ const goToMaterialById = (materialId) => {
               <label>{{ config.label }}</label>
               <template v-if="key === 'pic'">
                 <div class="image-upload">
-                  <div v-if="newMaterialForm.pic" class="image-preview-container">
-                    <img
-                      v-image="newMaterialForm.pic"
-                      class="preview-image"
-                      @click="openImageViewer(newMaterialForm.pic)">
-                    <button
-                      type="button"
-                      class="delete-image-btn"
-                      @click="removeImage(modalPicUploadId)">
-                      x
-                    </button>
+                  <div
+                    class="upload-box"
+                    :class="{ 'has-image': newMaterialForm.pic }"
+                    role="button"
+                    tabindex="0"
+                    @click="triggerFileInput(modalPicUploadId)"
+                    @keydown.enter.prevent="triggerFileInput(modalPicUploadId)"
+                    @keydown.space.prevent="triggerFileInput(modalPicUploadId)"
+                  >
+                    <template v-if="newMaterialForm.pic">
+                      <img
+                        v-image="newMaterialForm.pic"
+                        class="upload-box-preview"
+                        alt="材料图片"
+                        @click.stop="openImageViewer(newMaterialForm.pic)">
+                      <button
+                        type="button"
+                        class="delete-image-btn"
+                        title="删除图片"
+                        @click.stop="removeImage(modalPicUploadId)">
+                        ×
+                      </button>
+                    </template>
+                    <template v-else>
+                      <span class="upload-box-icon">+</span>
+                      <span class="upload-box-hint">选择图片</span>
+                    </template>
                   </div>
-                  <div class="upload-controls">
-                    <button
-                      type="button"
-                      class="upload-btn"
-                      @click="triggerFileInput(modalPicUploadId)">
-                      {{ newMaterialForm.pic ? '更换图片' : '选择图片' }}
-                    </button>
-                    <div v-if="uploadProgress" class="upload-progress">
-                      上传中... {{ uploadProgress }}%
-                    </div>
-                    <div v-if="uploadError" class="upload-error">
-                      {{ uploadError }}
-                    </div>
+                  <div v-if="uploadProgress" class="upload-progress">
+                    上传中... {{ uploadProgress }}%
+                  </div>
+                  <div v-if="uploadError" class="upload-error">
+                    {{ uploadError }}
                   </div>
                 </div>
               </template>
@@ -1212,10 +1257,11 @@ const goToMaterialById = (materialId) => {
             </template>
           </div>
         </div>
-        
-        <div class="form-actions">
-          <button class="save-btn" @click="saveMaterialFromModal">保存</button>
-          <button class="cancel-btn" @click="closeMaterialModal">取消</button>
+        </div>
+
+        <div class="form-actions modal-footer">
+          <button type="button" class="save-btn" @click="saveMaterialFromModal">保存</button>
+          <button type="button" class="cancel-btn" @click="closeMaterialModal">取消</button>
         </div>
       </div>
     </div>
@@ -1805,26 +1851,37 @@ a:hover {
 /* 模态框样式 */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 1000;
+  padding: 12px;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .modal-content {
   background: white;
-  border-radius: 4px;
-  padding: 20px;
-  width: 80%;
+  border-radius: 8px;
+  width: 100%;
   max-width: 800px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-height: min(90vh, 90dvh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   position: relative;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+}
+
+.modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 16px 0;
 }
 
 /* 确保下拉框在模态框内正确显示 */
@@ -1845,6 +1902,9 @@ a:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
 }
 
 .modal-header h3 {
@@ -1887,7 +1947,43 @@ a:hover {
   display: flex;
   justify-content: center;
   gap: 6px;
-  margin: 15px 0 0px;
+  margin: 0;
+}
+
+.modal-footer {
+  flex-shrink: 0;
+  padding: 6px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  background: #fff;
+  gap: 12px;
+}
+
+.modal-footer .save-btn,
+.modal-footer .cancel-btn {
+  flex: 1;
+  max-width: 80px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .modal-overlay {
+    align-items: center;
+    padding: max(12px, env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .modal-content {
+    max-height: min(85vh, 85dvh);
+    border-radius: 8px;
+  }
+
+  .modal-body .form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-input,
@@ -2283,7 +2379,66 @@ td .type-input {
 .image-upload {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.upload-box {
+  width: 80px;
+  height: 80px;
+  background: #f5f7fa;
+  border: 1px dashed #dcdfe6;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.upload-box:hover {
+  border-color: #c0c4cc;
+  background: #eceff3;
+}
+
+.upload-box.has-image {
+  border-style: solid;
+  border-color: #e4e7ed;
+  padding: 0;
+}
+
+.upload-box .delete-image-btn {
+  top: 4px;
+  right: 0px;
+  width: 18px;
+  height: 18px;
+  z-index: 2;
+  opacity: 0.95;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.upload-box-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.upload-box-icon {
+  font-size: 28px;
+  line-height: 1;
+  color: #909399;
+  font-weight: 300;
+}
+
+.upload-box-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 6px;
 }
 
 .image-preview-container {

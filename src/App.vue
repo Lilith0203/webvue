@@ -456,7 +456,9 @@ header {
 }
 
 .router-view-container {
+  max-width: 960px;
   padding: 0 1.2rem 0.5rem;
+  margin: 0 auto;
 }
 
 .logo {
@@ -663,7 +665,7 @@ nav a .iconfont {
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
   #container {
     display: flex;
     flex-wrap: wrap;
@@ -701,8 +703,8 @@ nav a .iconfont {
   .router-view-container {
     transition: margin-top 0.3s ease;
     flex: 1;
-    max-width: 960px;
     margin-top: 30px;
+    max-width: 930px;
   }
 
   .qr-popup img {
