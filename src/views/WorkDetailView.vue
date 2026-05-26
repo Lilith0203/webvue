@@ -753,9 +753,6 @@ onMounted(async() => {
           <div v-if="materials.length > 0" class="materials-section">
             <h3>
               材料信息
-              <span v-if="workVariants.length > 1" class="variant-subtitle">
-                — {{ variantLabel(activeVariant, activeVariantIndex) }}
-              </span>
             </h3>
             <div class="materials-list">
               <div 
@@ -1062,17 +1059,17 @@ onMounted(async() => {
 .variant-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
   margin-bottom: 16px;
 }
 
 .variant-tab {
-  padding: 6px 14px;
+  padding: 2px 10px;
   border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  border-radius: 2px;
   background: #f5f7fa;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 0.8rem;
 }
 
 .variant-tab.active {
@@ -1138,7 +1135,7 @@ onMounted(async() => {
 }
   
 .price-info {
-  margin: 10px 10px 20px;
+  margin: 10px 10px;
   font-size: 0.85rem;
   display: flex;
   align-items: center;

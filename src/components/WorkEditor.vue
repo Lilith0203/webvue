@@ -1760,12 +1760,12 @@ const handleKeydown = (event) => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
+  padding: 3px 10px;
   border: 1px solid #dcdfe6;
-  border-radius: 4px;
+  border-radius: 2px;
   background: #f5f7fa;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.8rem;
 }
 
 .variant-tab.active {
