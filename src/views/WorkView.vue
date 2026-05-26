@@ -117,9 +117,33 @@ const getClientId = () => {
   return clientId;
 }
 
-// 批量获取交互数据，避免逐条请求造成 N+1
-const fetchInteractionBatch = async (items, type = 2) => {
+const normalizeWorkInteractionFields = (item) => ({
+  ...item,
+  likeCount: item.likeCount ?? 0,
+  recommendWeight: item.recommendWeight ?? 0,
+  top: item.top ?? 0,
+  hasLiked: !!item.hasLiked,
+  hasRecommended: (item.recommendWeight ?? 0) > 0
+})
+
+const worksListParams = (extra = {}) => ({
+  page: currentPage.value,
+  size: pageSize.value,
+  status: 1,
+  tags: selectedTags.value.length > 0 ? selectedTags.value.join(',') : undefined,
+  keyword: searchKeyword.value || undefined,
+  includeInteraction: 1,
+  clientId: getClientId(),
+  ...extra
+})
+
+// 批量获取交互数据（列表接口已带 interaction 时跳过）
+const fetchInteractionBatch = async (items, type = 2, alreadyIncluded = false) => {
   if (!Array.isArray(items) || items.length === 0) return []
+  if (alreadyIncluded) {
+    return items.map(normalizeWorkInteractionFields)
+  }
+
   const itemIds = items.map((item) => item.id).filter(Boolean)
   if (itemIds.length === 0) return items
 
@@ -133,14 +157,13 @@ const fetchInteractionBatch = async (items, type = 2) => {
 
     return items.map((item) => {
       const interaction = interactionMap[item.id] || {}
-      return {
+      return normalizeWorkInteractionFields({
         ...item,
         likeCount: interaction.like || 0,
         recommendWeight: interaction.weight || 0,
         top: interaction.top || item.top || 0,
-        hasLiked: interaction.hasLiked || false,
-        hasRecommended: (interaction.weight || 0) > 0
-      }
+        hasLiked: interaction.hasLiked || false
+      })
     })
   } catch (error) {
     console.error('批量获取交互数据失败:', error)
@@ -305,19 +328,21 @@ const fetchTopWorks = async () => {
       params: {
         type: 2,
         page: 1,
-        size: 100 // 获取足够多的置顶作品
+        size: 100,
+        includeInteraction: 1,
+        clientId: getClientId()
       }
     })
-    
-    if (response.data.success && response.data.data.items.length > 0) {
-      // 只筛选 top = 1 的作品
-      const topItems = response.data.data.items.filter(work => work.top === 1)
-      
-      if (topItems.length === 0) {
-        return []
-      }
 
-      return await fetchInteractionBatch(topItems, 2)
+    if (response.data.success && response.data.data.items.length > 0) {
+      const topItems = response.data.data.items.filter((work) => work.top === 1)
+      if (topItems.length === 0) return []
+
+      return fetchInteractionBatch(
+        topItems,
+        2,
+        !!response.data.data.interactionIncluded
+      )
     }
     return []
   } catch (error) {
@@ -332,40 +357,40 @@ const fetchWorks = async () => {
 
   loading.value = true
   try {
-    const response = await axios.get('/works', {
-      params: {
-        page: currentPage.value,
-        size: pageSize.value,
-        status: 1, // 只获取已完成的作品
-        tags: selectedTags.value.length > 0 ? selectedTags.value.join(',') : undefined,
-        keyword: searchKeyword.value || undefined
-      }
-    })
-    
-    // 只在第一页且没有标签筛选和搜索关键词时处理置顶作品
-    const hasFilter = selectedTags.value.length > 0 || (searchKeyword.value && searchKeyword.value.trim())
-    
+    const hasFilter =
+      selectedTags.value.length > 0 ||
+      (searchKeyword.value && searchKeyword.value.trim())
+    const interactionIncludedFlag = { value: false }
+
     if (currentPage.value === 1 && !hasFilter) {
-      // 获取置顶作品
-      const topWorks = await fetchTopWorks()
-      const topWorkIds = new Set(topWorks.map(w => w.id))
-      
-      // 批量获取交互数据，并过滤掉置顶作品（避免重复）
-      const worksWithInteraction = await fetchInteractionBatch(
-        response.data.works.filter(work => !topWorkIds.has(work.id)),
-        2
+      const [worksResponse, topWorks] = await Promise.all([
+        axios.get('/works', { params: worksListParams() }),
+        fetchTopWorks()
+      ])
+
+      interactionIncludedFlag.value = !!worksResponse.data?.interactionIncluded
+      const topWorkIds = new Set(topWorks.map((w) => w.id))
+      const pageWorks = worksResponse.data.works.filter(
+        (work) => !topWorkIds.has(work.id)
       )
-      
-      // 将置顶作品放在最前面，然后是第一页的其他作品
+      const worksWithInteraction = await fetchInteractionBatch(
+        pageWorks,
+        2,
+        interactionIncludedFlag.value
+      )
       works.value = [...topWorks, ...worksWithInteraction]
+      totalPages.value = Math.ceil(worksResponse.data.count / pageSize.value)
+      totalItems.value = worksResponse.data.count
     } else {
-      // 其他页面或有筛选条件时，直接获取作品数据，不受置顶影响
-      works.value = await fetchInteractionBatch(response.data.works, 2)
+      const response = await axios.get('/works', { params: worksListParams() })
+      works.value = await fetchInteractionBatch(
+        response.data.works,
+        2,
+        !!response.data.interactionIncluded
+      )
+      totalPages.value = Math.ceil(response.data.count / pageSize.value)
+      totalItems.value = response.data.count
     }
-    
-    // 总页数按原始数据计算，不受置顶影响
-    totalPages.value = Math.ceil(response.data.count / pageSize.value)
-    totalItems.value = response.data.count
   } catch (error) {
     console.error('获取作品列表失败:', error)
   } finally {
@@ -382,12 +407,18 @@ const fetchIncompleteWorks = async () => {
     const response = await axios.get('/works', {
       params: {
         page: 1,
-        size: 100, // 获取足够多的未完成作品
-        status: 0 // 只获取未完成的作品，不受标签和搜索关键词筛选
+        size: 100,
+        status: 0,
+        includeInteraction: 1,
+        clientId: getClientId()
       }
     })
-    
-    incompleteWorks.value = await fetchInteractionBatch(response.data.works, 2)
+
+    incompleteWorks.value = await fetchInteractionBatch(
+      response.data.works,
+      2,
+      !!response.data.interactionIncluded
+    )
   } catch (error) {
     console.error('获取未完成作品列表失败:', error)
   } finally {
@@ -732,10 +763,11 @@ onMounted(async () => {
     selectedTags.value.push(tagFromUrl)
   }
   
-  // 获取作品数据
-  await fetchWorks()
-  await fetchIncompleteWorks() // 获取未完成作品列表
-  await fetchWorksSets() // 获取合集列表
+  await Promise.all([
+    fetchWorks(),
+    fetchIncompleteWorks(),
+    fetchWorksSets()
+  ])
   
   // 恢复滚动位置（在数据加载完成后）
   let scrollHandler = null

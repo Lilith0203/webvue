@@ -57,10 +57,13 @@ const adjustGridColumns = () => {
   }
 }
   
-// 监听窗口大小变化
+// 列数变化时才重新拉取（避免 resize 时重复请求）
 const handleResize = () => {
+  const prevColumns = gridColumns.value
   adjustGridColumns()
-  fetchRecommendedWorks() // 重新获取适合当前列数的作品
+  if (gridColumns.value !== prevColumns) {
+    fetchRecommendedWorks()
+  }
 }
   
 // 组件挂载前调整列数

@@ -1480,23 +1480,44 @@ const formatStoryContent = (content) => {
   }).join('')
 }
 
+const isCoarsePointer = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(pointer: coarse)').matches
+
+const getOpenStoryTooltipOwner = () =>
+  document.querySelector('body > .custom-tooltip')?.__owner ?? null
+
 /** 列表摘要：悬停/点击显示完整正文（用 formatStoryContent 渲染，与列表一致且可点链接） */
 const showStoryContentTooltip = (event, content) => {
   if (!content?.trim()) return
-  if (event.type === 'click' && event.target.closest('a')) return
+  if (event.target.closest('a')) return
   showCustomTooltip(event, content, {
     allowLinks: true,
-    html: formatStoryContent(content)
+    html: formatStoryContent(content),
+    toggleOnSameAnchor: false
   })
 }
 
-const handleStoryContentTooltipTouch = (event, content) => {
+const onStoryContentClick = (event, content) => {
   if (event.target.closest('a')) return
-  if (!content?.trim()) return
-  handleTooltipTouch(event, content, {
-    allowLinks: true,
-    html: formatStoryContent(content)
-  })
+  const anchor = event.currentTarget
+  if (getOpenStoryTooltipOwner() === anchor) {
+    hideCustomTooltip()
+    return
+  }
+  showStoryContentTooltip(event, content)
+}
+
+/** PC 悬停：在链接上不弹出；在正文区域移动时显示（mouseover 才能识别移入链接） */
+const onStoryContentMouseOver = (event, content) => {
+  if (isCoarsePointer()) return
+  if (event.target.closest('a')) {
+    hideCustomTooltip()
+    return
+  }
+  const anchor = event.currentTarget
+  if (getOpenStoryTooltipOwner() === anchor) return
+  showStoryContentTooltip(event, content)
 }
 
 // 添加清除搜索的方法
@@ -1989,10 +2010,9 @@ const checkAndFixActiveSet = () => {
                       <div 
                         v-if="story.content"
                         class="story-content-text"
-                        @mouseenter="showStoryContentTooltip($event, story.content)"
+                        @mouseover="onStoryContentMouseOver($event, story.content)"
                         @mouseleave="hideCustomTooltip()"
-                        @click="showStoryContentTooltip($event, story.content)"
-                        @touchstart.prevent="handleStoryContentTooltipTouch($event, story.content)"
+                        @click="onStoryContentClick($event, story.content)"
                         v-html="formatStoryContent(story.content)"
                       ></div>
                       
@@ -3459,6 +3479,13 @@ input[type="datetime-local"] {
 :global(.custom-tooltip--html) {
   max-height: 60vh;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+:global(.custom-tooltip--html a) {
+  pointer-events: auto;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(126, 200, 255, 0.35);
 }
 
 :global(.custom-tooltip--html p) {
