@@ -1,5 +1,6 @@
 <script setup>
-import { ref, defineProps, computed } from 'vue'
+import { ref, defineProps, computed, onMounted } from 'vue'
+import axios from '../api'
 import { RouterLink, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { message } from '../utils/message'
@@ -26,6 +27,15 @@ const props = defineProps({
   onCommentDelete: {
     type: Function,
     required: true
+  },
+  /** 详情页类型：1 文章 2 作品 3 剧情 4 攻略 */
+  commentType: {
+    type: Number,
+    default: null
+  },
+  commentItemId: {
+    type: Number,
+    default: null
   }
 })
   
@@ -222,17 +232,29 @@ const submitReply = async () => {
         : (result.message || '回复已发布')
     )
     cancelReply()
+    window.dispatchEvent(new Event('unread-comments-refresh'))
   } else {
     message.alert(result?.message || '提交失败')
   }
 }
 
-const handleCommentClick = (event, commentId) => {
-  // 只在折叠状态下处理点击
-  if (!expandedComments.value[commentId]) {
-    toggleExpand(commentId);
+const markReplyNotificationsRead = async () => {
+  if (!authStore.isAuthenticated) return
+  if (props.commentType == null || props.commentItemId == null) return
+  try {
+    await axios.post('/user/comment-notifications/read', {
+      type: props.commentType,
+      itemId: props.commentItemId
+    })
+    window.dispatchEvent(new Event('unread-comments-refresh'))
+  } catch {
+    // 忽略
   }
 }
+
+onMounted(() => {
+  markReplyNotificationsRead()
+})
 </script>
 
 <template>
@@ -242,7 +264,15 @@ const handleCommentClick = (event, commentId) => {
     <div class="comments-list">
       <div v-for="comment in comments" :key="comment.id" class="comment-item">
         <div class="comment-header">
-          <p class="comm-name">From: <span>{{ comment.name }}</span></p>
+          <p class="comm-name">
+            From: <span>{{ comment.name }}</span>
+            <span
+              v-if="comment.hasUnreadReplies"
+              class="comment-unread-dot"
+              title="有新回复"
+              aria-hidden="true"
+            />
+          </p>
           <span class="comm-time">{{ comment.createdAt }}</span>
         </div>
         <div class="comment-content">
@@ -299,13 +329,18 @@ const handleCommentClick = (event, commentId) => {
         
         <!-- 如果有回复，可以在这里递归显示 -->
         <div v-if="comment.replies && comment.replies.length" class="replies-section">
-          <h4 class="replies-title">回复:</h4>
           <div class="replies-list">
             <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
-              <div class="reply-content">
-                {{ reply.content }}
+              <div class="reply-meta">
+                <p class="reply-line">
+                  <span class="reply-author">{{ reply.name }}</span>
+                  回复：
+                </p>
+                <span class="reply-time">{{ reply.createdAt }}</span>
               </div>
+              <p class="reply-text">{{ reply.content }}</p>
               <div class="reply-op">
+                <a v-if="authStore.isAuthenticated" href="#" class="reply-link" @click.prevent="startReply(reply.id)" role="button" tabindex="0">回复</a>
                 <a v-if="canDeleteComment(reply)" 
                   href="#" class="delete-link"
                   @click.prevent="commentDelete(reply.id)" role="button" tabindex="0">删除</a>
@@ -429,7 +464,7 @@ const handleCommentClick = (event, commentId) => {
   border: 1px solid #fff;
   border-radius: 8px;
   background-color: rgba(0,0,0,0.03);
-  padding: 10px 15px 10px;
+  padding: 10px 15px 0px;
   font-size: 0.85rem;
   margin: 10px 0;
 }
@@ -444,6 +479,7 @@ const handleCommentClick = (event, commentId) => {
   border-bottom: 1px dashed #fff;
   align-items: flex-end;
   text-indent: 2em;
+  padding-bottom: 3px;
 }
 
 /* 修改折叠样式 */
@@ -521,9 +557,18 @@ const handleCommentClick = (event, commentId) => {
   color: var(--color-blue)
 }
 
+.comment-unread-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background-color: #e74c3c;
+  vertical-align: middle;
+}
+
 /* 回复部分样式 */
 .replies-section {
-  margin-top: 8px;
   padding-left: 1em;
 }
 
@@ -533,28 +578,56 @@ const handleCommentClick = (event, commentId) => {
 }
 
 .replies-list {
-  border-radius: 5px;
-  background-color: #fff;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
 }
 
 .reply-item {
-  background: #f7f7f7;
   border-radius: 4px;
+  padding: 6px 0 6px 10px;
 }
 
-.reply-header {
+.reply-meta {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  font-size: 0.85em;
-  color: #999;
+  gap: 8px;
 }
 
-.reply-author {
-  font-weight: bold;
+.reply-line {
+  margin: 0;
+  padding: 0;
+  line-height: 1.55;
+  font-size: 0.8rem;
+  text-indent: 0;
+  word-break: break-word;
+  color: #9da09e;
+}
+
+.reply-line .reply-author {
   color: var(--color-blue);
+  font-size: 0.85rem;
+  padding-right: 2px;
+}
+
+.reply-line .reply-target {
+  color: var(--color-blue);
+  font-weight: bold;
+}
+
+.reply-time {
+  color: #999;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.reply-text {
+  margin: 4px 0 0;
+  padding: 0;
+  color: #333;
+  line-height: 1.55;
+  font-size: 0.85rem;
+  text-indent: 2em;
+  word-break: break-word;
 }
 
 .reply-content-collapsed {
@@ -642,28 +715,6 @@ const handleCommentClick = (event, commentId) => {
 
 .reply-cancel:hover {
   background-color: #777;
-}
-
-.reply-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85em;
-  color: #999;
-  margin-bottom: 4px;
-}
-
-.reply-author {
-  font-weight: bold;
-  color: var(--color-blue);
-}
-
-.reply-time {
-  font-size: 0.8em;
-}
-
-.reply-content {
-  color: #333;
-  line-height: 1.4;
 }
 
 .reply-op {

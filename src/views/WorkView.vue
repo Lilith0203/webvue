@@ -11,8 +11,41 @@ import Announcement from '../components/Announcement.vue'
 
 const authStore = useAuthStore()
 
-const PAGE_VIEW_STORAGE_KEY = 'workPageViewMode'
+const PAGE_VIEW_STORAGE_PREFIX = 'workPageViewMode'
 const pageViewMode = ref('public')
+
+const getPageViewStorageKey = () => {
+  const uid = authStore.userId
+  return uid != null ? `${PAGE_VIEW_STORAGE_PREFIX}_${uid}` : PAGE_VIEW_STORAGE_PREFIX
+}
+
+const readSavedPageViewMode = () => {
+  if (!canUsePrivateMode.value) return 'public'
+  const key = getPageViewStorageKey()
+  let saved = localStorage.getItem(key)
+  if (!saved && key !== PAGE_VIEW_STORAGE_PREFIX) {
+    saved = localStorage.getItem(PAGE_VIEW_STORAGE_PREFIX)
+  }
+  return saved === 'private' || saved === 'public' ? saved : 'public'
+}
+
+const savePageViewModeToCache = (mode) => {
+  if (mode !== 'private' && mode !== 'public') return
+  if (!canUsePrivateMode.value) return
+  localStorage.setItem(getPageViewStorageKey(), mode)
+}
+
+/** 从 localStorage 恢复普通用户的默认/私人模式选择 */
+const restorePageViewModeFromCache = () => {
+  if (!canUsePrivateMode.value) {
+    pageViewMode.value = 'public'
+    return false
+  }
+  const saved = readSavedPageViewMode()
+  if (saved === pageViewMode.value) return false
+  pageViewMode.value = saved
+  return true
+}
 
 const isAdmin = computed(
   () => authStore.isAuthenticated && authStore.user?.role === 'admin'
@@ -57,7 +90,7 @@ const switchPageViewMode = (mode) => {
   if (mode === 'private' && !canUsePrivateMode.value) return
   if (mode === pageViewMode.value) return
   pageViewMode.value = mode
-  localStorage.setItem(PAGE_VIEW_STORAGE_KEY, mode)
+  savePageViewModeToCache(mode)
   resetListForModeChange()
 }
 
@@ -785,18 +818,28 @@ const getSetCoverUrl = (url) => {
 watch(
   () => authStore.isAuthenticated,
   (loggedIn) => {
-    if (!loggedIn && pageViewMode.value === 'private') {
-      pageViewMode.value = 'public'
-      localStorage.setItem(PAGE_VIEW_STORAGE_KEY, 'public')
+    if (!loggedIn) {
+      if (pageViewMode.value === 'private') {
+        pageViewMode.value = 'public'
+        resetListForModeChange()
+      }
+      return
+    }
+    if (restorePageViewModeFromCache()) {
       resetListForModeChange()
     }
   }
 )
 
 watch(canUsePrivateMode, (ok) => {
-  if (!ok && pageViewMode.value === 'private') {
-    pageViewMode.value = 'public'
-    localStorage.setItem(PAGE_VIEW_STORAGE_KEY, 'public')
+  if (!ok) {
+    if (pageViewMode.value === 'private') {
+      pageViewMode.value = 'public'
+      resetListForModeChange()
+    }
+    return
+  }
+  if (restorePageViewModeFromCache()) {
     resetListForModeChange()
   }
 })
@@ -804,14 +847,7 @@ watch(canUsePrivateMode, (ok) => {
 onMounted(async () => {
   await initTagColors() // 初始化标签颜色
 
-  if (canUsePrivateMode.value) {
-    const saved = localStorage.getItem(PAGE_VIEW_STORAGE_KEY)
-    if (saved === 'private' || saved === 'public') {
-      pageViewMode.value = saved
-    }
-  } else {
-    pageViewMode.value = 'public'
-  }
+  restorePageViewModeFromCache()
   
   // 检查是否是从详情页返回
   const isFromDetail = route.query.from === 'detail'
@@ -859,6 +895,7 @@ onMounted(async () => {
         (savedViewMode === 'private' || savedViewMode === 'public')
       ) {
         pageViewMode.value = savedViewMode
+        savePageViewModeToCache(savedViewMode)
       }
       if (pageViewMode.value === 'private') {
         showRecommended.value = false
@@ -1015,7 +1052,7 @@ onMounted(async () => {
               :class="{ active: pageViewMode === 'public' }"
               @click="switchPageViewMode('public')"
             >
-              默认模式
+              默认
             </button>
             <button
               type="button"
@@ -1023,7 +1060,7 @@ onMounted(async () => {
               :class="{ active: pageViewMode === 'private' }"
               @click="switchPageViewMode('private')"
             >
-              私人模式
+              私人
             </button>
           </div>
         </div>
@@ -1313,29 +1350,29 @@ onMounted(async () => {
 
 .view-mode-switch {
   display: inline-flex;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: none;
+  border-radius: 2px;
   overflow: hidden;
-  background: #f5f5f5;
+  background: #424242;
+  color: #fff;
 }
 
 .view-mode-btn {
-  padding: 4px 10px;
+  padding: 3px 10px;
   font-size: 0.75rem;
   border: none;
   background: transparent;
-  color: #666;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
+  color: #fff;
 }
 
 .view-mode-btn.active {
   background: var(--color-blue, #4a90d9);
-  color: #fff;
 }
 
 .view-mode-btn:not(.active):hover {
-  background: #ebebeb;
+  background: #6d6d6d;
 }
 
 .private-empty-hint {
@@ -1358,7 +1395,7 @@ onMounted(async () => {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 /* 合集模块样式（独立模块，放在所有作品之上） */
@@ -1723,7 +1760,7 @@ onMounted(async () => {
   padding: 4px 30px 4px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 0.85rem;
   transition: all 0.3s ease;
 }
 

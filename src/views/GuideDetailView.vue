@@ -224,6 +224,8 @@ onUnmounted(() => {
   <!-- 评论组件 -->
   <CommentSection
     :comments="comments"
+    :comment-type="4"
+    :comment-item-id="guide?.id"
     :onCommentSubmit="submitComment"
     :onCommentDelete="deleteComment"
   />

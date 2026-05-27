@@ -1588,6 +1588,8 @@ onBeforeUnmount(() => {
     
     <CommentSection
       :comments="comments"
+      :comment-type="3"
+      :comment-item-id="story?.id"
       :onCommentSubmit="submitComment"
       :onCommentDelete="deleteComment"
     />

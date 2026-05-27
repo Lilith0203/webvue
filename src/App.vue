@@ -37,19 +37,9 @@ const fetchUnreadCommentCount = async () => {
     hasUnreadComments.value = false
     return
   }
-  if (authStore.user?.role !== 'admin') {
-    hasUnreadComments.value = false
-    return
-  }
   try {
-    const res = await axios.get('/comments', {
-      params: {
-        approval: 'unread',
-        page: 1,
-        pageSize: 1
-      }
-    })
-    const total = res.data?.pagination?.totalCount ?? 0
+    const res = await axios.get('/user/comment-notifications/count')
+    const total = res.data?.count ?? 0
     hasUnreadComments.value = total > 0
   } catch {
     // 角标失败不影响使用
@@ -57,7 +47,7 @@ const fetchUnreadCommentCount = async () => {
 }
 
 const startUnreadCommentsPolling = () => {
-  if (authStore.user?.role !== 'admin') {
+  if (!authStore.isAuthenticated) {
     hasUnreadComments.value = false
     return
   }
@@ -288,7 +278,7 @@ watch(() => router.path, (newPath) => {
         v-if="authStore.isAuthenticated"
         type="button"
         @click.prevent="handleAdmin"
-        class="admin-button">管理<span v-if="hasUnreadComments" class="admin-pending-dot" title="有未读评论" aria-hidden="true" />
+        class="admin-button">管理<span v-if="hasUnreadComments" class="admin-pending-dot" :title="isAdmin ? '有未读评论' : '有新回复'" aria-hidden="true" />
       </button>
 
       <button
@@ -414,7 +404,7 @@ watch(() => router.path, (newPath) => {
 .logout {
   position: absolute;
   top: 4px;
-  right: 2rem;
+  right: 1rem;
 }
 
 .logout button {
@@ -719,6 +709,10 @@ nav a .iconfont {
   .social-links {
     justify-content: left;
     font-size: 15px;
+  }
+
+  .logout {
+    right: 2rem;
   }
 }
 </style>

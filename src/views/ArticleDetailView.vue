@@ -178,7 +178,9 @@ onMounted(async () => {
     
       <!-- 使用评论组件 -->
       <CommentSection 
-        :comments="comments" 
+        :comments="comments"
+        :comment-type="1"
+        :comment-item-id="article?.id"
         :onCommentSubmit="submitComment"
         :onCommentDelete="deleteComment"/>
     </article>

@@ -51,6 +51,7 @@ const reloadRoleData = () => {
     loadComments('unread')
     loadAnnouncements()
   } else if (authStore.isAuthenticated) {
+    fetchMyRepliesUnreadCount()
     loadMyComments(1)
   }
 }
@@ -160,7 +161,9 @@ const pagination = ref({
   hasPrevPage: false
 })
 
-// 普通用户：仅本人评论
+// 普通用户：我的评论 / 回复我的
+const activeMyTab = ref('mine')
+const myRepliesUnreadCount = ref(0)
 const myComments = ref([])
 const myPagination = ref({
   page: 1,
@@ -389,13 +392,43 @@ const nextPage = () => {
   }
 }
 
+const fetchMyRepliesUnreadCount = async () => {
+  if (isAdmin.value || !authStore.isAuthenticated) {
+    myRepliesUnreadCount.value = 0
+    return
+  }
+  try {
+    const res = await axios.get('/user/comment-notifications/count')
+    myRepliesUnreadCount.value = res.data?.count ?? 0
+  } catch {
+    myRepliesUnreadCount.value = 0
+  }
+}
+
+const switchMyTab = (tab) => {
+  if (activeMyTab.value === tab) return
+  activeMyTab.value = tab
+  myPagination.value.page = 1
+  loadMyComments(1)
+}
+
 const loadMyComments = async (page = 1) => {
   isLoading.value = true
   try {
+    if (!isAdmin.value && activeMyTab.value === 'replies') {
+      try {
+        await axios.post('/user/comment-notifications/read')
+        window.dispatchEvent(new Event('unread-comments-refresh'))
+        myRepliesUnreadCount.value = 0
+      } catch {
+        // 忽略
+      }
+    }
     const response = await axios.get('/user/my-comments', {
       params: {
         page,
-        pageSize: myPagination.value.pageSize
+        pageSize: myPagination.value.pageSize,
+        tab: activeMyTab.value
       }
     })
     if (response.data?.success) {
@@ -412,7 +445,15 @@ const loadMyComments = async (page = 1) => {
     message.alert(error?.response?.data?.message || '加载失败')
   } finally {
     isLoading.value = false
+    if (!isAdmin.value) {
+      fetchMyRepliesUnreadCount()
+    }
   }
+}
+
+const canDeleteMyListItem = (comment) => {
+  if (activeMyTab.value === 'replies') return false
+  return true
 }
 
 const goToMyPage = (page) => {
@@ -588,6 +629,12 @@ onMounted(() => {
             :key="comment.id"
             class="comment-item"
           >
+            <button
+              type="button"
+              class="comment-delete-btn"
+              title="删除"
+              @click="deleteComment(comment.id)"
+            >×</button>
             <div class="comment-header">
               <span class="comment-author">{{ comment.name }}</span>
               <span class="comment-time">{{ comment.createdAt }}</span>
@@ -602,34 +649,32 @@ onMounted(() => {
             
             <div class="comment-content">{{ comment.content }}</div>
             
-            <div class="comment-actions">
-              <template v-if="activeTab === 'unread'">
-                <button @click="approveComment(comment.id)" class="approve-btn" type="button">
-                  标记已读
-                </button>
-              </template>
-              <button @click="deleteComment(comment.id)" class="delete-btn" type="button">
-                删除
+            <div v-if="activeTab === 'unread'" class="comment-actions">
+              <button @click="approveComment(comment.id)" class="approve-btn" type="button">
+                标记已读
               </button>
             </div>
             
             <!-- 显示回复评论 -->
             <div v-if="comment.replies && comment.replies.length > 0" class="comment-replies">
               <div v-for="reply in comment.replies" :key="reply.id" class="reply-item">
+                <button
+                  type="button"
+                  class="comment-delete-btn"
+                  title="删除"
+                  @click="deleteComment(reply.id)"
+                >×</button>
                 <div class="comment-header">
                   <span class="comment-author">{{ reply.name }}</span>
                   <span class="comment-time">{{ reply.createdAt }}</span>
                   <span class="comment-type">回复</span>
                 </div>
-                <div class="comment-content">{{ reply.content }}</div>
-                <div class="comment-actions">
-                  <template v-if="activeTab === 'unread'">
-                    <button @click="approveComment(reply.id)" class="approve-btn" type="button">
-                      标记已读
-                    </button>
-                  </template>
-                  <button @click="deleteComment(reply.id)" class="delete-btn" type="button">
-                    删除
+                <div class="comment-content">
+                  <span v-if="reply.replyToName" class="reply-to-label">回复 {{ reply.replyToName }}：</span>{{ reply.content }}
+                </div>
+                <div v-if="activeTab === 'unread'" class="comment-actions">
+                  <button @click="approveComment(reply.id)" class="approve-btn" type="button">
+                    标记已读
                   </button>
                 </div>
               </div>
@@ -708,14 +753,34 @@ onMounted(() => {
       <section class="setting-section">
         <h3>评论管理</h3>
         <p class="my-comments-hint">
-          仅显示您<strong>登录后</strong>发表的评论与回复；删除后前台将不再显示。
+          「我的评论」为登录后发表的内容；「回复我的」为他人对您评论的回复。您只能删除自己发表的内容。
         </p>
+
+        <div class="comment-tabs my-comment-tabs">
+          <button
+            type="button"
+            class="tab-button"
+            :class="{ active: activeMyTab === 'mine' }"
+            @click="switchMyTab('mine')"
+          >
+            我的评论
+          </button>
+          <button
+            type="button"
+            class="tab-button"
+            :class="{ active: activeMyTab === 'replies' }"
+            @click="switchMyTab('replies')"
+          >
+            回复我的
+            <span v-if="myRepliesUnreadCount > 0" class="comment-count">{{ myRepliesUnreadCount }}</span>
+          </button>
+        </div>
 
         <div class="comment-list">
           <div v-if="isLoading" class="loading">加载中...</div>
 
           <div v-else-if="!myComments.length" class="no-comments">
-            暂无评论记录
+            {{ activeMyTab === 'replies' ? '暂无他人回复' : '暂无评论记录' }}
           </div>
 
           <div v-else class="comments">
@@ -723,7 +788,15 @@ onMounted(() => {
               v-for="comment in myComments"
               :key="comment.id"
               class="comment-item"
+              :class="{ 'comment-item--unread': activeMyTab === 'replies' && comment.isUnreadReply }"
             >
+              <button
+                v-if="canDeleteMyListItem(comment)"
+                type="button"
+                class="comment-delete-btn"
+                title="删除"
+                @click="deleteComment(comment.id)"
+              >×</button>
               <div class="comment-header">
                 <span class="comment-author">{{ comment.name }}</span>
                 <span class="comment-time">{{ comment.createdAt }}</span>
@@ -732,23 +805,27 @@ onMounted(() => {
                   @click="goToCommentPage(comment.type, comment.itemId)"
                   :class="{ clickable: getCommentLink(comment.type, comment.itemId) }"
                 >
-                  <template v-if="comment.reply">
-                    回复 · {{ getCommentTypeName(comment.type) }}：{{ comment.itemId }}
+                  <template v-if="activeMyTab === 'replies'">
+                    回复了你 · {{ getCommentTypeName(comment.type) }}:{{ comment.itemId }}
+                  </template>
+                  <template v-else-if="comment.reply">
+                    回复 {{ comment.replyToName || '评论' }} · {{ getCommentTypeName(comment.type) }}:{{ comment.itemId }}
                   </template>
                   <template v-else>
-                    {{ getCommentTypeName(comment.type) }}：{{ comment.itemId }}
+                    {{ getCommentTypeName(comment.type) }}:{{ comment.itemId }}
                   </template>
                 </span>
-                <span v-if="Number(comment.isApproved) === 0" class="comment-pending-tag">待公开展示</span>
+                <span v-if="activeMyTab === 'mine' && Number(comment.isApproved) === 0" class="comment-pending-tag">待公开展示</span>
+                <span v-if="activeMyTab === 'replies' && comment.isUnreadReply" class="comment-pending-tag comment-unread-tag">未读</span>
               </div>
 
-              <div class="comment-content">{{ comment.content }}</div>
-
-              <div class="comment-actions">
-                <button type="button" class="delete-btn" @click="deleteComment(comment.id)">
-                  删除
-                </button>
-              </div>
+              <template v-if="activeMyTab === 'replies'">
+                <p v-if="comment.myCommentSnippet" class="my-comment-snippet">
+                  你的评论：{{ comment.myCommentSnippet }}<span v-if="comment.myCommentSnippet.length >= 120">…</span>
+                </p>
+                <div class="comment-content received-reply-content">{{ comment.content }}</div>
+              </template>
+              <div v-else class="comment-content">{{ comment.content }}</div>
             </div>
           </div>
         </div>
@@ -873,6 +950,33 @@ onMounted(() => {
   padding: 6px 12px;
   margin: 0 0 12px;
   line-height: 1.5;
+}
+
+.my-comment-tabs {
+  margin-bottom: 12px;
+}
+
+.comment-item--unread {
+  border-left-color: #e74c3c;
+}
+
+.comment-unread-tag {
+  background-color: #e74c3c;
+}
+
+.my-comment-snippet {
+  margin: 6px 0 4px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  color: #666;
+  background: #eee;
+  border-radius: 4px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.received-reply-content {
+  text-indent: 2em;
 }
 
 .comment-pending-tag {
@@ -1137,11 +1241,37 @@ onMounted(() => {
 }
 
 .comment-item {
+  position: relative;
   margin-bottom: 10px;
-  padding: 10px;
+  padding: 10px 28px 10px 10px;
   border-radius: 4px;
   background-color: #f9f9f9;
   border-left: 3px solid #499e8d;
+}
+
+.comment-delete-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #999;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.comment-delete-btn:hover {
+  color: var(--color-red, #e74c3c);
+  background-color: rgba(231, 76, 60, 0.1);
 }
 
 .comment-header {
@@ -1182,7 +1312,6 @@ onMounted(() => {
 
 .comment-content {
   font-size: 0.85rem;
-  margin-bottom: 5px;
   line-height: 1.5;
   word-break: break-word;
 }
@@ -1192,21 +1321,13 @@ onMounted(() => {
   gap: 10px;
 }
 
-.approve-btn, .delete-btn {
+.approve-btn {
   padding: 2px 6px;
   border: none;
   border-radius: 3px;
   cursor: pointer;
   font-size: 0.75rem;
-}
-
-.approve-btn {
   background-color: var(--color-blue);
-  color: white;
-}
-
-.delete-btn {
-  background-color: var(--color-red);
   color: white;
 }
 
@@ -1218,10 +1339,17 @@ onMounted(() => {
 }
 
 .reply-item {
+  position: relative;
   margin-bottom: 10px;
-  padding: 10px;
+  padding: 10px 28px 10px 10px;
   background-color: #f0f0f0;
   border-radius: 4px;
+}
+
+.reply-to-label {
+  color: #888;
+  font-size: 0.8rem;
+  margin-right: 4px;
 }
 
 /* 关于页面编辑样式 */

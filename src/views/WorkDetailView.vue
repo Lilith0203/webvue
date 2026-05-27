@@ -39,6 +39,13 @@ const isOwnWork = computed(() => {
 const canManageWork = computed(
   () => isAdmin.value || (authStore.isAuthenticated && isOwnWork.value)
 )
+
+/** 管理员作品对所有人展示合集；普通用户私人作品不展示 */
+const showWorkSets = computed(() => {
+  if (!work.value) return false
+  if (work.value.ownerIsAdmin != null) return !!work.value.ownerIsAdmin
+  return isAdmin.value || !isOwnWork.value
+})
   
 const router = useRouter()
 const route = useRoute()
@@ -581,8 +588,9 @@ onMounted(async() => {
     const itemId = work.value.id
     await fetchComments(itemId)
     await fetchInteractions()
-    // 所有用户都可以查看作品所属的合集
-    await fetchAllSets()
+    if (showWorkSets.value) {
+      await fetchAllSets()
+    }
   }
 })
 </script>
@@ -623,7 +631,7 @@ onMounted(async() => {
           </div>
 
         <!-- 合集选择器 -->
-        <div v-if="showSetSelector" class="set-selector-overlay" @click="closeSetSelector">
+        <div v-if="showWorkSets && canEdit && showSetSelector" class="set-selector-overlay" @click="closeSetSelector">
           <div class="set-selector" @click.stop>
             <div class="selector-header">
               <h3>选择合集</h3>
@@ -789,8 +797,8 @@ onMounted(async() => {
             </div>
           </div>
 
-          <!-- 合集管理区域（仅登录用户可见） -->
-        <div class="sets-section">
+          <!-- 合集（管理员作品对所有人可见；普通用户私人作品不展示） -->
+        <div v-if="showWorkSets" class="sets-section">
           <div class="sets-content">
             <span class="sets-label">所属合集：</span>
             <div v-if="workSets.length > 0" class="work-sets-list">
@@ -814,6 +822,8 @@ onMounted(async() => {
       <CommentSection 
         v-if="!showEditor"
         :comments="comments" 
+        :comment-type="2"
+        :comment-item-id="work.id"
         :onCommentSubmit="submitComment"
         :onCommentDelete="deleteComment"/>
     </div>

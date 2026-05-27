@@ -1746,8 +1746,8 @@ const handleKeydown = (event) => {
 }
 
 .add-variant-btn {
-  padding: 2px 10px;
-  font-size: 12px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
   border: 1px solid var(--color-blue, #409eff);
   background: #fff;
   color: var(--color-blue, #409eff);
