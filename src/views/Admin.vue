@@ -553,7 +553,6 @@ onMounted(() => {
 
 <template>
   <div class="admin-panel">
-    <h2 class="header">网站配置</h2>
     
     <!-- 管理功能（仅管理员可见） -->
     <template v-if="isAdmin">
@@ -990,12 +989,10 @@ onMounted(() => {
 }
 
 .admin-panel {
-  margin-top: 20px;
   display: flex;
   align-items: flex-start;
   flex-direction: column;
   justify-content: center;
-  padding: 0 20px;
 }
 
 .account-form {
@@ -1054,7 +1051,7 @@ onMounted(() => {
 
 .account-actions {
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   margin-top: 6px;
 }
 
@@ -1064,7 +1061,7 @@ onMounted(() => {
   background-color: var(--color-blue);
   color: #fff;
   border: none;
-  border-radius: 6px;
+  border-radius: 3px;
   cursor: pointer;
   font-size: 0.8rem;
 }
@@ -1085,6 +1082,7 @@ onMounted(() => {
   font-size: 0.95rem;
   margin-bottom: 10px;
   color: #333;
+  font-weight: bold;
 }
 
 .comment {
@@ -1511,7 +1509,7 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .admin-panel {
-    padding: 0 15px;
+    padding: 10px 0;
   }
 
   .account-row.two-cols {
