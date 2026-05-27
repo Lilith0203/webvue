@@ -577,9 +577,6 @@ onMounted(() => {
   color: #888;
 }
 
-.replies-list {
-}
-
 .reply-item {
   border-radius: 4px;
   padding: 6px 0 6px 10px;
