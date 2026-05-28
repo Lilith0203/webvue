@@ -410,19 +410,20 @@ const materialOwnerId = (material) => {
   return Number.isNaN(id) ? null : id
 }
 
-/** 已登录且材料归属当前用户时可跳转 */
-const canOpenMaterial = (material) => {
+/** 已登录且作品所用材料均归属当前用户时，可跳转材料页 */
+const canOpenMaterialsPage = computed(() => {
   const uid = authedUserId.value
-  const ownerId = materialOwnerId(material)
-  return uid != null && ownerId != null && ownerId === uid
-}
+  if (uid == null || !materials.value.length) return false
+  return materials.value.every((m) => materialOwnerId(m) === uid)
+})
 
-const goToMaterial = (material) => {
-  if (!canOpenMaterial(material)) return
-
+const goToMaterialsPage = () => {
+  if (!canOpenMaterialsPage.value) return
+  const ids = materials.value.map((m) => m.id).join(',')
+  const qty = materials.value.map((m) => m.quantity ?? 1).join(',')
   const url = router.resolve({
     path: '/material',
-    query: { id: material.id }
+    query: { id: ids, qty }
   }).href
   window.open(url, '_blank')
 }
@@ -773,21 +774,19 @@ onMounted(async() => {
           </div>
 
           <div v-if="materials.length > 0" class="materials-section">
-            <h3>
-              材料信息
+            <h3
+              class="materials-title"
+              :class="{ 'materials-title--link': canOpenMaterialsPage }"
+              @click="goToMaterialsPage"
+            >
+              材料信息 <span v-if="canOpenMaterialsPage" class="materials-title-tip">(点击前往材料页)</span>
             </h3>
             <div class="materials-list">
               <div 
                 v-for="material in materials" 
                 :key="material.id"
                 class="material-item">
-                
-                <span
-                  class="material-name"
-                  :class="{ 'material-name--link': canOpenMaterial(material) }"
-                  @click="canOpenMaterial(material) && goToMaterial(material)"
-                  :title="canOpenMaterial(material) ? '点击查看材料详情' : ''"
-                >{{ material.name }}</span>
+                <span class="material-name">{{ material.name }}</span>
                 <span class="material-quantity">×{{ material.quantity }}</span>
                 <span v-if="material.substance" class="material-info">{{ material.substance }}</span>
                 <span v-if="material.size" class="material-info">{{ material.size }}</span>
@@ -1118,12 +1117,22 @@ onMounted(async() => {
   color: #909399;
 }
 
-.materials-section h3 {
-  font-size: 0.85rem;
+.materials-section h3.materials-title {
+  font-size: 0.9rem;
   margin-bottom: 5px;
-  color: var(--color-text);
   border-bottom: 1px dashed #d3d3d3;
   padding-bottom: 8px;
+  font-weight: bold;
+}
+
+.materials-title--link {
+  cursor: pointer;
+}
+
+.materials-title-tip {
+  color: #999;
+  font-size: 0.8rem;
+  padding-left: 5px;
 }
 
 .materials-list {
@@ -1143,15 +1152,6 @@ onMounted(async() => {
 .material-name {
   font-weight: bold;
   cursor: default;
-}
-
-.material-name--link {
-  cursor: pointer;
-  color: var(--color-blue);
-}
-
-.material-name--link:hover {
-  text-decoration: underline;
 }
 
 .material-quantity {
@@ -1234,7 +1234,7 @@ onMounted(async() => {
   display: flex;
   align-items: center;
   gap: 0px;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }
 
 .interaction-btn {

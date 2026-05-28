@@ -1196,6 +1196,7 @@ const handleKeydown = (event) => {
                     <span v-if="material.color" class="detail-item color">{{ material.color }}</span>
                     <span v-if="material.size" class="detail-item size">{{ material.size }}</span>
                     <span v-if="material.shape" class="detail-item shape">{{ material.shape }}</span>
+                    <span v-if="material.price != null && material.price !== ''" class="detail-item price">{{ formatPrice(material.price) }}</span>
                   </div>
                 </div>
                 <div v-if="filteredMaterials.length === 0 && materialSearchQuery.name" class="no-results">
@@ -1421,7 +1422,7 @@ const handleKeydown = (event) => {
   font-weight: bold;
   color: var(--color-blue);
   background-color: var(--color-background-soft);
-  padding: 2px 6px;
+  padding: 2px 6px 0 2px;
   border-radius: 3px;
   font-size: 0.9em;
 }
@@ -1476,9 +1477,9 @@ const handleKeydown = (event) => {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.1em;
+  font-size: 1.1rem;
   color: var(--color-text-light);
-  padding: 0 4px;
+  padding: 0 0 0 6px;
 }
 
 .add-material-btn {
@@ -1516,7 +1517,7 @@ const handleKeydown = (event) => {
 
 .search-field input {
   max-width: 100px;
-  padding: 5px;
+  padding: 4px 5px;
   border: 1px solid var(--color-border);
   border-radius: 4px;
   font-size: 0.8rem;
@@ -1711,9 +1712,104 @@ const handleKeydown = (event) => {
 }
   
 @media (max-width: 768px) {
-    
   .image-uploader {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+
+  /* 已选材料：与选择器列表相同，一行一条 */
+  .selected-materials {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: #fff;
+  }
+
+  .selected-materials .material-tag {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 10px;
+    padding-right: 28px;
+    border-radius: 0;
+    border-bottom: 1px solid #eee;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .selected-materials .material-tag:last-of-type {
+    border-bottom: none;
+  }
+
+  .selected-materials .material-tag:hover {
+    transform: none;
+    box-shadow: none;
+    background-color: var(--color-background-soft);
+  }
+
+  .selected-materials .material-content {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    width: 100%;
+    gap: 0;
+  }
+
+  .selected-materials .material-header {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 0;
+    margin-right: 10px;
+    gap: 6px;
+  }
+
+  .selected-materials .material-name {
+    font-size: 0.8rem;
+    min-width: auto;
+  }
+
+  .selected-materials .material-quantity {
+    font-size: 0.8rem;
+  }
+
+  .selected-materials .material-details {
+    flex: 1;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+    font-size: 0.75rem;
+    min-width: 0;
+  }
+
+  .selected-materials .material-details .detail-item {
+    margin-right: 10px;
+  }
+
+  .selected-materials .material-details .detail-item:last-child {
+    margin-right: 0;
+  }
+
+  .selected-materials .remove-btn {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .selected-materials .add-material-btn {
+    width: 100%;
+    min-width: 0;
+    min-height: auto;
+    justify-content: center;
+    border-radius: 0;
+    border: none;
+    border-top: 1px dashed var(--color-border);
+    padding: 6px 10px;
   }
 }
 

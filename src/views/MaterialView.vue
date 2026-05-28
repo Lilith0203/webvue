@@ -4,10 +4,11 @@ import ImagePreview from '../components/ImagePreview.vue'
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { confirm } from '../utils/confirm'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const route = useRoute()
+const router = useRouter()
 
 const materialData = ref(null)
 const loading = ref(false)
@@ -114,13 +115,14 @@ const openImageViewer = (url) => {
   }
 }
 
-// 列表排序：尺寸为前端排序；添加/更新时间为后端排序
+// 列表排序：尺寸、库存为前端排序；添加/更新时间为后端排序
 const sortBy = ref(null)
 const sortDirection = ref('asc')
 const isTimeSort = (field) => field === 'createdAt' || field === 'updatedAt'
+const isClientSort = (field) => field === 'size' || field === 'stock'
 
 const setListSort = async (field) => {
-  const initialDir = field === 'size' ? 'asc' : 'desc'
+  const initialDir = isClientSort(field) ? 'asc' : 'desc'
   let needRefetch = false
 
   if (sortBy.value === field) {
@@ -142,10 +144,67 @@ const setListSort = async (field) => {
   }
 }
 
+/** 解析 URL 或搜索框中的材料 ID（支持逗号分隔多个） */
+function parseMaterialIdQuery(raw) {
+  if (raw == null || raw === '') return []
+  const parts = Array.isArray(raw) ? raw : [String(raw)]
+  const ids = []
+  for (const part of parts) {
+    String(part)
+      .split(/[,，\s]+/)
+      .forEach((s) => {
+        const n = parseInt(s.trim(), 10)
+        if (!Number.isNaN(n)) ids.push(n)
+      })
+  }
+  return [...new Set(ids)]
+}
+
+/** 与 id 列表同序的作品材料用量 */
+function parseMaterialQtyQuery(raw, ids) {
+  if (!raw || !ids?.length) return {}
+  const parts = Array.isArray(raw) ? raw : [String(raw)]
+  const qtys = []
+  for (const part of parts) {
+    String(part)
+      .split(/[,，\s]+/)
+      .forEach((s) => {
+        const trimmed = s.trim()
+        if (!trimmed) return
+        const n = parseInt(trimmed, 10)
+        qtys.push(Number.isNaN(n) || n < 1 ? 1 : n)
+      })
+  }
+  const map = {}
+  ids.forEach((id, i) => {
+    map[id] = qtys[i] ?? 1
+  })
+  return map
+}
+
+/** 作品页带入的材料用量（id -> 数量），不写入 URL */
+const workMaterialQtyById = ref({})
+
+const hasWorkMaterialQty = computed(() => {
+  if (!parseMaterialIdQuery(searchForm.value.id).length) return false
+  return Object.keys(workMaterialQtyById.value).length > 0
+})
+
+const getWorkMaterialQty = (id) => {
+  const q = workMaterialQtyById.value[id]
+  return q != null ? q : null
+}
+
+function getIdFilterSet() {
+  const fromSearch = parseMaterialIdQuery(searchForm.value.id)
+  return fromSearch.length > 0 ? new Set(fromSearch) : null
+}
+
 const matchesSearchFilter = (item) => {
   if (!item) return false
+  const idSet = getIdFilterSet()
   return (
-    (!searchForm.value.id || item.id.toString() === searchForm.value.id) &&
+    (!idSet || idSet.has(item.id)) &&
     (!searchForm.value.name || item.name.toLowerCase().includes(searchForm.value.name.toLowerCase())) &&
     (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
     (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
@@ -176,6 +235,33 @@ const applySizeSort = (list) => {
     const sa = (a.size || '').replace(/\s/g, '').toLowerCase()
     const sb = (b.size || '').replace(/\s/g, '').toLowerCase()
     return sa.localeCompare(sb)
+  })
+  return sorted
+}
+
+/** 库存排序：缺货(0/无) < 数字 < 其他文字 < 空 */
+const stockSortValue = (str) => {
+  if (str == null || String(str).trim() === '') return null
+  const s = String(str).trim()
+  if (s === '0' || s === '无') return -1
+  const m = s.match(/(\d+(?:\.\d+)?)/)
+  if (m) return parseFloat(m[1])
+  return Number.MAX_SAFE_INTEGER
+}
+
+const applyStockSort = (list) => {
+  const sorted = [...list]
+  const dir = sortDirection.value === 'asc' ? 1 : -1
+  sorted.sort((a, b) => {
+    const va = stockSortValue(a.stock)
+    const vb = stockSortValue(b.stock)
+    if (va == null && vb == null) return 0
+    if (va == null) return 1
+    if (vb == null) return -1
+    if (va !== vb) return (va - vb) * dir
+    const sa = String(a.stock || '').trim()
+    const sb = String(b.stock || '').trim()
+    return sa.localeCompare(sb, 'zh-CN') * dir
   })
   return sorted
 }
@@ -275,6 +361,7 @@ const resetSearch = async () => {
     shop: '',
     size: ''
   }
+  workMaterialQtyById.value = {}
   displayLimit.value = 50  // 重置显示数量
   sortBy.value = null      // 重置排序方式
   sortDirection.value = 'asc' // 重置排序方向
@@ -290,8 +377,17 @@ const filteredMaterials = computed(() => {
 // 计算当前显示的材料
 const displayedMaterials = computed(() => {
   let result = filteredMaterials.value
+  const orderIds = parseMaterialIdQuery(searchForm.value.id)
+  if (orderIds.length > 1) {
+    const order = new Map(orderIds.map((id, i) => [id, i]))
+    result = [...result].sort(
+      (a, b) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999)
+    )
+  }
   if (sortBy.value === 'size') {
     result = applySizeSort(result)
+  } else if (sortBy.value === 'stock') {
+    result = applyStockSort(result)
   }
   return result.slice(0, displayLimit.value)
 })
@@ -437,16 +533,6 @@ const toggleColumn = (columnKey) => {
   }
 }
 
-// 计算当前可见的列
-const visibleColumnsConfig = computed(() => {
-  return Object.fromEntries(
-    Object.entries(columns).filter(([key]) =>
-      visibleColumns.value.includes(key) &&
-      !(batchEditMode.value && key === 'actions')
-    )
-  )
-})
-
 // 保存列设置到 localStorage
 const saveColumnSettings = () => {
   localStorage.setItem('materialTableColumns', JSON.stringify(visibleColumns.value))
@@ -485,6 +571,44 @@ const searchForm = ref({
   color: '',
   shop: '',
   size: ''
+})
+
+/** 作品页跳转带来的 id/qty 写入状态后立刻从 URL 移除 */
+function consumeMaterialIdFromRoute() {
+  const ids = parseMaterialIdQuery(route.query.id)
+  if (!ids.length) return
+  searchForm.value.id = ids.join(',')
+  workMaterialQtyById.value = parseMaterialQtyQuery(route.query.qty, ids)
+  displayLimit.value = Math.max(50, ids.length)
+  const query = { ...route.query }
+  delete query.id
+  delete query.qty
+  router.replace({ path: route.path, query })
+}
+
+watch(
+  () => searchForm.value.id,
+  (id) => {
+    if (!parseMaterialIdQuery(id).length) {
+      workMaterialQtyById.value = {}
+    }
+  }
+)
+
+// 计算当前可见的列（作品跳转时临时插入「作品用量」列）
+const visibleColumnsConfig = computed(() => {
+  const entries = Object.entries(columns).filter(([key]) =>
+    visibleColumns.value.includes(key) &&
+    !(batchEditMode.value && key === 'actions')
+  )
+  const result = []
+  for (const [key, config] of entries) {
+    result.push([key, config])
+    if (key === 'stock' && hasWorkMaterialQty.value) {
+      result.push(['workQty', { label: '用量', editable: false }])
+    }
+  }
+  return Object.fromEntries(result)
 })
 
 // 类型选择相关状态
@@ -771,6 +895,14 @@ const startBatchEditSelected = () => {
   error.value = null
 }
 
+const toggleBatchEditSelected = () => {
+  if (batchEditingCount.value > 0) {
+    cancelBatchEdits()
+  } else {
+    startBatchEditSelected()
+  }
+}
+
 const saveBatchEdits = async () => {
   if (!canEdit.value) return
   const materials = Object.values(batchEditDrafts.value)
@@ -841,8 +973,8 @@ const fetchMaterialData = async ({ silent = false } = {}) => {
       body.sortBy = sortBy.value
       body.sortOrder = sortDirection.value.toUpperCase()
     }
-    const response = await axios.post(`/material`, body)
-    materialData.value = response.data.materials
+    const response = await axios.post('/material', body)
+    materialData.value = response.data.materials || []
   } catch (err) {
     if (err?.response?.status === 401) {
       materialData.value = []
@@ -872,6 +1004,13 @@ const loadMaterialPageData = async () => {
       fetchTypeTree(),
       fetchMaterialData({ silent: true })
     ])
+    if (Object.keys(workMaterialQtyById.value).length && materialData.value?.length) {
+      selectedMaterialIds.value = new Set(
+        materialData.value
+          .filter((m) => workMaterialQtyById.value[m.id] != null)
+          .map((m) => m.id)
+      )
+    }
   } catch (err) {
     error.value = '加载失败：' + (err?.response?.data?.message || err.message)
   } finally {
@@ -901,21 +1040,30 @@ watch(showOutOfStock, () => {
   fetchMaterialData()
 })
 
-// 登录状态变化时自动刷新数据
+// 登录状态变化时刷新；带 id 的链接只消费一次
 watch(
   () => authStore.isAuthenticated,
   (loggedIn) => {
     if (loggedIn) {
+      consumeMaterialIdFromRoute()
       loadMaterialPageData()
-    } else {
-      materialData.value = []
-      typeTree.value = []
-      typeMap.value = new Map()
-      error.value = null
-      loading.value = false
+      return
     }
+    materialData.value = []
+    typeTree.value = []
+    typeMap.value = new Map()
+    error.value = null
+    loading.value = false
   },
   { immediate: true }
+)
+
+watch(
+  () => route.query.id,
+  (id) => {
+    if (!id || !authStore.isAuthenticated) return
+    consumeMaterialIdFromRoute()
+  }
 )
 
 // 弹窗保存（新增 / 单条编辑）
@@ -1028,11 +1176,6 @@ onMounted(async() => {
     }
   })
   loadColumnSettings()
-
-  // 检查URL查询参数中的ID
-  if (route.query.id) {
-    searchForm.value.id = route.query.id.toString()
-  }
 })
 
 // 修改表格显示逻辑，显示类型名称而不是ID
@@ -1387,6 +1530,13 @@ const goToMaterialById = (materialId) => {
           </button>
           <button
             class="sort-btn"
+            :class="{ active: sortBy === 'stock' }"
+            @click="setListSort('stock')">
+            按库存
+            <span v-if="sortBy === 'stock'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+          </button>
+          <button
+            class="sort-btn"
             :class="{ active: sortBy === 'createdAt' }"
             @click="setListSort('createdAt')">
             添加时间
@@ -1403,29 +1553,25 @@ const goToMaterialById = (materialId) => {
       </div>
     </div>
 
+    <div v-if="hasWorkMaterialQty && !batchEditMode" class="work-qty-notice">
+      已带入作品材料用量，可以对照「用量」列修改库存。
+    </div>
+
     <div v-if="batchEditMode" class="batch-actions-bar">
       <span class="batch-selected-count">已选 <strong>{{ selectedCount }}</strong> 条</span>
       <button
         type="button"
         class="batch-action-btn"
-        :disabled="selectedCount === 0"
-        @click="startBatchEditSelected">
-        编辑选中
+        :disabled="batchEditingCount === 0 && selectedCount === 0"
+        @click="toggleBatchEditSelected">
+        {{ batchEditingCount > 0 ? '取消编辑' : '编辑选中' }}
       </button>
-      <span v-if="batchEditingCount" class="batch-progress">正在编辑 {{ batchEditingCount }} 条</span>
       <button
         type="button"
         class="batch-action-btn primary"
         :disabled="batchEditingCount === 0 || loading"
         @click="saveBatchEdits">
         保存
-      </button>
-      <button
-        type="button"
-        class="batch-action-btn"
-        :disabled="batchEditingCount === 0"
-        @click="cancelBatchEdits">
-        取消编辑
       </button>
       <button type="button" class="batch-action-btn exit" @click="toggleBatchEditMode">
         退出
@@ -1479,6 +1625,10 @@ const goToMaterialById = (materialId) => {
                         <button class="edit-btn" @click="startEdit(row)"><i class="iconfont icon-edit"></i></button>
                         <button class="delete-btn" @click="deleteMaterial(row)"><i class="iconfont icon-ashbin"></i></button>
                       </div>
+                    </template>
+                    <template v-else-if="key === 'workQty'">
+                      <span v-if="getWorkMaterialQty(row.id)" class="work-qty-value">×{{ getWorkMaterialQty(row.id) }}</span>
+                      <span v-else class="work-qty-empty">—</span>
                     </template>
                     <!-- 其他列的显示逻辑 -->
                     <template v-else>
@@ -1580,9 +1730,18 @@ const goToMaterialById = (materialId) => {
                       </div>
                     </template>
 
+                    <template v-else-if="key === 'workQty'">
+                      <span v-if="getWorkMaterialQty(row.id)" class="work-qty-value">×{{ getWorkMaterialQty(row.id) }}</span>
+                    </template>
                     <template v-else-if="config.editable">
+                      <div v-if="key === 'stock'" class="stock-edit-cell">
+                        <input
+                          v-model="batchEditDrafts[row.id][key]"
+                          type="text"
+                          class="form-input">
+                      </div>
                       <input
-                        v-if="config.type === 'number'"
+                        v-else-if="config.type === 'number'"
                         v-model.number="batchEditDrafts[row.id][key]"
                         type="number"
                         class="form-input">
@@ -2065,11 +2224,36 @@ tr.batch-selected {
   background-color: #ecf5ff;
 }
 
+.work-qty-notice {
+  margin: 10px 0;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  color: #606266;
+  background: #fdf6ec;
+  border: 1px solid #f5dab1;
+  border-radius: 4px;
+}
+
+.work-qty-value {
+  color: var(--color-blue);
+}
+
+.work-qty-empty {
+  color: #c0c4cc;
+}
+
+.stock-edit-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 6rem;
+}
+
 .batch-actions-bar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 5px;
   margin-bottom: 0.75rem;
   padding: 0.6rem 1rem;
   background: #e8f4ff;
@@ -2092,7 +2276,7 @@ tr.batch-selected {
   border: 1px solid #dcdfe6;
   background: #fff;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .batch-action-btn.primary {
@@ -2114,11 +2298,6 @@ tr.batch-selected {
   background: var(--color-red);
   color: #fff;
   border: none;
-}
-
-.batch-progress {
-  color: var(--color-blue);
-  font-weight: 500;
 }
 
 .save-btn {
@@ -2190,10 +2369,6 @@ td:last-child {
   border-radius: 4px;
   font-size: 12px;
   width: 80px;
-}
-
-.search-item input.id-search {
-  width: 60px;
 }
 
 .search-actions {
