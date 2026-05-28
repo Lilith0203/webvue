@@ -9,7 +9,9 @@ import { sanitizeExternalStoryLink } from '../utils/sanitizeExternalLink'
 import {
   showCustomTooltip,
   hideCustomTooltip,
-  handleTooltipTouch
+  handleRecommendTooltipClick,
+  onRecommendTooltipPointerEnter,
+  onRecommendTooltipPointerLeave
 } from '../utils/customTooltip'
 
 import ImagePreview from '../components/ImagePreview.vue'
@@ -1480,43 +1482,32 @@ const formatStoryContent = (content) => {
   }).join('')
 }
 
-const isCoarsePointer = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(pointer: coarse)').matches
+const isStoryContentEllipsisActive = (el) =>
+  !!el && el.scrollWidth > el.clientWidth + 1
 
 const getOpenStoryTooltipOwner = () =>
   document.querySelector('body > .custom-tooltip')?.__owner ?? null
 
-/** 列表摘要：悬停/点击显示完整正文（用 formatStoryContent 渲染，与列表一致且可点链接） */
+/** 列表摘要：仅在被截断时，点击显示完整正文 */
 const showStoryContentTooltip = (event, content) => {
   if (!content?.trim()) return
   if (event.target.closest('a')) return
   showCustomTooltip(event, content, {
     allowLinks: true,
     html: formatStoryContent(content),
-    toggleOnSameAnchor: false
+    toggleOnSameAnchor: false,
+    dismissOnScroll: true
   })
 }
 
 const onStoryContentClick = (event, content) => {
   if (event.target.closest('a')) return
   const anchor = event.currentTarget
+  if (!isStoryContentEllipsisActive(anchor)) return
   if (getOpenStoryTooltipOwner() === anchor) {
     hideCustomTooltip()
     return
   }
-  showStoryContentTooltip(event, content)
-}
-
-/** PC 悬停：在链接上不弹出；在正文区域移动时显示（mouseover 才能识别移入链接） */
-const onStoryContentMouseOver = (event, content) => {
-  if (isCoarsePointer()) return
-  if (event.target.closest('a')) {
-    hideCustomTooltip()
-    return
-  }
-  const anchor = event.currentTarget
-  if (getOpenStoryTooltipOwner() === anchor) return
   showStoryContentTooltip(event, content)
 }
 
@@ -1987,9 +1978,9 @@ const checkAndFixActiveSet = () => {
                       <i
                         v-if="story.isRecommended"
                         class="iconfont icon-tuijian recommended-icon"
-                        @mouseenter="showCustomTooltip($event, story.recReasons || '')"
-                        @mouseleave="hideCustomTooltip()"
-                        @touchstart.prevent="handleTooltipTouch($event, story.recReasons || '')"
+                        @click.stop="handleRecommendTooltipClick($event, story.recReasons || '')"
+                        @pointerenter="onRecommendTooltipPointerEnter($event, story.recReasons || '')"
+                        @pointerleave="onRecommendTooltipPointerLeave($event)"
                       ></i>
                     </div>
 
@@ -2010,8 +2001,6 @@ const checkAndFixActiveSet = () => {
                       <div 
                         v-if="story.content"
                         class="story-content-text"
-                        @mouseover="onStoryContentMouseOver($event, story.content)"
-                        @mouseleave="hideCustomTooltip()"
                         @click="onStoryContentClick($event, story.content)"
                         v-html="formatStoryContent(story.content)"
                       ></div>
@@ -2911,11 +2900,11 @@ const checkAndFixActiveSet = () => {
   font-size: 0.85rem;
   line-height: 1.5;
   color: #333;
+  min-width: 0;
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
-  display: block;
 }
 
 .story-content-text * {
@@ -3486,6 +3475,10 @@ input[type="datetime-local"] {
   pointer-events: auto;
   cursor: pointer;
   -webkit-tap-highlight-color: rgba(126, 200, 255, 0.35);
+}
+
+:global(.custom-tooltip--html a:hover) {
+  color: #a8dcff;
 }
 
 :global(.custom-tooltip--html p) {

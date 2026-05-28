@@ -2,6 +2,8 @@
 
 let activeTooltipCleanup = null
 
+const OPEN_GRACE_MS = 500
+
 function detachTooltipListeners() {
   if (activeTooltipCleanup) {
     activeTooltipCleanup()
@@ -30,6 +32,7 @@ function applyTooltipBaseStyle(tooltip, html) {
   tooltip.style.position = 'fixed'
   tooltip.style.transform = 'none'
   tooltip.style.margin = '0'
+  tooltip.style.touchAction = 'manipulation'
 }
 
 /** 按锚点当前视口位置放置（fixed，每次调用都重新测量） */
@@ -69,21 +72,82 @@ export function positionTooltipNearAnchor(tooltip, anchor) {
   tooltip.style.visibility = 'visible'
 }
 
-function bindDismiss(tooltip, anchor) {
-  const ignoreDismissUntil = Date.now() + 320
+function eventPathIncludes(event, node) {
+  if (!event || !node) return false
+  if (typeof event.composedPath === 'function') {
+    return event.composedPath().includes(node)
+  }
+  const target = event.target
+  return target === node || (target && node.contains(target))
+}
 
-  const isInsideTooltip = (target) => target && tooltip.contains(target)
+function openTooltipLink(link) {
+  const href = link.getAttribute('href') || link.href
+  if (!href || href === '#') return
+  window.open(href, '_blank', 'noopener,noreferrer')
+}
 
-  const shouldDismiss = (e) => {
+function bindInteractiveTooltipLinks(tooltip) {
+  tooltip.querySelectorAll('a[href]').forEach((link) => {
+    link.style.pointerEvents = 'auto'
+    link.style.cursor = 'pointer'
+    link.style.touchAction = 'manipulation'
+
+    const onLinkActivate = (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (typeof e.stopImmediatePropagation === 'function') {
+        e.stopImmediatePropagation()
+      }
+      openTooltipLink(link)
+    }
+
+    link.addEventListener('click', onLinkActivate)
+    link.addEventListener('touchend', onLinkActivate, { passive: false })
+  })
+}
+
+/** 推荐图标等：点击打开，再点图标或点其它区域关闭；不绑 scroll/pointerdown */
+function bindTapPinnedDismiss(tooltip, anchor) {
+  const ignoreUntil = Date.now() + 400
+
+  const onDocumentClick = (e) => {
+    if (Date.now() < ignoreUntil) return
+    if (eventPathIncludes(e, anchor)) return
+    if (eventPathIncludes(e, tooltip)) return
+    hideCustomTooltip()
+  }
+
+  setTimeout(() => {
+    document.addEventListener('click', onDocumentClick, true)
+  }, 0)
+
+  activeTooltipCleanup = () => {
+    document.removeEventListener('click', onDocumentClick, true)
+  }
+}
+
+function bindDismiss(tooltip, anchor, options = {}) {
+  if (options.tapPinned) {
+    bindTapPinnedDismiss(tooltip, anchor)
+    return
+  }
+
+  const dismissOnScroll = options.dismissOnScroll !== false
+  const interactive = options.interactive === true
+  const openedAt = Date.now()
+  const ignoreDismissUntil = openedAt + OPEN_GRACE_MS
+
+  const shouldDismissOutside = (e) => {
     if (Date.now() < ignoreDismissUntil) return false
     if (!e) return true
-    if (isInsideTooltip(e.target)) return false
-    if (e.target === anchor || anchor.contains(e.target)) return false
+    if (eventPathIncludes(e, tooltip)) return false
+    if (eventPathIncludes(e, anchor)) return false
     return true
   }
 
-  const dismiss = (e) => {
-    if (!shouldDismiss(e)) return
+  const dismissOutside = (e) => {
+    if (!shouldDismissOutside(e)) return
     hideCustomTooltip()
   }
 
@@ -95,30 +159,51 @@ function bindDismiss(tooltip, anchor) {
     positionTooltipNearAnchor(tooltip, anchor)
   }
 
+  const isScrollInsideTooltip = (e) => eventPathIncludes(e, tooltip)
+
   const onScroll = (e) => {
-    if (e?.target && tooltip.contains(e.target)) return
-    reposition()
+    if (Date.now() - openedAt < OPEN_GRACE_MS) return
+    if (!dismissOnScroll) {
+      if (!isScrollInsideTooltip(e)) reposition()
+      return
+    }
+    if (isScrollInsideTooltip(e)) return
+    hideCustomTooltip()
   }
 
-  tooltip.addEventListener('click', (e) => {
-    const link = e.target.closest('a')
-    if (link?.href) e.stopPropagation()
-  })
+  const onWheel = (e) => {
+    if (Date.now() - openedAt < OPEN_GRACE_MS) return
+    if (!dismissOnScroll) return
+    if (isScrollInsideTooltip(e)) return
+    hideCustomTooltip()
+  }
+
+  if (interactive) {
+    bindInteractiveTooltipLinks(tooltip)
+  }
 
   document.addEventListener('scroll', onScroll, true)
-  window.addEventListener('resize', reposition)
 
-  activeTooltipCleanup = () => {
-    document.removeEventListener('click', dismiss, true)
-    document.removeEventListener('touchend', dismiss, true)
-    document.removeEventListener('scroll', onScroll, true)
-    window.removeEventListener('resize', reposition)
+  const useWheelDismiss =
+    dismissOnScroll &&
+    typeof window !== 'undefined' &&
+    !window.matchMedia('(pointer: coarse)').matches
+
+  if (useWheelDismiss) {
+    window.addEventListener('wheel', onWheel, { passive: true, capture: true })
   }
 
-  setTimeout(() => {
-    document.addEventListener('click', dismiss, true)
-    document.addEventListener('touchend', dismiss, true)
-  }, 320)
+  window.addEventListener('resize', reposition)
+  document.addEventListener('pointerdown', dismissOutside, false)
+
+  activeTooltipCleanup = () => {
+    document.removeEventListener('pointerdown', dismissOutside, false)
+    document.removeEventListener('scroll', onScroll, true)
+    if (useWheelDismiss) {
+      window.removeEventListener('wheel', onWheel, { capture: true })
+    }
+    window.removeEventListener('resize', reposition)
+  }
 }
 
 export function showCustomTooltip(event, content, options = {}) {
@@ -173,10 +258,43 @@ export function showCustomTooltip(event, content, options = {}) {
     requestAnimationFrame(place)
   })
 
-  bindDismiss(tooltip, anchor)
+  bindDismiss(tooltip, anchor, {
+    tapPinned: options.tapPinned === true,
+    dismissOnScroll: options.dismissOnScroll !== false,
+    interactive: !!(html && allowLinks)
+  })
 }
 
-export function handleTooltipTouch(event, content, options = {}) {
-  event.stopPropagation()
-  showCustomTooltip(event, content, options)
+/** 推荐图标：仅 PC 鼠标悬停（pointerType 必须为 mouse） */
+export function onRecommendTooltipPointerEnter(event, content) {
+  if (event.pointerType !== 'mouse') return
+  showCustomTooltip(event, content, {
+    tapPinned: true,
+    dismissOnScroll: false,
+    toggleOnSameAnchor: false
+  })
+}
+
+export function onRecommendTooltipPointerLeave(event) {
+  if (event.pointerType !== 'mouse') return
+  hideCustomTooltip()
+}
+
+/** 推荐图标：点击切换（手机/平板用 click，不用 touchstart） */
+export function handleRecommendTooltipClick(event, content) {
+  if (!content?.trim()) return
+
+  const anchor = event.currentTarget || event.target
+  const existing = document.querySelector('body > .custom-tooltip')
+
+  if (existing?.__owner === anchor) {
+    hideCustomTooltip()
+    return
+  }
+
+  showCustomTooltip(event, content, {
+    tapPinned: true,
+    dismissOnScroll: false,
+    toggleOnSameAnchor: false
+  })
 }

@@ -10,7 +10,9 @@ import { marked } from 'marked'
 import {
   showCustomTooltip,
   hideCustomTooltip,
-  handleTooltipTouch
+  handleRecommendTooltipClick,
+  onRecommendTooltipPointerEnter,
+  onRecommendTooltipPointerLeave
 } from '../utils/customTooltip'
 
 const route = useRoute()
@@ -1220,9 +1222,9 @@ onBeforeUnmount(() => {
             <i
               v-if="story.isRecommended"
               class="iconfont icon-tuijian recommended-icon"
-              @mouseenter="showCustomTooltip($event, story.recReasons || '')"
-              @mouseleave="hideCustomTooltip()"
-              @touchstart.prevent="handleTooltipTouch($event, story.recReasons || '')"
+              @click.stop="handleRecommendTooltipClick($event, story.recReasons || '')"
+              @pointerenter="onRecommendTooltipPointerEnter($event, story.recReasons || '')"
+              @pointerleave="onRecommendTooltipPointerLeave($event)"
             ></i>
           </h1>
         </div>
@@ -1691,7 +1693,8 @@ mark.story-search-highlight {
   display: inline-flex;
   align-items: center;
   vertical-align: middle;
-  cursor: default;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 .meta {
   color: #888;
