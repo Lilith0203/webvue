@@ -999,7 +999,7 @@ const handleKeydown = (event) => {
 
           <div class="form-item variants-section">
             <div class="variants-header">
-              <label>规格（价格与材料）</label>
+              <label>价格与材料</label>
               <button type="button" class="add-variant-btn" @click="addVariant">+ 添加规格</button>
             </div>
 

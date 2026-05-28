@@ -1041,12 +1041,12 @@ onMounted(async() => {
   
 .description {
   color: #333;
-  margin: 20px 10px;
-  font-size: 0.85rem;
+  margin: 20px 10px 30px;
+  font-size: 0.9rem;
 }
 
 :deep(.description p) {
-  line-height: 1.5;
+  line-height: 1.6;
   margin-bottom: 8px;
 }
 
@@ -1118,7 +1118,7 @@ onMounted(async() => {
 }
 
 .materials-section h3.materials-title {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   margin-bottom: 5px;
   border-bottom: 1px dashed #d3d3d3;
   padding-bottom: 8px;

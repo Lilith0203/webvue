@@ -1244,7 +1244,7 @@ onMounted(() => {
   padding: 10px 28px 10px 10px;
   border-radius: 4px;
   background-color: #f9f9f9;
-  border-left: 3px solid #499e8d;
+  border-left: 2px solid var(--color-blue);
 }
 
 .comment-delete-btn {
