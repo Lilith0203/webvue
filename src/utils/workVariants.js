@@ -37,8 +37,17 @@ export function normalizeVariant(raw) {
 export function parseWorkVariants(work) {
   if (!work) return [createEmptyVariant()]
 
-  if (Array.isArray(work.variants) && work.variants.length) {
-    return work.variants.map(normalizeVariant)
+  let variants = work.variants
+  if (typeof variants === 'string' && variants.trim()) {
+    try {
+      variants = JSON.parse(variants)
+    } catch {
+      variants = []
+    }
+  }
+
+  if (Array.isArray(variants) && variants.length) {
+    return variants.map(normalizeVariant)
   }
 
   let legacyMaterials = work.materials || []

@@ -175,11 +175,19 @@ const toggleRecommend = async (event, workId) => {
   }
 }
 
-// 打开编辑编辑器
-const openEditEditor = (work) => {
-  currentWork.value = work
-  editorMode.value = 'edit'
-  showEditor.value = true
+// 打开编辑编辑器（列表项无 variants，须拉详情）
+const openEditEditor = async (work) => {
+  if (!work?.id) return
+  try {
+    const res = await axios.get(`/works/${work.id}`)
+    const full = res.data?.works
+    if (!full) return
+    currentWork.value = full
+    editorMode.value = 'edit'
+    showEditor.value = true
+  } catch (error) {
+    console.error('获取作品详情失败:', error)
+  }
 }
 
 // 关闭编辑器
