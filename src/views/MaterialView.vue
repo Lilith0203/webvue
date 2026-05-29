@@ -468,9 +468,9 @@ const columns = {
   price: { label: '价格', editable: true },
   stock: { label: '库存', editable: true },
   shop: { label: '商店', editable: true },
+  pic: { label: '图片', editable: true, type: 'url' },
   note: { label: '备注', editable: true },
   link: { label: '链接', editable: true, type: 'url' },
-  pic: { label: '图片', editable: true, type: 'url' },
   actions: { label: '操作', editable: false }
 }
 
@@ -491,9 +491,9 @@ const newMaterialForm = ref({
   price: '',
   stock: '',
   shop: '',
+  pic: '',
   note: '',
   link: '',
-  pic: '',
 })
 
 // 重置表单
@@ -508,9 +508,9 @@ const resetForm = () => {
     price: '',
     stock: '',
     shop: '',
+    pic: '',
     note: '',
-    link: '',
-    pic: ''
+    link: ''
   }
   uploadError.value = null
   uploadProgress.value = 0
