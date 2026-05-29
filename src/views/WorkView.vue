@@ -14,39 +14,6 @@ const authStore = useAuthStore()
 const PAGE_VIEW_STORAGE_PREFIX = 'workPageViewMode'
 const pageViewMode = ref('public')
 
-const getPageViewStorageKey = () => {
-  const uid = authStore.userId
-  return uid != null ? `${PAGE_VIEW_STORAGE_PREFIX}_${uid}` : PAGE_VIEW_STORAGE_PREFIX
-}
-
-const readSavedPageViewMode = () => {
-  if (!canUsePrivateMode.value) return 'public'
-  const key = getPageViewStorageKey()
-  let saved = localStorage.getItem(key)
-  if (!saved && key !== PAGE_VIEW_STORAGE_PREFIX) {
-    saved = localStorage.getItem(PAGE_VIEW_STORAGE_PREFIX)
-  }
-  return saved === 'private' || saved === 'public' ? saved : 'public'
-}
-
-const savePageViewModeToCache = (mode) => {
-  if (mode !== 'private' && mode !== 'public') return
-  if (!canUsePrivateMode.value) return
-  localStorage.setItem(getPageViewStorageKey(), mode)
-}
-
-/** 从 localStorage 恢复普通用户的默认/私人模式选择 */
-const restorePageViewModeFromCache = () => {
-  if (!canUsePrivateMode.value) {
-    pageViewMode.value = 'public'
-    return false
-  }
-  const saved = readSavedPageViewMode()
-  if (saved === pageViewMode.value) return false
-  pageViewMode.value = saved
-  return true
-}
-
 const isAdmin = computed(
   () => authStore.isAuthenticated && authStore.user?.role === 'admin'
 )
@@ -56,6 +23,88 @@ const canEdit = computed(() => isAdmin.value)
 const canUsePrivateMode = computed(
   () => authStore.isAuthenticated && !isAdmin.value
 )
+const usesServerWorksPrefs = computed(() => canUsePrivateMode.value)
+
+const getPageViewStorageKey = () => {
+  const uid = authStore.userId
+  return uid != null ? `${PAGE_VIEW_STORAGE_PREFIX}_${uid}` : PAGE_VIEW_STORAGE_PREFIX
+}
+
+const readLocalPageViewMode = () => {
+  const key = getPageViewStorageKey()
+  let saved = localStorage.getItem(key)
+  if (!saved && key !== PAGE_VIEW_STORAGE_PREFIX) {
+    saved = localStorage.getItem(PAGE_VIEW_STORAGE_PREFIX)
+  }
+  return saved === 'private' || saved === 'public' ? saved : 'public'
+}
+
+const clearLocalPageViewMode = () => {
+  localStorage.removeItem(getPageViewStorageKey())
+  localStorage.removeItem(PAGE_VIEW_STORAGE_PREFIX)
+}
+
+const applyPageViewMode = (mode) => {
+  pageViewMode.value = mode === 'private' ? 'private' : 'public'
+}
+
+const migrateLocalPageViewModeToServer = async () => {
+  const local = readLocalPageViewMode()
+  if (local !== 'private') return false
+  await axios.post('/user-prefs', { works: { pageViewMode: local } })
+  return true
+}
+
+const loadWorksPrefs = async () => {
+  if (!usesServerWorksPrefs.value) {
+    pageViewMode.value = 'public'
+    return false
+  }
+
+  const prev = pageViewMode.value
+  try {
+    let res = await axios.get('/user-prefs', { params: { scope: 'works' } })
+    if (!res.data?.success) {
+      throw new Error(res.data?.message || '获取作品页偏好失败')
+    }
+
+    let data = res.data?.data || {}
+    let mode = data.pageViewMode === 'private' ? 'private' : 'public'
+
+    if (mode === 'public') {
+      const migrated = await migrateLocalPageViewModeToServer()
+      if (migrated) {
+        res = await axios.get('/user-prefs', { params: { scope: 'works' } })
+        if (!res.data?.success) {
+          throw new Error(res.data?.message || '获取作品页偏好失败')
+        }
+        data = res.data?.data || {}
+        mode = data.pageViewMode === 'private' ? 'private' : 'public'
+      }
+    }
+
+    if (mode === 'private') {
+      clearLocalPageViewMode()
+    }
+
+    applyPageViewMode(mode)
+  } catch (e) {
+    console.error('加载作品页偏好失败:', e)
+    applyPageViewMode('public')
+  }
+
+  return pageViewMode.value !== prev
+}
+
+const persistPageViewMode = async (mode) => {
+  if (mode !== 'private' && mode !== 'public') return
+  if (!usesServerWorksPrefs.value) return
+  try {
+    await axios.post('/user-prefs', { works: { pageViewMode: mode } }, { params: { scope: 'works' } })
+  } catch (e) {
+    console.error('保存作品页模式失败:', e)
+  }
+}
 const isPrivateMode = computed(
   () => canUsePrivateMode.value && pageViewMode.value === 'private'
 )
@@ -94,7 +143,7 @@ const switchPageViewMode = (mode) => {
   if (mode === 'private' && !canUsePrivateMode.value) return
   if (mode === pageViewMode.value) return
   pageViewMode.value = mode
-  savePageViewModeToCache(mode)
+  persistPageViewMode(mode)
   resetListForModeChange()
 }
 
@@ -912,7 +961,7 @@ watch(
     userId: authStore.userId ?? null,
     isAdmin: isAdmin.value
   }),
-  (cur, prev) => {
+  async (cur, prev) => {
     if (!cur.loggedIn) {
       incompleteWorks.value = []
       if (pageViewMode.value === 'private') {
@@ -930,7 +979,7 @@ watch(
     if (!accountSwitched) return
 
     if (canUsePrivateMode.value) {
-      restorePageViewModeFromCache()
+      await loadWorksPrefs()
     } else {
       pageViewMode.value = 'public'
     }
@@ -938,9 +987,9 @@ watch(
   }
 )
 
-watch(canUsePrivateMode, (ok) => {
+watch(canUsePrivateMode, async (ok) => {
   if (!ok) return
-  if (restorePageViewModeFromCache()) {
+  if (await loadWorksPrefs()) {
     resetListForModeChange()
   }
 })
@@ -951,7 +1000,7 @@ onMounted(async () => {
 
   await initTagColors() // 初始化标签颜色
 
-  restorePageViewModeFromCache()
+  await loadWorksPrefs()
   
   // 从详情返回（含浏览器后退）：恢复列表状态
   const shouldRestoreListState =
@@ -1001,7 +1050,7 @@ onMounted(async () => {
         (savedViewMode === 'private' || savedViewMode === 'public')
       ) {
         pageViewMode.value = savedViewMode
-        savePageViewModeToCache(savedViewMode)
+        persistPageViewMode(savedViewMode)
       }
       if (pageViewMode.value === 'private') {
         showRecommended.value = false
