@@ -3253,7 +3253,7 @@ const checkAndFixActiveSet = () => {
 
 .form-group label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   font-size: 0.85rem;
 }
 
@@ -3262,7 +3262,7 @@ const checkAndFixActiveSet = () => {
   padding: 5px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 0.85rem;
 }
 
 .form-group textarea {
@@ -3386,16 +3386,12 @@ input[type="datetime-local"] {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-.image-uploader {
-  margin-top: 10px;
-}
-
 .preview-images {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 10px;
   border-radius: 4px;
-  min-height: 100px;
+  min-height: 90px;
 }
 
 .image-upload-box {
