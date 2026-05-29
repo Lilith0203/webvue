@@ -86,6 +86,8 @@ const typeMap = ref(new Map()) // 存储id和typeName的映射
 
 const activeVariantIndex = ref(0)
 
+const hasMultipleVariants = computed(() => formData.variants.length > 1)
+
 const initFormData = () => {
   return {
     id: props.work?.id || null,
@@ -1016,7 +1018,7 @@ const handleKeydown = (event) => {
             <input
               v-model="formData.link"
               type="url"
-              placeholder="请输入购买链接（可选，全作品共用）"
+              placeholder="请输入购买链接（可选）"
               class="link-input">
           </div>
 
@@ -1026,7 +1028,7 @@ const handleKeydown = (event) => {
               <button type="button" class="add-variant-btn" @click="addVariant">+ 添加规格</button>
             </div>
 
-            <div class="variant-tabs">
+            <div v-if="hasMultipleVariants" class="variant-tabs">
               <button
                 v-for="(variant, index) in formData.variants"
                 :key="index"
@@ -1036,14 +1038,13 @@ const handleKeydown = (event) => {
                 @click="switchVariant(index)">
                 {{ variantLabel(variant, index) }}
                 <span
-                  v-if="formData.variants.length > 1"
                   class="variant-tab-remove"
                   @click.stop="removeVariant(index)">×</span>
               </button>
             </div>
 
             <div v-if="formData.variants[activeVariantIndex]" class="variant-panel">
-              <div class="variant-name-row">
+              <div v-if="hasMultipleVariants" class="variant-name-row">
                 <label>规格名称</label>
                 <input
                   v-model="formData.variants[activeVariantIndex].name"
@@ -1064,7 +1065,7 @@ const handleKeydown = (event) => {
                     @input="handleVariantPriceInput($event, activeVariantIndex)">
                 </div>
                 <div v-if="calculateMaterialCost > 0" class="cost-info">
-                  <span class="cost-label">本规格材料成本:</span>
+                  <span class="cost-label">材料成本:</span>
                   <span class="cost-value">¥{{ formatPrice(calculateMaterialCost) }}</span>
                 </div>
               </div>
@@ -1293,8 +1294,6 @@ const handleKeydown = (event) => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 10px;
-  padding: 10px;
-  background: #f9f9f9;
   border-radius: 4px;
   min-height: 120px;
 }
@@ -1363,8 +1362,8 @@ const handleKeydown = (event) => {
   right: 5px;
   background: rgba(0, 0, 0, 0.5);
   color: white;
-  padding: 2px 4px;
-  border-radius: 4px;
+  padding: 0px 4px;
+  border-radius: 3px;
   font-size: 12px;
   opacity: 0;
   transition: opacity 0.2s;

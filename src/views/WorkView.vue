@@ -2119,8 +2119,8 @@ onUnmounted(() => {
   position: fixed;
   right: 12px;
   bottom: 20%;
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   padding: 0;
   border: none;
   background: transparent;
@@ -2133,7 +2133,7 @@ onUnmounted(() => {
 
 .back-to-top .iconfont {
   color: var(--color-blue, #4a9dd9);
-  font-size: 32px;
+  font-size: 28px;
   line-height: 1;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
 }

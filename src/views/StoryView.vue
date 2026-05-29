@@ -1237,17 +1237,23 @@ onUnmounted(() => {
 })
 
 // 修改图片上传相关方法
+const newStoryImageInput = ref(null)
+const editStoryImageInput = ref(null)
+
+const triggerStoryImageUpload = (mode) => {
+  if (mode === 'new') {
+    newStoryImageInput.value?.click()
+  } else {
+    editStoryImageInput.value?.click()
+  }
+}
+
 const handleImageUpload = async (event) => {
   const files = event.target.files
   if (!files.length) return
   
   await uploadFiles(files, 'new')
-}
-
-const handleDrop = async (event) => {
-  const files = Array.from(event.dataTransfer.files)
-    .filter(file => file.type.startsWith('image/'))
-  await uploadFiles(files, 'new')
+  event.target.value = ''
 }
 
 const handleEditImageUpload = async (event) => {
@@ -1255,12 +1261,7 @@ const handleEditImageUpload = async (event) => {
   if (!files.length) return
   
   await uploadFiles(files, 'edit')
-}
-
-const handleEditDrop = async (event) => {
-  const files = Array.from(event.dataTransfer.files)
-    .filter(file => file.type.startsWith('image/'))
-  await uploadFiles(files, 'edit')
+  event.target.value = ''
 }
 
 const uploadFiles = async (files, mode) => {
@@ -1518,27 +1519,100 @@ const clearSearch = () => {
   fetchStories();
 }
 
-// 添加拖拽相关的方法
-const dragStart = (e, index, mode) => {
-  e.dataTransfer.setData('text/plain', index);
-  e.dataTransfer.effectAllowed = 'move';
+// 图片拖拽排序（整张缩略图拖动，无手柄）
+const pictureDragIndex = ref(null)
+const pictureDragMode = ref(null)
+const pictureTouchStartIndex = ref(null)
+const pictureTouchMode = ref(null)
+const pictureTouchElement = ref(null)
+const pictureTouchStartY = ref(0)
+
+const getPicturesByMode = (mode) =>
+  mode === 'new' ? newStory.value.pictures : editingStory.value.pictures
+
+const setPicturesByMode = (mode, pictures) => {
+  if (mode === 'new') {
+    newStory.value.pictures = pictures
+  } else {
+    editingStory.value.pictures = pictures
+  }
 }
 
-const dragOver = (e) => {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
+const movePicture = (from, to, mode) => {
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from === to) return
+  const pictures = [...getPicturesByMode(mode)]
+  if (from < 0 || from >= pictures.length || to < 0 || to >= pictures.length) return
+  const [removed] = pictures.splice(from, 1)
+  pictures.splice(to, 0, removed)
+  setPicturesByMode(mode, pictures)
 }
 
-const drop = (e, targetIndex, mode) => {
-  e.preventDefault();
-  const sourceIndex = e.dataTransfer.getData('text/plain');
-  
-  // 根据模式选择要操作的数组
-  const pictures = mode === 'new' ? newStory.value.pictures : editingStory.value.pictures;
-  
-  // 移动元素
-  const [movedItem] = pictures.splice(sourceIndex, 1);
-  pictures.splice(targetIndex, 0, movedItem);
+const handlePictureDragStart = (e, index, mode) => {
+  if (e.target.closest('.remove')) {
+    e.preventDefault()
+    return
+  }
+  pictureDragIndex.value = index
+  pictureDragMode.value = mode
+  e.dataTransfer.setData('text/plain', String(index))
+  e.dataTransfer.effectAllowed = 'move'
+  e.currentTarget.classList.add('dragging')
+}
+
+const handlePictureDragEnter = (e, index, mode) => {
+  if (pictureDragIndex.value === null || pictureDragMode.value !== mode) return
+  if (pictureDragIndex.value === index) return
+  movePicture(pictureDragIndex.value, index, mode)
+  pictureDragIndex.value = index
+}
+
+const handlePictureDragEnd = (e) => {
+  e.currentTarget.classList.remove('dragging')
+  pictureDragIndex.value = null
+  pictureDragMode.value = null
+}
+
+const handlePictureTouchStart = (e, index, mode) => {
+  if (e.target.closest('.remove')) return
+  pictureTouchStartIndex.value = index
+  pictureTouchMode.value = mode
+  pictureTouchElement.value = e.currentTarget
+  pictureTouchStartY.value = e.touches[0].pageY
+  pictureTouchElement.value.classList.add('dragging')
+}
+
+const handlePictureTouchMove = (e) => {
+  if (!pictureTouchElement.value || pictureTouchStartIndex.value === null) return
+  const touch = e.touches[0]
+  const deltaY = touch.pageY - pictureTouchStartY.value
+  pictureTouchElement.value.style.transform = `translateY(${deltaY}px)`
+
+  const mode = pictureTouchMode.value
+  const container = pictureTouchElement.value.parentElement
+  if (!container || !mode) return
+
+  const items = container.querySelectorAll('.preview-item')
+  const moveThreshold = (items[0]?.offsetHeight || 80) / 2
+  items.forEach((el, itemIndex) => {
+    if (el === pictureTouchElement.value) return
+    const rect = el.getBoundingClientRect()
+    const centerY = rect.top + rect.height / 2
+    if (Math.abs(touch.clientY - centerY) < moveThreshold && itemIndex !== pictureTouchStartIndex.value) {
+      movePicture(pictureTouchStartIndex.value, itemIndex, mode)
+      pictureTouchStartIndex.value = itemIndex
+      pictureTouchStartY.value = touch.pageY
+    }
+  })
+}
+
+const handlePictureTouchEnd = () => {
+  if (!pictureTouchElement.value) return
+  pictureTouchElement.value.classList.remove('dragging')
+  pictureTouchElement.value.style.transform = ''
+  pictureTouchStartIndex.value = null
+  pictureTouchMode.value = null
+  pictureTouchElement.value = null
+  pictureTouchStartY.value = 0
 }
 
 // 处理跳转页码
@@ -2292,7 +2366,7 @@ const checkAndFixActiveSet = () => {
 
     <!-- 添加剧情模态框 -->
     <div v-if="showAddStoryModal" class="modal-overlay">
-      <div class="modal-content">
+      <div class="modal-content modal-content--story-form">
         <h3>添加剧情</h3>
         
         <div class="form-group">
@@ -2335,30 +2409,43 @@ const checkAndFixActiveSet = () => {
         <div class="form-group">
           <label for="add-story-images">图片</label>
           <div class="image-uploader">
+            <div class="preview-images" @dragover.prevent>
+              <div 
+                v-for="(img, index) in newStory.pictures" 
+                :key="`${index}-${img}`"
+                class="preview-item"
+                draggable="true"
+                @dragstart="handlePictureDragStart($event, index, 'new')"
+                @dragenter.prevent="handlePictureDragEnter($event, index, 'new')"
+                @dragend="handlePictureDragEnd"
+                @touchstart="handlePictureTouchStart($event, index, 'new')"
+                @touchmove.prevent="handlePictureTouchMove"
+                @touchend="handlePictureTouchEnd"
+              >
+                <img draggable="false" v-image="getThumbnailUrl(img, 160)" class="preview-thumb">
+                <span class="remove" @click.stop="removePicture(index)">×</span>
+              </div>
+              <div
+                class="image-upload-box"
+                role="button"
+                tabindex="0"
+                @dragstart.prevent
+                @click="triggerStoryImageUpload('new')"
+                @keydown.enter.prevent="triggerStoryImageUpload('new')"
+                @keydown.space.prevent="triggerStoryImageUpload('new')">
+                <span class="image-upload-box-icon">+</span>
+                <span class="image-upload-box-hint">上传</span>
+              </div>
+            </div>
             <input 
+              ref="newStoryImageInput"
               type="file" 
               id="add-story-images"
+              class="image-file-input"
               multiple
               accept="image/*"
               @change="handleImageUpload"
             >
-            <div 
-              class="preview-images"
-              @dragover.prevent
-              @drop.prevent="handleDrop">
-              <div 
-                v-for="(img, index) in newStory.pictures" 
-                :key="index"
-                class="preview-item"
-                draggable="true"
-                @dragstart="(e) => dragStart(e, index, 'new')"
-                @dragover="dragOver"
-                @drop="(e) => drop(e, index, 'new')"
-              >
-                <img v-image="getThumbnailUrl(img, 160)" class="story-thumbnail">
-                <span class="remove" @click="removePicture(index)">×</span>
-              </div>
-            </div>
           </div>
         </div>
         
@@ -2434,7 +2521,7 @@ const checkAndFixActiveSet = () => {
 
     <!-- 编辑剧情模态框 -->
     <div v-if="showEditStoryModal && editingStory" class="modal-overlay">
-      <div class="modal-content">
+      <div class="modal-content modal-content--story-form">
         <h3>编辑剧情</h3>
         
         <div class="form-group">
@@ -2477,30 +2564,43 @@ const checkAndFixActiveSet = () => {
         <div class="form-group">
           <label for="edit-story-images">图片</label>
           <div class="image-uploader">
+            <div class="preview-images" @dragover.prevent>
+              <div 
+                v-for="(img, index) in editingStory.pictures" 
+                :key="`${index}-${img}`"
+                class="preview-item"
+                draggable="true"
+                @dragstart="handlePictureDragStart($event, index, 'edit')"
+                @dragenter.prevent="handlePictureDragEnter($event, index, 'edit')"
+                @dragend="handlePictureDragEnd"
+                @touchstart="handlePictureTouchStart($event, index, 'edit')"
+                @touchmove.prevent="handlePictureTouchMove"
+                @touchend="handlePictureTouchEnd"
+              >
+                <img draggable="false" v-image="getThumbnailUrl(img, 160)" class="preview-thumb">
+                <span class="remove" @click.stop="removeEditPicture(index)">×</span>
+              </div>
+              <div
+                class="image-upload-box"
+                role="button"
+                tabindex="0"
+                @dragstart.prevent
+                @click="triggerStoryImageUpload('edit')"
+                @keydown.enter.prevent="triggerStoryImageUpload('edit')"
+                @keydown.space.prevent="triggerStoryImageUpload('edit')">
+                <span class="image-upload-box-icon">+</span>
+                <span class="image-upload-box-hint">上传</span>
+              </div>
+            </div>
             <input 
+              ref="editStoryImageInput"
               type="file" 
               id="edit-story-images"
+              class="image-file-input"
               multiple
               accept="image/*"
               @change="handleEditImageUpload"
             >
-            <div 
-              class="preview-images"
-              @dragover.prevent
-              @drop.prevent="handleEditDrop">
-              <div 
-                v-for="(img, index) in editingStory.pictures" 
-                :key="index"
-                class="preview-item"
-                draggable="true"
-                @dragstart="(e) => dragStart(e, index, 'edit')"
-                @dragover="dragOver"
-                @drop="(e) => drop(e, index, 'edit')"
-              >
-                <img v-image="getThumbnailUrl(img, 160)" class="story-thumbnail">
-                <span class="remove" @click="removeEditPicture(index)">×</span>
-              </div>
-            </div>
           </div>
         </div>
         
@@ -3007,6 +3107,11 @@ const checkAndFixActiveSet = () => {
   color: #333;
 }
 
+.modal-content--story-form {
+  width: min(480px, 92vw);
+  max-width: 92vw;
+}
+
 .form-group {
   margin-bottom: 8px;
 }
@@ -3151,39 +3256,77 @@ input[type="datetime-local"] {
 }
 
 .preview-images {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 10px;
-  margin-top: 10px;
-  padding: 10px;
-  background: #f9f9f9;
   border-radius: 4px;
-  min-height: 80px;
-  flex-wrap: wrap;
+  min-height: 100px;
+}
+
+.image-upload-box {
+  aspect-ratio: 1;
+  background: #f5f7fa;
+  border: 1px dashed #dcdfe6;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.image-upload-box:hover {
+  border-color: #c0c4cc;
+  background: #eceff3;
+}
+
+.image-upload-box-icon {
+  font-size: 28px;
+  line-height: 1;
+  color: #909399;
+  font-weight: 300;
+}
+
+.image-upload-box-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+.image-file-input {
+  display: none;
 }
 
 .preview-item {
   position: relative;
-  width: 80px;
-  height: 80px;
-  cursor: move;/* 添加这行，表明可拖动 */
-  user-select: none; /* 防止拖动时选中文本 */
+  aspect-ratio: 1;
+  cursor: move;
+  user-select: none;
+  transition: transform 0.2s;
 }
 
-.preview-item img {
+.preview-item.dragging {
+  opacity: 0.5;
+  transform: scale(0.95);
+}
+
+.preview-thumb {
   width: 100%;
   height: 100%;
   object-fit: cover;
   border-radius: 4px;
+  pointer-events: none;
+  display: block;
 }
 
 .remove {
   position: absolute;
-  top: -9px;
+  top: -10px;
   right: -8px;
   width: 18px;
   height: 18px;
-  background: #000;
-  opacity: 0.4;
+  background: var(--color-red);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -3501,11 +3644,22 @@ input[type="datetime-local"] {
     max-width: 95%;
     max-height: calc(100dvh - 20px);
   }
+
+  .modal-content--story-form {
+    width: 95%;
+    max-width: 95%;
+  }
   
   /* 确保模态框内容可以正常滚动 */
   .modal-content {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .preview-images {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    min-height: 90px;
   }
 }
 
