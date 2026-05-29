@@ -197,6 +197,11 @@ const readLocalStoryPrefsForMigration = () => {
   return { bookmarks, customSetIds, isCustomMode }
 }
 
+const clearLocalStoryPrefs = () => {
+  localStorage.removeItem(BOOKMARKS_STORAGE_KEY)
+  localStorage.removeItem(CUSTOM_SET_IDS_STORAGE_KEY)
+}
+
 const migrateLocalStoryPrefsToServer = async () => {
   const local = readLocalStoryPrefsForMigration()
   const payload = {}
@@ -221,6 +226,10 @@ const loadStoryPrefs = async () => {
 
   try {
     let res = await axios.get('/user-prefs', { params: { scope: 'story' } })
+    if (!res.data?.success) {
+      throw new Error(res.data?.message || '获取剧情偏好失败')
+    }
+
     let data = res.data?.data || {}
     const hasServerData =
       (data.bookmarks && Object.keys(data.bookmarks).length > 0) ||
@@ -230,16 +239,27 @@ const loadStoryPrefs = async () => {
       const migrated = await migrateLocalStoryPrefsToServer()
       if (migrated) {
         res = await axios.get('/user-prefs', { params: { scope: 'story' } })
+        if (!res.data?.success) {
+          throw new Error(res.data?.message || '获取剧情偏好失败')
+        }
         data = res.data?.data || {}
       }
+    }
+
+    if (
+      (data.bookmarks && Object.keys(data.bookmarks).length > 0) ||
+      (data.isCustomMode && Array.isArray(data.customSetIds) && data.customSetIds.length > 0)
+    ) {
+      clearLocalStoryPrefs()
     }
 
     applyBookmarksData(parseBookmarksFromRaw(data.bookmarks || {}, sortDirection.value))
     applyCustomizeFromServer(data)
   } catch (e) {
     console.error('加载剧情偏好失败:', e)
-    loadLocalStoryBookmarks()
-    loadLocalCustomizeSettings()
+    // 已登录时不要用 localStorage 覆盖，避免 Redis 有数据却显示本地旧数据
+    applyBookmarksData({})
+    applyCustomizeFromServer({ isCustomMode: false, customSetIds: [] })
   }
 }
 
@@ -609,11 +629,10 @@ function syncCustomSelectionAfterSetsUpdate() {
     }
   })
 
-  // 若无变化，不写localStorage，避免多余刷新
+  // 若无变化，不触发额外保存
   if (nextIds.size === customSetIds.value.size) return
 
   customSetIds.value = nextIds
-  persistCustomizeSettings()
 }
 
 // 获取剧情列表
@@ -1822,13 +1841,14 @@ const openCopyStoryModal = async (story) => {
 
 // 初始化默认选择（在storySets加载完成后调用）
 const initDefaultSelection = () => {
+  // 登录用户以服务端偏好为准，不在本地自动填充定制合集
+  if (usesServerStoryPrefs.value) return
+
   if (storySets.value.length > 0 && customSetIds.value.size === 0) {
     storySets.value.forEach((set) => {
       customSetIds.value.add(set.id)
     })
-    if (!usesServerStoryPrefs.value) {
-      localStorage.setItem(CUSTOM_SET_IDS_STORAGE_KEY, JSON.stringify([...customSetIds.value]))
-    }
+    localStorage.setItem(CUSTOM_SET_IDS_STORAGE_KEY, JSON.stringify([...customSetIds.value]))
   }
 }
 
