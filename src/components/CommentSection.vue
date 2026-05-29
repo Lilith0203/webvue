@@ -442,6 +442,7 @@ onMounted(() => {
   margin-top: 10px;
   border: 1px solid #e5e5e5;
   border-radius: 4px;
+  font-size: 0.85rem;
 } 
 
 .comment-submit {

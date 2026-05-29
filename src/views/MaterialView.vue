@@ -755,8 +755,7 @@ const toggleRowTypeDropdown = (rowId) => {
 }
 
 const isRowEditing = (row) =>
-  batchEditMode.value &&
-  Object.prototype.hasOwnProperty.call(batchEditDrafts.value, row.id)
+  batchEditMode.value && selectedMaterialIds.value.has(row.id)
 
 //判断是否有编辑权限
 const canEdit = computed(() => {
@@ -850,16 +849,22 @@ const openEditModal = (row) => {
 
 const selectedCount = computed(() => selectedMaterialIds.value.size)
 
-const selectedMaterialRows = computed(() =>
-  displayedMaterials.value.filter((m) => selectedMaterialIds.value.has(m.id))
-)
-
-const batchEditingCount = computed(() => Object.keys(batchEditDrafts.value).length)
+const syncBatchDraftsFromSelection = () => {
+  const drafts = {}
+  selectedMaterialIds.value.forEach((id) => {
+    const row = displayedMaterials.value.find((m) => m.id === id)
+    if (row) drafts[id] = { ...row }
+  })
+  batchEditDrafts.value = drafts
+}
 
 const startEdit = (row) => {
   if (!canEdit.value || !row) return
   if (batchEditMode.value) {
-    if (!batchEditDrafts.value[row.id]) {
+    if (!selectedMaterialIds.value.has(row.id)) {
+      const next = new Set(selectedMaterialIds.value)
+      next.add(row.id)
+      selectedMaterialIds.value = next
       batchEditDrafts.value = { ...batchEditDrafts.value, [row.id]: { ...row } }
     }
     return
@@ -867,39 +872,14 @@ const startEdit = (row) => {
   openEditModal(row)
 }
 
-const cancelBatchEdits = () => {
-  clearBatchEditDrafts()
-}
-
 const toggleBatchEditMode = () => {
   batchEditMode.value = !batchEditMode.value
   if (batchEditMode.value) {
     closeMaterialModal()
+    syncBatchDraftsFromSelection()
   } else {
     selectedMaterialIds.value = new Set()
     clearBatchEditDrafts()
-  }
-}
-
-const startBatchEditSelected = () => {
-  const rows = selectedMaterialRows.value
-  if (!rows.length) {
-    error.value = '请先勾选要编辑的材料'
-    return
-  }
-  const drafts = {}
-  rows.forEach((row) => {
-    drafts[row.id] = { ...row }
-  })
-  batchEditDrafts.value = drafts
-  error.value = null
-}
-
-const toggleBatchEditSelected = () => {
-  if (batchEditingCount.value > 0) {
-    cancelBatchEdits()
-  } else {
-    startBatchEditSelected()
   }
 }
 
@@ -907,7 +887,7 @@ const saveBatchEdits = async () => {
   if (!canEdit.value) return
   const materials = Object.values(batchEditDrafts.value)
   if (!materials.length) {
-    error.value = '没有正在编辑的材料'
+    error.value = '请先勾选要保存的材料'
     return
   }
 
@@ -917,6 +897,7 @@ const saveBatchEdits = async () => {
     const response = await axios.post('/batchUpdateMaterial', { materials })
     const { updated = 0, failed = [] } = response.data || {}
     await fetchMaterialData({ silent: true })
+    selectedMaterialIds.value = new Set()
     clearBatchEditDrafts()
 
     if (failed.length) {
@@ -931,13 +912,20 @@ const saveBatchEdits = async () => {
 }
 
 const toggleSelectMaterial = (id) => {
+  const row = displayedMaterials.value.find((m) => m.id === id)
+  if (!row) return
+
   const next = new Set(selectedMaterialIds.value)
+  const drafts = { ...batchEditDrafts.value }
   if (next.has(id)) {
     next.delete(id)
+    delete drafts[id]
   } else {
     next.add(id)
+    drafts[id] = { ...row }
   }
   selectedMaterialIds.value = next
+  batchEditDrafts.value = drafts
 }
 
 const allDisplayedSelected = computed(() => {
@@ -948,8 +936,14 @@ const allDisplayedSelected = computed(() => {
 const toggleSelectAllDisplayed = () => {
   if (allDisplayedSelected.value) {
     selectedMaterialIds.value = new Set()
+    clearBatchEditDrafts()
   } else {
+    const drafts = {}
+    displayedMaterials.value.forEach((row) => {
+      drafts[row.id] = { ...row }
+    })
     selectedMaterialIds.value = new Set(displayedMaterials.value.map((r) => r.id))
+    batchEditDrafts.value = drafts
   }
 }
 
@@ -1558,18 +1552,11 @@ const goToMaterialById = (materialId) => {
     </div>
 
     <div v-if="batchEditMode" class="batch-actions-bar">
-      <span class="batch-selected-count">已选 <strong>{{ selectedCount }}</strong> 条</span>
-      <button
-        type="button"
-        class="batch-action-btn"
-        :disabled="batchEditingCount === 0 && selectedCount === 0"
-        @click="toggleBatchEditSelected">
-        {{ batchEditingCount > 0 ? '取消编辑' : '编辑选中' }}
-      </button>
+      <span class="batch-selected-count">已选 <strong>{{ selectedCount }}</strong> 条 </span>
       <button
         type="button"
         class="batch-action-btn primary"
-        :disabled="batchEditingCount === 0 || loading"
+        :disabled="selectedCount === 0 || loading"
         @click="saveBatchEdits">
         保存
       </button>
@@ -1653,7 +1640,7 @@ const goToMaterialById = (materialId) => {
                     <input
                       type="checkbox"
                       :checked="selectedMaterialIds.has(row.id)"
-                      disabled>
+                      @change="toggleSelectMaterial(row.id)">
                   </td>
                   <td v-for="(config, key) in visibleColumnsConfig" :key="key">
                     <template v-if="key === 'type'">
@@ -1866,21 +1853,6 @@ tr:nth-child(even) {
 
 tr:hover {
   background-color: #f5f5f5;
-}
-
-.form-input {
-  width: 100%;
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.form-textarea {
-  width: 100%;
-  min-height: 60px;
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
 }
 
 .action-buttons {
@@ -2148,10 +2120,12 @@ a:hover {
 .form-input,
 .form-textarea {
   width: 100%;
-  padding: 5px 8px;
+  padding: 3px 6px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 0.8rem;
+  min-width: 80px;
+  margin: 0;
 }
 
 .form-textarea {
@@ -2213,11 +2187,21 @@ a:hover {
 
 .batch-check-col {
   width: 36px;
+  max-width: 36px;
+  min-width: 36px;
+  padding: 4px 2px;
   text-align: center;
+  vertical-align: middle;
+  position: relative;
 }
 
 .batch-check-col input[type='checkbox'] {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   cursor: pointer;
+  margin: 0;
 }
 
 tr.batch-selected {

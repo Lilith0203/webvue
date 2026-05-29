@@ -59,6 +59,10 @@ const canUsePrivateMode = computed(
 const isPrivateMode = computed(
   () => canUsePrivateMode.value && pageViewMode.value === 'private'
 )
+/** 可查看自己的未完成作品：私人模式或管理员（未完成不对外公开） */
+const showOwnIncompleteWorks = computed(
+  () => isPrivateMode.value || isAdmin.value
+)
 /** 私人模式下可发布/编辑自己的作品 */
 const canManageWorks = computed(() => canEdit.value || isPrivateMode.value)
 
@@ -126,6 +130,14 @@ const currentWork = ref(null)
 const searchKeyword = ref('')
 const isSearching = ref(false)
 
+const showBackToTop = ref(false)
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+const onWindowScrollForBackToTop = () => {
+  showBackToTop.value = window.scrollY > 200
+}
+
 const showRecommended = ref(false)
 const recommendedWorks = ref([])
 const loadingRecommended = ref(false)
@@ -164,34 +176,27 @@ const openCreateEditor = () => {
   showEditor.value = true
 }
 
-// 打开编辑编辑器（列表项无 variants，须拉详情）
-const openEditEditor = async (work) => {
+// 列表页编辑：跳转详情页并打开编辑器
+const openEditEditor = (work) => {
   if (!canOperateWork(work) || !work?.id) return
-  try {
-    const res = await axios.get(`/works/${work.id}`)
-    const full = res.data?.works
-    if (!full) {
-      console.error('获取作品详情失败: 无数据')
-      return
-    }
-    currentWork.value = full
-    editorMode.value = 'edit'
-    showEditor.value = true
-  } catch (error) {
-    console.error('获取作品详情失败:', error)
-  }
+  goToDetail(work.id, { edit: true })
 }
 
-// 处理编辑成功
-const handleEditorSuccess = async () => {
-  // 更新列表数据
+// 处理创建/编辑成功
+const handleEditorSuccess = async (payload) => {
   showEditor.value = false
-  //重置列表状态
+  const workId = payload?.id ?? (typeof payload === 'number' ? payload : null)
+
+  if (editorMode.value === 'create' && workId) {
+    goToDetail(workId)
+    return
+  }
+
   hasMore.value = true
   works.value = []
   currentPage.value = 1
   await fetchWorks()
-  await fetchIncompleteWorks() // 同时更新未完成作品列表
+  await fetchIncompleteWorks()
   await fetchTags()
 }
 
@@ -511,8 +516,12 @@ const fetchWorks = async () => {
   }
 }
 
-// 获取所有未完成的作品列表（不分页）
+// 未完成作品仅本人可见（scope=mine）；公开列表不展示
 const fetchIncompleteWorks = async () => {
+  if (!showOwnIncompleteWorks.value) {
+    incompleteWorks.value = []
+    return
+  }
   if (loadingIncomplete.value) return
 
   loadingIncomplete.value = true
@@ -522,9 +531,9 @@ const fetchIncompleteWorks = async () => {
         page: 1,
         size: 100,
         status: 0,
+        scope: 'mine',
         includeInteraction: 1,
-        clientId: getClientId(),
-        ...listScopeParams()
+        clientId: getClientId()
       }
     })
 
@@ -533,10 +542,12 @@ const fetchIncompleteWorks = async () => {
       2,
       !!response.data.interactionIncluded
     )
-    incompleteWorks.value = applyPrivateWorkFilter(batch)
+    incompleteWorks.value = isPrivateMode.value
+      ? applyPrivateWorkFilter(batch)
+      : batch
   } catch (error) {
     console.error('获取未完成作品列表失败:', error)
-    if (isPrivateMode.value) incompleteWorks.value = []
+    incompleteWorks.value = []
   } finally {
     loadingIncomplete.value = false
   }
@@ -629,7 +640,74 @@ const deleteWork = async (id) => {
 }
 
 // 跳转到详情页
-const goToDetail = (id) => {
+const LIST_RESTORE_FLAG = 'workRestoreListState'
+let listScrollClearHandler = null
+
+const clearListScrollRestoreListeners = () => {
+  if (listScrollClearHandler) {
+    window.removeEventListener('scroll', listScrollClearHandler)
+    listScrollClearHandler = null
+  }
+}
+
+const clearListRestoreSession = () => {
+  sessionStorage.removeItem('workListScrollPosition')
+  sessionStorage.removeItem(LIST_RESTORE_FLAG)
+  clearListScrollRestoreListeners()
+}
+
+const restoreListScrollPosition = () => {
+  const raw = sessionStorage.getItem('workListScrollPosition')
+  if (!raw) {
+    sessionStorage.removeItem(LIST_RESTORE_FLAG)
+    return
+  }
+
+  const targetTop = parseInt(raw, 10)
+  if (Number.isNaN(targetTop) || targetTop < 0) {
+    clearListRestoreSession()
+    return
+  }
+
+  clearListScrollRestoreListeners()
+  let attempts = 0
+  const maxAttempts = 40
+
+  const finishRestore = () => {
+    listScrollClearHandler = () => {
+      clearListRestoreSession()
+    }
+    setTimeout(() => {
+      if (listScrollClearHandler) {
+        window.addEventListener('scroll', listScrollClearHandler, { passive: true })
+      }
+    }, 150)
+  }
+
+  const tryScroll = () => {
+    const maxScroll = Math.max(
+      0,
+      document.documentElement.scrollHeight - window.innerHeight
+    )
+    const top = Math.min(targetTop, maxScroll)
+    window.scrollTo({ top, behavior: 'instant' })
+
+    const atTarget = Math.abs(window.scrollY - targetTop) <= 8
+    const needRetry = !atTarget && attempts < maxAttempts && maxScroll < targetTop
+
+    if (needRetry) {
+      attempts += 1
+      setTimeout(tryScroll, 80)
+      return
+    }
+
+    finishRestore()
+  }
+
+  requestAnimationFrame(tryScroll)
+}
+
+const goToDetail = (id, { edit = false } = {}) => {
   // 导航前保存当前状态
   sessionStorage.setItem('workPage', currentPage.value.toString())
   sessionStorage.setItem('workSelectedTags', JSON.stringify(selectedTags.value))
@@ -637,8 +715,11 @@ const goToDetail = (id) => {
   sessionStorage.setItem('workShowRecommended', showRecommended.value.toString())
   sessionStorage.setItem('workPageViewMode', pageViewMode.value)
   sessionStorage.setItem('workListScrollPosition', window.scrollY.toString())
-  
-  router.push(`/works/${id}?from=list`)
+  sessionStorage.setItem(LIST_RESTORE_FLAG, '1')
+
+  const query = { from: 'list' }
+  if (edit) query.edit = '1'
+  router.push({ path: `/works/${id}`, query })
 }
 
 // 格式化日期
@@ -826,41 +907,56 @@ const getSetCoverUrl = (url) => {
 }
 
 watch(
-  () => authStore.isAuthenticated,
-  (loggedIn) => {
-    if (!loggedIn) {
+  () => ({
+    loggedIn: authStore.isAuthenticated,
+    userId: authStore.userId ?? null,
+    isAdmin: isAdmin.value
+  }),
+  (cur, prev) => {
+    if (!cur.loggedIn) {
+      incompleteWorks.value = []
       if (pageViewMode.value === 'private') {
         pageViewMode.value = 'public'
         resetListForModeChange()
       }
       return
     }
-    if (restorePageViewModeFromCache()) {
-      resetListForModeChange()
+
+    const accountSwitched =
+      !prev?.loggedIn ||
+      cur.userId !== prev.userId ||
+      cur.isAdmin !== prev.isAdmin
+
+    if (!accountSwitched) return
+
+    if (canUsePrivateMode.value) {
+      restorePageViewModeFromCache()
+    } else {
+      pageViewMode.value = 'public'
     }
+    resetListForModeChange()
   }
 )
 
 watch(canUsePrivateMode, (ok) => {
-  if (!ok) {
-    if (pageViewMode.value === 'private') {
-      pageViewMode.value = 'public'
-      resetListForModeChange()
-    }
-    return
-  }
+  if (!ok) return
   if (restorePageViewModeFromCache()) {
     resetListForModeChange()
   }
 })
 
 onMounted(async () => {
+  window.addEventListener('scroll', onWindowScrollForBackToTop, { passive: true })
+  onWindowScrollForBackToTop()
+
   await initTagColors() // 初始化标签颜色
 
   restorePageViewModeFromCache()
   
-  // 检查是否是从详情页返回
-  const isFromDetail = route.query.from === 'detail'
+  // 从详情返回（含浏览器后退）：恢复列表状态
+  const shouldRestoreListState =
+    route.query.from === 'detail' ||
+    sessionStorage.getItem(LIST_RESTORE_FLAG) === '1'
   
   // 检查URL中是否有tag参数
   const tagFromUrl = route.query.tag
@@ -868,7 +964,7 @@ onMounted(async () => {
   // 首先获取标签数据
   await fetchTags()
   
-  if (isFromDetail) {
+  if (shouldRestoreListState) {
     // 恢复保存的状态
     const savedPage = sessionStorage.getItem('workPage')
     const savedTags = sessionStorage.getItem('workSelectedTags')
@@ -932,56 +1028,22 @@ onMounted(async () => {
     fetchWorksSets()
   ])
   
-  // 恢复滚动位置（在数据加载完成后）
-  let scrollHandler = null
-  if (isFromDetail) {
+  // 恢复滚动位置（在数据加载完成后，多次重试以等待图片渲染）
+  if (shouldRestoreListState) {
     if (tagFromUrl) {
-      // 点击标签返回，滚动到顶部
       setTimeout(() => {
-        window.scrollTo({
-          top: 0,
-          behavior: 'instant'
-        })
-        // 清除保存的滚动位置
-        sessionStorage.removeItem('workListScrollPosition')
+        window.scrollTo({ top: 0, behavior: 'instant' })
+        clearListRestoreSession()
       }, 100)
     } else {
-      // 普通返回，恢复之前的滚动位置
-      const savedScrollPosition = sessionStorage.getItem('workListScrollPosition')
-      if (savedScrollPosition) {
-        // 等待DOM更新和数据渲染完成后再恢复滚动位置
-        setTimeout(() => {
-          window.scrollTo({
-            top: parseInt(savedScrollPosition),
-            behavior: 'instant'
-          })
-          
-          // 恢复滚动位置后，添加滚动监听器
-          // 如果用户在列表页滚动，则清除保存的滚动位置
-          scrollHandler = () => {
-            // 用户在列表页滚动，清除保存的滚动位置
-            sessionStorage.removeItem('workListScrollPosition')
-            // 清除后移除监听器，避免重复清除
-            window.removeEventListener('scroll', scrollHandler)
-            scrollHandler = null
-          }
-          // 延迟添加滚动监听器，确保恢复滚动位置后再监听
-          setTimeout(() => {
-            if (scrollHandler) {
-              window.addEventListener('scroll', scrollHandler, { passive: true })
-            }
-          }, 100)
-        }, 200) // 增加延迟时间，确保数据渲染完成
-      }
+      restoreListScrollPosition()
     }
   }
-  
-  // 在组件卸载时移除监听器
-  onUnmounted(() => {
-    if (scrollHandler) {
-      window.removeEventListener('scroll', scrollHandler)
-    }
-  })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('scroll', onWindowScrollForBackToTop)
+  clearListScrollRestoreListeners()
 })
 </script>
 
@@ -1186,8 +1248,8 @@ onMounted(async () => {
               <span>更新时间: {{ formatDate(work.updatedAt) }}</span>
               <!-- 操作按钮 -->
               <div class="actions" v-if="canOperateWork(work)">
-                <button @click="openEditEditor(work)"><i class="iconfont icon-edit"></i></button>
-                <button @click="deleteWork(work.id)"><i class="iconfont icon-ashbin"></i></button>
+                <button @click.stop="openEditEditor(work)"><i class="iconfont icon-edit"></i></button>
+                <button @click.stop="deleteWork(work.id)"><i class="iconfont icon-ashbin"></i></button>
               </div>
             </div>
           </div>
@@ -1244,9 +1306,14 @@ onMounted(async () => {
         <p>暂无推荐作品</p>
       </div>
       
-      <!-- 未完成作品列表（非推荐视图；私人模式仅自己的） -->
-      <div v-if="!showRecommended && incompleteWorks.length > 0" class="incomplete-works-section">
-        <h3 class="incomplete-title">未完成拍照</h3>
+      <!-- 未完成作品：仅本人可见，不进入公开列表 -->
+      <div
+        v-if="showOwnIncompleteWorks && !showRecommended && incompleteWorks.length > 0"
+        class="incomplete-works-section"
+      >
+        <h3 class="incomplete-title">
+          未完成拍照
+        </h3>
         <div class="work-grid">
           <div 
             v-for="work in incompleteWorks" 
@@ -1304,8 +1371,8 @@ onMounted(async () => {
                 <span>更新时间: {{ formatDate(work.updatedAt) }}</span>
                 <!-- 操作按钮 -->
                 <div class="actions" v-if="canOperateWork(work)">
-                  <button @click="openEditEditor(work)"><i class="iconfont icon-edit"></i></button>
-                  <button @click="deleteWork(work.id)"><i class="iconfont icon-ashbin"></i></button>
+                  <button @click.stop="openEditEditor(work)"><i class="iconfont icon-edit"></i></button>
+                  <button @click.stop="deleteWork(work.id)"><i class="iconfont icon-ashbin"></i></button>
                 </div>
               </div>
             </div>
@@ -1319,6 +1386,16 @@ onMounted(async () => {
       >
         <p>暂无作品，点击「发布」添加你的第一件作品。</p>
       </div>
+
+      <button
+        v-if="showBackToTop"
+        type="button"
+        class="back-to-top"
+        aria-label="回到顶部"
+        @click="scrollToTop"
+      >
+        <i class="iconfont icon-zhiding1"></i>
+      </button>
     </template>
 </template>
 
@@ -1405,7 +1482,7 @@ onMounted(async () => {
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
 
 /* 合集模块样式（独立模块，放在所有作品之上） */
@@ -2036,5 +2113,32 @@ onMounted(async () => {
 
 .jump-btn {
   margin-left: 5px;
+}
+
+.back-to-top {
+  position: fixed;
+  right: 12px;
+  bottom: 20%;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1200;
+}
+
+.back-to-top .iconfont {
+  color: var(--color-blue, #4a9dd9);
+  font-size: 32px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+}
+
+.back-to-top:hover .iconfont {
+  opacity: 0.85;
 }
 </style>

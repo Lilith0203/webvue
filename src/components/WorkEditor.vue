@@ -104,11 +104,18 @@ const initFormData = () => {
 const formData = reactive(initFormData())
 
 // 图片上传相关操作
+const imageInput = ref(null)
+
+const triggerImageUpload = () => {
+  imageInput.value?.click()
+}
+
 const handleImageUpload = async (event) => {
   const files = event.target.files
   if (!files.length) return
 
   await uploadFiles(files)
+  event.target.value = ''
 }
 
 // 视频上传相关操作
@@ -700,7 +707,11 @@ const handleSubmit = async () => {
     
     const response = await axios[method](url, submitData)
     message.success(props.mode === 'create' ? '创建成功' : '更新成功')
-    emit('success', response.data.work)
+    const workId =
+      props.mode === 'create'
+        ? response.data?.data?.id
+        : formData.id
+    emit('success', { id: workId, mode: props.mode })
   } catch (error) {
     console.error('保存失败:', error)
     message.error(error.message)
@@ -931,11 +942,6 @@ const handleKeydown = (event) => {
           <div class="form-item">
             <label>图片</label>
             <div class="image-uploader">
-              <input 
-                type="file" 
-                multiple 
-                accept="image/*"
-                @change="handleImageUpload">
               <div 
                 class="preview-images"
                 @dragover.prevent
@@ -955,7 +961,24 @@ const handleKeydown = (event) => {
                   <span class="remove" @click="removePicture(index)">×</span>
                   <div class="drag-handle">⋮⋮</div>
                 </div>
+                <div
+                  class="image-upload-box"
+                  role="button"
+                  tabindex="0"
+                  @click="triggerImageUpload"
+                  @keydown.enter.prevent="triggerImageUpload"
+                  @keydown.space.prevent="triggerImageUpload">
+                  <span class="image-upload-box-icon">+</span>
+                  <span class="image-upload-box-hint">上传</span>
+                </div>
               </div>
+              <input 
+                ref="imageInput"
+                class="image-file-input"
+                type="file" 
+                multiple 
+                accept="image/*"
+                @change="handleImageUpload">
             </div>
           </div>
 
@@ -1270,11 +1293,45 @@ const handleKeydown = (event) => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 10px;
-  margin-top: 10px;
   padding: 10px;
   background: #f9f9f9;
   border-radius: 4px;
-  min-height: 120px; /* 确保空时也有拖放区域 */
+  min-height: 120px;
+}
+
+.image-upload-box {
+  aspect-ratio: 1;
+  background: #f5f7fa;
+  border: 1px dashed #dcdfe6;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.image-upload-box:hover {
+  border-color: #c0c4cc;
+  background: #eceff3;
+}
+
+.image-upload-box-icon {
+  font-size: 28px;
+  line-height: 1;
+  color: #909399;
+  font-weight: 300;
+}
+
+.image-upload-box-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+.image-file-input {
+  display: none;
 }
   
 .preview-item {
@@ -1430,8 +1487,7 @@ const handleKeydown = (event) => {
 .material-list .material-name {
   float: left;
   font-size: 0.8rem;
-  min-width: 80px;
-  margin-right: 10px;
+  margin-right: 15px;
 }
 
 .material-details {
@@ -1492,6 +1548,7 @@ const handleKeydown = (event) => {
   align-items: center;
   gap: 4px;
   font-size: 0.9em;
+  color: var(--color-text);
 }
 
 .material-selector {
@@ -1699,7 +1756,9 @@ const handleKeydown = (event) => {
   border: none;
   color: #fff;
   background-color: var(--color-blue);
-  margin-right: 5px;
+  margin-right: 4px;
+  font-size: 0.8rem;
+  padding: 2px 6px;
 }
 
 /* 预览相关样式 */
@@ -1710,9 +1769,10 @@ const handleKeydown = (event) => {
   font-size: 0.8rem;
   cursor: pointer;
 }
+
   
 @media (max-width: 768px) {
-  .image-uploader {
+  .preview-images {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   }
 

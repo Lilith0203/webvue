@@ -131,15 +131,22 @@ const deleteComment = async(commentId) => {
 }
 
 // 处理编辑成功
-const handleEditorSuccess = (work) => {
-  // 更新列表数据
+const clearEditQuery = () => {
+  if (route.query.edit == null) return
+  const { edit, ...rest } = route.query
+  router.replace({ path: route.path, query: rest })
+}
+
+const handleEditorSuccess = () => {
   showEditor.value = false
+  clearEditQuery()
   fetchWorkDetail()
 }
 
 // 关闭编辑器
 const closeEditor = () => {
   showEditor.value = false
+  clearEditQuery()
 }
   
 // 所有媒体文件（图片+视频）
@@ -584,6 +591,7 @@ onMounted(async() => {
   })
   
   await initTagColors() // 初始化标签颜色
+  const shouldAutoEdit = route.query.edit === '1'
   await fetchWorkDetail()
   if (work.value && work.value.id) {
     const itemId = work.value.id
@@ -592,6 +600,10 @@ onMounted(async() => {
     if (showWorkSets.value) {
       await fetchAllSets()
     }
+  }
+  if (shouldAutoEdit && work.value && canManageWork.value) {
+    startEdit(work.value)
+    clearEditQuery()
   }
 })
 </script>
