@@ -1273,7 +1273,6 @@ const goToMaterialById = (materialId) => {
     <div
       v-if="isMaterialModalOpen"
       class="modal-overlay"
-      @click.self="closeMaterialModal"
       @touchmove.prevent
     >
       <div class="modal-content" @click.stop @touchmove.stop>
