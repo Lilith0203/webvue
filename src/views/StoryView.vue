@@ -77,11 +77,200 @@ const totalItems = ref(0)
 // 添加搜索关键词状态
 const searchKeyword = ref('');
 
-// 书签：每个剧情大类（根合集）最多 1 个（记录页码 + 正序/倒序），未登录可用（本地存储）
+// 书签：每个剧情大类（根合集）最多 1 个（记录页码 + 正序/倒序）
+// 未登录：localStorage；已登录：服务端 Redis
 const BOOKMARKS_STORAGE_KEY = 'storyBookmarksByRootSet'
+const CUSTOM_SET_IDS_STORAGE_KEY = 'storyCustomSetIds'
 // 结构：{ [rootSetId]: { page: number, sortDirection: 'ASC' | 'DESC' } }
 const storyBookmarks = ref({})
 const showBookmarkModal = ref(false)
+
+// 定制功能相关状态
+const showCustomizePanel = ref(false)
+const customSetIds = ref(new Set())
+const isCustomMode = ref(false)
+
+const usesServerStoryPrefs = computed(() => authStore.isAuthenticated)
+
+const parseBookmarksFromRaw = (parsed, defaultSortDir = 'DESC') => {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return {}
+  }
+  const cleaned = {}
+  Object.keys(parsed).forEach((k) => {
+    const rootId = parseInt(k, 10)
+    if (!Number.isFinite(rootId) || rootId <= 0) return
+
+    if (typeof parsed[k] === 'number' || typeof parsed[k] === 'string') {
+      const page = parseInt(parsed[k], 10)
+      if (Number.isFinite(page) && page > 0) {
+        cleaned[rootId] = { page, sortDirection: defaultSortDir }
+      }
+      return
+    }
+
+    const entry = parsed[k]
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return
+    const asc = parseInt(entry.ASC, 10)
+    const desc = parseInt(entry.DESC, 10)
+    if (Number.isFinite(desc) && desc > 0) {
+      cleaned[rootId] = { page: desc, sortDirection: 'DESC' }
+      return
+    }
+    if (Number.isFinite(asc) && asc > 0) {
+      cleaned[rootId] = { page: asc, sortDirection: 'ASC' }
+      return
+    }
+
+    const page = parseInt(entry.page, 10)
+    const dir = entry.sortDirection
+    if (Number.isFinite(page) && page > 0 && (dir === 'ASC' || dir === 'DESC')) {
+      cleaned[rootId] = { page, sortDirection: dir }
+    }
+  })
+  return cleaned
+}
+
+const applyBookmarksData = (cleaned) => {
+  storyBookmarks.value = cleaned || {}
+}
+
+const loadLocalStoryBookmarks = () => {
+  try {
+    const raw = localStorage.getItem(BOOKMARKS_STORAGE_KEY)
+    if (!raw) {
+      applyBookmarksData({})
+      return
+    }
+    applyBookmarksData(parseBookmarksFromRaw(JSON.parse(raw), sortDirection.value))
+  } catch (e) {
+    applyBookmarksData({})
+  }
+}
+
+const loadLocalCustomizeSettings = () => {
+  const savedCustomSetIds = localStorage.getItem(CUSTOM_SET_IDS_STORAGE_KEY)
+  if (savedCustomSetIds) {
+    try {
+      const ids = JSON.parse(savedCustomSetIds)
+      customSetIds.value = new Set(ids)
+      isCustomMode.value = true
+      return
+    } catch (e) {
+      console.error('解析保存的定制设置失败:', e)
+    }
+  }
+  customSetIds.value = new Set()
+  isCustomMode.value = false
+}
+
+const applyCustomizeFromServer = (data) => {
+  if (data?.isCustomMode && Array.isArray(data.customSetIds) && data.customSetIds.length) {
+    customSetIds.value = new Set(data.customSetIds.map((id) => parseInt(id, 10)).filter((id) => id > 0))
+    isCustomMode.value = true
+  } else {
+    customSetIds.value = new Set()
+    isCustomMode.value = false
+  }
+}
+
+const readLocalStoryPrefsForMigration = () => {
+  let bookmarks = {}
+  let customSetIds = []
+  let isCustomMode = false
+  try {
+    const rawBm = localStorage.getItem(BOOKMARKS_STORAGE_KEY)
+    if (rawBm) {
+      bookmarks = parseBookmarksFromRaw(JSON.parse(rawBm), sortDirection.value)
+    }
+  } catch (_) { /* ignore */ }
+  try {
+    const rawCustom = localStorage.getItem(CUSTOM_SET_IDS_STORAGE_KEY)
+    if (rawCustom) {
+      const ids = JSON.parse(rawCustom)
+      if (Array.isArray(ids) && ids.length) {
+        customSetIds = ids
+        isCustomMode = true
+      }
+    }
+  } catch (_) { /* ignore */ }
+  return { bookmarks, customSetIds, isCustomMode }
+}
+
+const migrateLocalStoryPrefsToServer = async () => {
+  const local = readLocalStoryPrefsForMigration()
+  const payload = {}
+  if (Object.keys(local.bookmarks).length) {
+    payload.bookmarks = local.bookmarks
+  }
+  if (local.isCustomMode && local.customSetIds.length) {
+    payload.customSetIds = local.customSetIds
+    payload.isCustomMode = true
+  }
+  if (!Object.keys(payload).length) return false
+  await axios.post('/user-prefs', { story: payload })
+  return true
+}
+
+const loadStoryPrefs = async () => {
+  if (!usesServerStoryPrefs.value) {
+    loadLocalStoryBookmarks()
+    loadLocalCustomizeSettings()
+    return
+  }
+
+  try {
+    let res = await axios.get('/user-prefs', { params: { scope: 'story' } })
+    let data = res.data?.data || {}
+    const hasServerData =
+      (data.bookmarks && Object.keys(data.bookmarks).length > 0) ||
+      (data.isCustomMode && Array.isArray(data.customSetIds) && data.customSetIds.length > 0)
+
+    if (!hasServerData) {
+      const migrated = await migrateLocalStoryPrefsToServer()
+      if (migrated) {
+        res = await axios.get('/user-prefs', { params: { scope: 'story' } })
+        data = res.data?.data || {}
+      }
+    }
+
+    applyBookmarksData(parseBookmarksFromRaw(data.bookmarks || {}, sortDirection.value))
+    applyCustomizeFromServer(data)
+  } catch (e) {
+    console.error('加载剧情偏好失败:', e)
+    loadLocalStoryBookmarks()
+    loadLocalCustomizeSettings()
+  }
+}
+
+const persistStoryBookmarks = async () => {
+  if (usesServerStoryPrefs.value) {
+    try {
+      await axios.post('/user-prefs', { story: { bookmarks: storyBookmarks.value || {} } }, { params: { scope: 'story' } })
+    } catch (e) {
+      console.error('保存书签失败:', e)
+    }
+    return
+  }
+  localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(storyBookmarks.value || {}))
+}
+
+const persistCustomizeSettings = async () => {
+  if (usesServerStoryPrefs.value) {
+    try {
+      await axios.post('/user-prefs', {
+        story: {
+          customSetIds: [...customSetIds.value],
+          isCustomMode: isCustomMode.value
+        }
+      }, { params: { scope: 'story' } })
+    } catch (e) {
+      console.error('保存定制设置失败:', e)
+    }
+    return
+  }
+  localStorage.setItem(CUSTOM_SET_IDS_STORAGE_KEY, JSON.stringify([...customSetIds.value]))
+}
 
 const activeRootSetId = computed(() => {
   if (!activeSetId.value) return null
@@ -128,63 +317,6 @@ const bookmarkIconClass = computed(() => {
   return isOnBookmarkPage.value ? 'icon-shuqian2' : 'icon-shuqian1'
 })
 
-const loadStoryBookmarks = () => {
-  try {
-    const raw = localStorage.getItem(BOOKMARKS_STORAGE_KEY)
-    if (!raw) {
-      storyBookmarks.value = {}
-      return
-    }
-    const parsed = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      storyBookmarks.value = {}
-      return
-    }
-    const cleaned = {}
-    Object.keys(parsed).forEach(k => {
-      const rootId = parseInt(k)
-      if (!Number.isFinite(rootId) || rootId <= 0) return
-
-      // 兼容旧格式：{ [rootId]: page }
-      if (typeof parsed[k] === 'number' || typeof parsed[k] === 'string') {
-        const page = parseInt(parsed[k])
-        if (Number.isFinite(page) && page > 0) {
-          cleaned[rootId] = { page, sortDirection: sortDirection.value }
-        }
-        return
-      }
-
-      // 兼容上一版新格式：{ [rootId]: { ASC: page, DESC: page } }
-      const entry = parsed[k]
-      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return
-      const asc = parseInt(entry.ASC)
-      const desc = parseInt(entry.DESC)
-      if (Number.isFinite(desc) && desc > 0) {
-        cleaned[rootId] = { page: desc, sortDirection: 'DESC' }
-        return
-      }
-      if (Number.isFinite(asc) && asc > 0) {
-        cleaned[rootId] = { page: asc, sortDirection: 'ASC' }
-        return
-      }
-
-      // 支持直接存 entry = { page, sortDirection }
-      const page = parseInt(entry.page)
-      const dir = entry.sortDirection
-      if (Number.isFinite(page) && page > 0 && (dir === 'ASC' || dir === 'DESC')) {
-        cleaned[rootId] = { page, sortDirection: dir }
-      }
-    })
-    storyBookmarks.value = cleaned
-  } catch (e) {
-    storyBookmarks.value = {}
-  }
-}
-
-const persistStoryBookmarks = () => {
-  localStorage.setItem(BOOKMARKS_STORAGE_KEY, JSON.stringify(storyBookmarks.value || {}))
-}
-
 const openBookmarkModal = () => {
   if (!activeRootSetId.value) {
     message.alert('请先选择一个剧情大类')
@@ -223,11 +355,6 @@ const jumpToBookmark = () => {
     fetchStories()
   }
 }
-
-// 添加定制功能相关状态
-const showCustomizePanel = ref(false)
-const customSetIds = ref(new Set()) // 用户选择的合集ID集合
-const isCustomMode = ref(false) // 是否启用定制模式
 
 // 添加跳转页码相关状态和方法
 const targetPage = ref('');
@@ -486,7 +613,7 @@ function syncCustomSelectionAfterSetsUpdate() {
   if (nextIds.size === customSetIds.value.size) return
 
   customSetIds.value = nextIds
-  localStorage.setItem('storyCustomSetIds', JSON.stringify([...customSetIds.value]))
+  persistCustomizeSettings()
 }
 
 // 获取剧情列表
@@ -1351,15 +1478,11 @@ const handleSearch = () => {
 }
 
 // 生命周期钩子
-onMounted(() => {
+onMounted(async () => {
   // 添加键盘事件监听器
   window.addEventListener('keydown', handleKeyDown)
   
-  // 初始化书签
-  loadStoryBookmarks()
-
-  // 初始化定制功能设置
-  initCustomizeSettings()
+  await loadStoryPrefs()
   
   // 检查是否是从详情页返回
   const isFromDetail = route.query.from === 'detail'
@@ -1454,6 +1577,14 @@ onMounted(() => {
     checkAndFixActiveSet()
   })
 })
+
+watch(
+  () => authStore.isAuthenticated,
+  async () => {
+    await loadStoryPrefs()
+    checkAndFixActiveSet()
+  }
+)
 
 // 格式化故事标题，使方括号内的内容高亮显示
 const formatStoryTitle = (title) => {
@@ -1689,30 +1820,15 @@ const openCopyStoryModal = async (story) => {
   }
 }
 
-// 初始化定制功能设置
-const initCustomizeSettings = () => {
-  // 从localStorage加载用户选择的合集
-  const savedCustomSetIds = localStorage.getItem('storyCustomSetIds')
-  if (savedCustomSetIds) {
-    try {
-      const ids = JSON.parse(savedCustomSetIds)
-      customSetIds.value = new Set(ids)
-      isCustomMode.value = true
-    } catch (e) {
-      console.error('解析保存的定制设置失败:', e)
-    }
-  }
-  // 如果没有保存的设置，默认全部选择（在storySets加载后设置）
-}
-
 // 初始化默认选择（在storySets加载完成后调用）
 const initDefaultSelection = () => {
   if (storySets.value.length > 0 && customSetIds.value.size === 0) {
-    // 默认选择所有合集（包括根合集和子合集）
-    storySets.value.forEach(set => {
+    storySets.value.forEach((set) => {
       customSetIds.value.add(set.id)
     })
-    localStorage.setItem('storyCustomSetIds', JSON.stringify([...customSetIds.value]))
+    if (!usesServerStoryPrefs.value) {
+      localStorage.setItem(CUSTOM_SET_IDS_STORAGE_KEY, JSON.stringify([...customSetIds.value]))
+    }
   }
 }
 
@@ -1743,7 +1859,7 @@ const isSetSelected = (setId) => {
 }
 
 // 保存定制设置
-const saveCustomSettings = () => {
+const saveCustomSettings = async () => {
   if (customSetIds.value.size === 0) {
     message.alert('请至少选择一个合集')
     return
@@ -1788,10 +1904,9 @@ const saveCustomSettings = () => {
   // 更新customSetIds为最终的选择结果
   customSetIds.value = finalCustomSetIds
   
-  // 保存到localStorage
-  localStorage.setItem('storyCustomSetIds', JSON.stringify([...customSetIds.value]))
   isCustomMode.value = true
   showCustomizePanel.value = false
+  await persistCustomizeSettings()
 
   // 检查当前选中的合集是否还在定制选择中
   const currentSetId = activeSetId.value
