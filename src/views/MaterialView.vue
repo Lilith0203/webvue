@@ -1,7 +1,7 @@
 <script setup>
 import axios from '../api'
 import ImagePreview from '../components/ImagePreview.vue'
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { confirm } from '../utils/confirm'
 import { useRoute, useRouter } from 'vue-router'
@@ -10,13 +10,32 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
-const materialData = ref(null)
+const materialData = ref([])
+const materialTotal = ref(0)
 const loading = ref(false)
+const loadingMore = ref(false)
 const error = ref(null)
+const PAGE_SIZE = 50
+const currentPage = ref(1)
+let materialSearchDebounceTimer = null
+let suppressSearchWatch = false
+let listFetchToken = 0
+
+/** 批量改 searchForm 时跳过防抖 watch（须等 nextTick 后再解除，否则 watch 仍会补发请求） */
+const withSuppressedSearchWatch = async (fn) => {
+  clearTimeout(materialSearchDebounceTimer)
+  suppressSearchWatch = true
+  try {
+    return await fn()
+  } finally {
+    await nextTick()
+    clearTimeout(materialSearchDebounceTimer)
+    suppressSearchWatch = false
+  }
+}
 //类型树数据
 const typeTree = ref([])
 const typeMap = ref(new Map()) // 存储id和typeName的映射
-const displayLimit = ref(50) 
 // 文件上传相关的状态
 const fileInput = ref(null)
 const uploadProgress = ref(0)
@@ -115,33 +134,26 @@ const openImageViewer = (url) => {
   }
 }
 
-// 列表排序：尺寸、库存为前端排序；添加/更新时间为后端排序
+// 列表排序（服务端）
 const sortBy = ref(null)
 const sortDirection = ref('asc')
-const isTimeSort = (field) => field === 'createdAt' || field === 'updatedAt'
 const isClientSort = (field) => field === 'size' || field === 'stock'
 
 const setListSort = async (field) => {
   const initialDir = isClientSort(field) ? 'asc' : 'desc'
-  let needRefetch = false
 
   if (sortBy.value === field) {
     sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
     if (sortDirection.value === initialDir) {
       sortBy.value = null
-      needRefetch = isTimeSort(field)
-    } else if (isTimeSort(field)) {
-      needRefetch = true
     }
   } else {
     sortBy.value = field
     sortDirection.value = initialDir
-    needRefetch = isTimeSort(field)
   }
 
-  if (needRefetch) {
-    await fetchMaterialData()
-  }
+  currentPage.value = 1
+  await fetchMaterialData()
 }
 
 /** 解析 URL 或搜索框中的材料 ID（支持逗号分隔多个） */
@@ -195,77 +207,6 @@ const getWorkMaterialQty = (id) => {
   return q != null ? q : null
 }
 
-function getIdFilterSet() {
-  const fromSearch = parseMaterialIdQuery(searchForm.value.id)
-  return fromSearch.length > 0 ? new Set(fromSearch) : null
-}
-
-const matchesSearchFilter = (item) => {
-  if (!item) return false
-  const idSet = getIdFilterSet()
-  return (
-    (!idSet || idSet.has(item.id)) &&
-    (!searchForm.value.name || item.name.toLowerCase().includes(searchForm.value.name.toLowerCase())) &&
-    (!searchForm.value.type.length || searchForm.value.type.includes(item.type)) &&
-    (!searchForm.value.substance || item.substance.toLowerCase().includes(searchForm.value.substance.toLowerCase())) &&
-    (!searchForm.value.shape || item.shape.toLowerCase().includes(searchForm.value.shape.toLowerCase())) &&
-    (!searchForm.value.color || item.color.toLowerCase().includes(searchForm.value.color.toLowerCase())) &&
-    (!searchForm.value.shop || item.shop.toLowerCase().includes(searchForm.value.shop.toLowerCase())) &&
-    (!searchForm.value.size || (item.size || '').toLowerCase().includes(searchForm.value.size.toLowerCase()))
-  )
-}
-
-const parseSizeForSort = (str) => {
-  if (!str) return [Infinity, Infinity]
-  const match = str.match(/^\s*(\d+(?:\.\d+)?)\s*[\*×]\s*(\d+(?:\.\d+)?)(?:\s*mm)?/i)
-  if (match) {
-    return [parseFloat(match[1]), parseFloat(match[2])]
-  }
-  const num = str.match(/\d+(?:\.\d+)?/)
-  return num ? [parseFloat(num[0]), -1] : [Infinity, Infinity]
-}
-
-const applySizeSort = (list) => {
-  const sorted = [...list]
-  sorted.sort((a, b) => {
-    const [a1, a2] = parseSizeForSort(a.size || '')
-    const [b1, b2] = parseSizeForSort(b.size || '')
-    if (a1 !== b1) return sortDirection.value === 'asc' ? a1 - b1 : b1 - a1
-    if (a2 !== b2) return sortDirection.value === 'asc' ? a2 - b2 : b2 - a2
-    const sa = (a.size || '').replace(/\s/g, '').toLowerCase()
-    const sb = (b.size || '').replace(/\s/g, '').toLowerCase()
-    return sa.localeCompare(sb)
-  })
-  return sorted
-}
-
-/** 库存排序：缺货(0/无) < 数字 < 其他文字 < 空 */
-const stockSortValue = (str) => {
-  if (str == null || String(str).trim() === '') return null
-  const s = String(str).trim()
-  if (s === '0' || s === '无') return -1
-  const m = s.match(/(\d+(?:\.\d+)?)/)
-  if (m) return parseFloat(m[1])
-  return Number.MAX_SAFE_INTEGER
-}
-
-const applyStockSort = (list) => {
-  const sorted = [...list]
-  const dir = sortDirection.value === 'asc' ? 1 : -1
-  sorted.sort((a, b) => {
-    const va = stockSortValue(a.stock)
-    const vb = stockSortValue(b.stock)
-    if (va == null && vb == null) return 0
-    if (va == null) return 1
-    if (vb == null) return -1
-    if (va !== vb) return (va - vb) * dir
-    const sa = String(a.stock || '').trim()
-    const sb = String(b.stock || '').trim()
-    return sa.localeCompare(sb, 'zh-CN') * dir
-  })
-  return sorted
-}
-
 const formatExportDateTime = (value) => {
   if (!value) return ''
   const d = new Date(value)
@@ -297,34 +238,38 @@ const materialToExcelRow = (row) => [
   formatExportDateTime(row.updatedAt)
 ]
 
-const exportMaterialsExcel = () => {
+const exportMaterialsExcel = async () => {
   if (!authStore.isAuthenticated) {
     error.value = '请先登录后再导出'
     return
   }
-  const list = filteredMaterials.value
-  if (!list.length) {
-    error.value = '当前筛选结果为空，无可导出数据'
-    return
-  }
 
-  const headers = [
-    'ID', '名称', '类型', '材质', '尺寸', '形状', '颜色',
-    '价格', '库存', '商店', '备注', '链接', '图片', '添加时间', '更新时间'
-  ]
-  const headerRow = headers
-    .map((h) => `<Cell><Data ss:Type="String">${xmlEscape(h)}</Data></Cell>`)
-    .join('')
-  const dataRows = list
-    .map((row) => {
-      const cells = materialToExcelRow(row)
-        .map((v) => `<Cell><Data ss:Type="String">${xmlEscape(v)}</Data></Cell>`)
-        .join('')
-      return `<Row>${cells}</Row>`
-    })
-    .join('')
+  try {
+    loading.value = true
+    const response = await axios.post('/material', buildMaterialListRequest({ fetchAll: true }))
+    const list = response.data?.materials || []
+    if (!list.length) {
+      error.value = '当前筛选结果为空，无可导出数据'
+      return
+    }
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+    const headers = [
+      'ID', '名称', '类型', '材质', '尺寸', '形状', '颜色',
+      '价格', '库存', '商店', '备注', '链接', '图片', '添加时间', '更新时间'
+    ]
+    const headerRow = headers
+      .map((h) => `<Cell><Data ss:Type="String">${xmlEscape(h)}</Data></Cell>`)
+      .join('')
+    const dataRows = list
+      .map((row) => {
+        const cells = materialToExcelRow(row)
+          .map((v) => `<Cell><Data ss:Type="String">${xmlEscape(v)}</Data></Cell>`)
+          .join('')
+        return `<Row>${cells}</Row>`
+      })
+      .join('')
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
  xmlns:o="urn:schemas-microsoft-com:office:office"
@@ -338,66 +283,51 @@ const exportMaterialsExcel = () => {
  </Worksheet>
 </Workbook>`
 
-  const blob = new Blob(['\ufeff' + xml], { type: 'application/vnd.ms-excel;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_')
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `materials_${stamp}.xls`
-  a.click()
-  URL.revokeObjectURL(url)
-  error.value = null
+    const blob = new Blob(['\ufeff' + xml], { type: 'application/vnd.ms-excel;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_')
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `materials_${stamp}.xls`
+    a.click()
+    URL.revokeObjectURL(url)
+    error.value = null
+  } catch (err) {
+    error.value = '导出失败：' + (err.response?.data?.message || err.message)
+  } finally {
+    loading.value = false
+  }
 }
 
 // 修改重置搜索方法，也重置排序并重新拉取列表
-const resetSearch = async () => {
-  searchForm.value = {
-    id: '',
-    name: '',
-    type: [],
-    substance: '',
-    shape: '',
-    color: '',
-    shop: '',
-    size: ''
-  }
-  workMaterialQtyById.value = {}
-  displayLimit.value = 50  // 重置显示数量
-  sortBy.value = null      // 重置排序方式
-  sortDirection.value = 'asc' // 重置排序方向
-  await fetchMaterialData()
-}
+const resetSearch = () =>
+  withSuppressedSearchWatch(async () => {
+    searchForm.value = {
+      id: '',
+      name: '',
+      type: [],
+      substance: '',
+      shape: '',
+      color: '',
+      shop: '',
+      size: ''
+    }
+    workMaterialQtyById.value = {}
+    currentPage.value = 1
+    sortBy.value = null
+    sortDirection.value = 'asc'
+    await fetchMaterialData()
+  })
 
-// 筛选后的全部材料（导出用，不限条数）
-const filteredMaterials = computed(() => {
-  if (!materialData.value) return []
-  return materialData.value.filter(matchesSearchFilter)
-})
+// 当前页材料（服务端分页 + 筛选）
+const displayedMaterials = computed(() => materialData.value || [])
 
-// 计算当前显示的材料
-const displayedMaterials = computed(() => {
-  let result = filteredMaterials.value
-  const orderIds = parseMaterialIdQuery(searchForm.value.id)
-  if (orderIds.length > 1) {
-    const order = new Map(orderIds.map((id, i) => [id, i]))
-    result = [...result].sort(
-      (a, b) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999)
-    )
-  }
-  if (sortBy.value === 'size') {
-    result = applySizeSort(result)
-  } else if (sortBy.value === 'stock') {
-    result = applyStockSort(result)
-  }
-  return result.slice(0, displayLimit.value)
-})
+const hasMore = computed(() => materialData.value.length < materialTotal.value)
 
-// 是否还有更多材料可以显示
-const hasMore = computed(() => filteredMaterials.value.length > displayLimit.value)
-
-// 显示更多材料
-const loadMore = () => {
-  displayLimit.value += 50  // 每次增加50条
+const loadMore = async () => {
+  if (loading.value || loadingMore.value || !hasMore.value) return
+  currentPage.value += 1
+  await fetchMaterialData({ append: true })
 }
 
 // 获取类型树数据
@@ -573,17 +503,19 @@ const searchForm = ref({
   size: ''
 })
 
-/** 作品页跳转带来的 id/qty 写入状态后立刻从 URL 移除 */
+/** 作品页跳转带来的 id/qty 写入状态后立刻从 URL 移除；返回是否消费了 URL 参数 */
 function consumeMaterialIdFromRoute() {
   const ids = parseMaterialIdQuery(route.query.id)
-  if (!ids.length) return
+  if (!ids.length) return false
+
   searchForm.value.id = ids.join(',')
   workMaterialQtyById.value = parseMaterialQtyQuery(route.query.qty, ids)
-  displayLimit.value = Math.max(50, ids.length)
+  currentPage.value = 1
   const query = { ...route.query }
   delete query.id
   delete query.qty
   router.replace({ path: route.path, query })
+  return true
 }
 
 watch(
@@ -947,37 +879,89 @@ const toggleSelectAllDisplayed = () => {
   }
 }
 
-// 获取材料列表（silent：后台刷新，不挡表格）
-const fetchMaterialData = async ({ silent = false } = {}) => {
+// 获取材料列表（silent：后台刷新，不挡表格；append：加载更多）
+const buildMaterialListRequest = (overrides = {}) => {
+  const ids = parseMaterialIdQuery(searchForm.value.id)
+  const body = {
+    showAll: showOutOfStock.value,
+    page: overrides.page ?? currentPage.value,
+    pageSize: PAGE_SIZE,
+    filters: {
+      ids: ids.length ? ids : undefined,
+      name: searchForm.value.name || undefined,
+      type: searchForm.value.type.length ? searchForm.value.type : undefined,
+      substance: searchForm.value.substance || undefined,
+      shape: searchForm.value.shape || undefined,
+      color: searchForm.value.color || undefined,
+      shop: searchForm.value.shop || undefined,
+      size: searchForm.value.size || undefined
+    }
+  }
+
+  if (overrides.fetchAll) {
+    body.fetchAll = true
+    delete body.page
+    delete body.pageSize
+  }
+
+  if (sortBy.value) {
+    body.sortBy = sortBy.value
+    body.sortOrder = sortDirection.value.toUpperCase()
+  }
+
+  return { ...body, ...overrides }
+}
+
+const fetchMaterialData = async ({ silent = false, append = false } = {}) => {
   if (!authStore.isAuthenticated) {
     materialData.value = []
+    materialTotal.value = 0
     return
   }
 
-  if (!silent) {
-    loading.value = true
-    error.value = null
+  if (!append) {
+    if (!silent) {
+      loading.value = true
+      error.value = null
+    }
+  } else if (!silent) {
+    loadingMore.value = true
   }
 
+  const token = append ? 0 : ++listFetchToken
+
   try {
-    const body = {
-      showAll: showOutOfStock.value
+    const response = await axios.post('/material', buildMaterialListRequest())
+    if (!append && token !== listFetchToken) return
+
+    const rows = response.data?.materials || []
+    materialTotal.value = response.data?.total ?? rows.length
+
+    if (append) {
+      const existingIds = new Set(materialData.value.map((item) => item.id))
+      materialData.value = [
+        ...materialData.value,
+        ...rows.filter((item) => !existingIds.has(item.id))
+      ]
+    } else {
+      materialData.value = rows
     }
-    if (isTimeSort(sortBy.value)) {
-      body.sortBy = sortBy.value
-      body.sortOrder = sortDirection.value.toUpperCase()
-    }
-    const response = await axios.post('/material', body)
-    materialData.value = response.data.materials || []
   } catch (err) {
     if (err?.response?.status === 401) {
       materialData.value = []
+      materialTotal.value = 0
       if (!silent) error.value = null
     } else if (!silent) {
       error.value = '获取数据失败：' + err.message
     }
   } finally {
-    if (!silent) loading.value = false
+    if (!silent) {
+      if (append) {
+        loadingMore.value = false
+      } else {
+        loading.value = false
+      }
+    }
   }
 }
 
@@ -1029,8 +1013,20 @@ const removeMaterialRow = (id) => {
   materialData.value = materialData.value.filter((item) => item.id !== id)
 }
 
-// 监听 showOutOfStock 变化，重新获取材料
+// 监听筛选条件变化，防抖后重新拉取
+const scheduleMaterialRefetch = () => {
+  if (!authStore.isAuthenticated || suppressSearchWatch) return
+  clearTimeout(materialSearchDebounceTimer)
+  materialSearchDebounceTimer = setTimeout(() => {
+    currentPage.value = 1
+    fetchMaterialData()
+  }, 300)
+}
+
+watch(searchForm, scheduleMaterialRefetch, { deep: true, flush: 'sync' })
+
 watch(showOutOfStock, () => {
+  currentPage.value = 1
   fetchMaterialData()
 })
 
@@ -1039,10 +1035,14 @@ watch(
   () => authStore.isAuthenticated,
   (loggedIn) => {
     if (loggedIn) {
-      consumeMaterialIdFromRoute()
-      loadMaterialPageData()
+      withSuppressedSearchWatch(async () => {
+        consumeMaterialIdFromRoute()
+        await loadMaterialPageData()
+      })
       return
     }
+    listFetchToken += 1
+    clearTimeout(materialSearchDebounceTimer)
     materialData.value = []
     typeTree.value = []
     typeMap.value = new Map()
@@ -1056,7 +1056,11 @@ watch(
   () => route.query.id,
   (id) => {
     if (!id || !authStore.isAuthenticated) return
-    consumeMaterialIdFromRoute()
+    withSuppressedSearchWatch(async () => {
+      if (consumeMaterialIdFromRoute()) {
+        await loadMaterialPageData()
+      }
+    })
   }
 )
 
@@ -1748,8 +1752,8 @@ const goToMaterialById = (materialId) => {
 
           <!-- 添加显示更多按钮 -->
           <div v-if="hasMore" class="load-more">
-            <button @click="loadMore" class="load-more-btn">
-              更多…
+            <button @click="loadMore" class="load-more-btn" :disabled="loading || loadingMore">
+              {{ loadingMore ? '加载中…' : `更多…（${materialData.length} / ${materialTotal}）` }}
             </button>
           </div>
         </div>

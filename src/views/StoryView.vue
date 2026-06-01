@@ -1385,8 +1385,20 @@ onUnmounted(() => {
 // 修改图片上传相关方法
 const newStoryImageInput = ref(null)
 const editStoryImageInput = ref(null)
+const storyImageUpload = ref({
+  mode: null,
+  uploading: false,
+  progress: 0,
+  current: 0,
+  total: 0,
+  error: null
+})
+
+const isStoryImageUploading = (mode) =>
+  storyImageUpload.value.uploading && storyImageUpload.value.mode === mode
 
 const triggerStoryImageUpload = (mode) => {
+  if (isStoryImageUploading(mode)) return
   if (mode === 'new') {
     newStoryImageInput.value?.click()
   } else {
@@ -1411,43 +1423,68 @@ const handleEditImageUpload = async (event) => {
 }
 
 const uploadFiles = async (files, mode) => {
+  const list = Array.from(files)
+  if (!list.length) return
+
+  storyImageUpload.value = {
+    mode,
+    uploading: true,
+    progress: 0,
+    current: 0,
+    total: list.length,
+    error: null
+  }
+
   try {
-    for (let file of files) {
-      let upload = new FormData()
+    for (let i = 0; i < list.length; i++) {
+      const file = list[i]
+      storyImageUpload.value.current = i + 1
+      storyImageUpload.value.progress = 0
+
+      const upload = new FormData()
       upload.append('file', file)
       upload.append('folder', 'stories')
-      
-      let response = await axios.post('/upload', upload, {
+
+      const response = await axios.post('/upload', upload, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            storyImageUpload.value.progress = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            )
+          }
+        }
       })
-      
-      // 解析 URL
+
       const urlObj = new URL(response.data.url)
-      // 移除签名相关参数
       const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token', 'x-oss-process']
       paramsToRemove.forEach(param => urlObj.searchParams.delete(param))
-      
-      const cleanUrl = urlObj.toString();
-      
-      // 根据模式更新不同的对象
+
+      const cleanUrl = urlObj.toString()
+
       if (mode === 'new') {
-        // 确保newStory.pictures是数组
         if (!Array.isArray(newStory.value.pictures)) {
-          newStory.value.pictures = [];
+          newStory.value.pictures = []
         }
-        newStory.value.pictures.push(cleanUrl);
+        newStory.value.pictures.push(cleanUrl)
       } else {
-        // 确保editingStory.pictures是数组
         if (!Array.isArray(editingStory.value.pictures)) {
-          editingStory.value.pictures = [];
+          editingStory.value.pictures = []
         }
-        editingStory.value.pictures.push(cleanUrl);
+        editingStory.value.pictures.push(cleanUrl)
       }
     }
   } catch (error) {
+    const errMsg = error.response?.data?.message || error.message || '未知错误'
+    storyImageUpload.value.error = errMsg
+    message.error('上传图片失败：' + errMsg)
     console.error('上传图片失败:', error)
+  } finally {
+    storyImageUpload.value.uploading = false
+    storyImageUpload.value.mode = null
+    storyImageUpload.value.progress = 0
   }
 }
 
@@ -2562,6 +2599,7 @@ const checkAndFixActiveSet = () => {
               </div>
               <div
                 class="image-upload-box"
+                :class="{ disabled: isStoryImageUploading('new') }"
                 role="button"
                 tabindex="0"
                 @dragstart.prevent
@@ -2572,7 +2610,10 @@ const checkAndFixActiveSet = () => {
                 <span class="image-upload-box-hint">上传</span>
               </div>
             </div>
-            <input 
+            <div v-if="isStoryImageUploading('new')" class="story-upload-status">
+              上传中 {{ storyImageUpload.current }}/{{ storyImageUpload.total }}… {{ storyImageUpload.progress }}%
+            </div>
+            <input
               ref="newStoryImageInput"
               type="file" 
               id="add-story-images"
@@ -2717,6 +2758,7 @@ const checkAndFixActiveSet = () => {
               </div>
               <div
                 class="image-upload-box"
+                :class="{ disabled: isStoryImageUploading('edit') }"
                 role="button"
                 tabindex="0"
                 @dragstart.prevent
@@ -2727,7 +2769,10 @@ const checkAndFixActiveSet = () => {
                 <span class="image-upload-box-hint">上传</span>
               </div>
             </div>
-            <input 
+            <div v-if="isStoryImageUploading('edit')" class="story-upload-status">
+              上传中 {{ storyImageUpload.current }}/{{ storyImageUpload.total }}… {{ storyImageUpload.progress }}%
+            </div>
+            <input
               ref="editStoryImageInput"
               type="file" 
               id="edit-story-images"
@@ -3423,6 +3468,18 @@ input[type="datetime-local"] {
   font-size: 12px;
   color: #909399;
   margin-top: 4px;
+}
+
+.image-upload-box.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.story-upload-status {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-blue, #409eff);
 }
 
 .image-file-input {
