@@ -107,8 +107,16 @@ const formData = reactive(initFormData())
 
 // 图片上传相关操作
 const imageInput = ref(null)
+const workImageUpload = ref({
+  uploading: false,
+  progress: 0,
+  current: 0,
+  total: 0,
+  error: null
+})
 
 const triggerImageUpload = () => {
+  if (workImageUpload.value.uploading) return
   imageInput.value?.click()
 }
 
@@ -167,32 +175,58 @@ const handleVideoUpload = async (event) => {
 }
 
 const handleDrop = async (event) => {
+  if (workImageUpload.value.uploading) return
   const files = Array.from(event.dataTransfer.files)
     .filter(file => file.type.startsWith('image/'))
   await uploadFiles(files)
 }
 
 const uploadFiles = async (files) => {
+  const list = Array.from(files).filter((file) => file.type.startsWith('image/'))
+  if (!list.length) return
+
+  workImageUpload.value = {
+    uploading: true,
+    progress: 0,
+    current: 0,
+    total: list.length,
+    error: null
+  }
+
   try {
-    for (let file of files) {
-      let upload = new FormData()
+    for (let i = 0; i < list.length; i++) {
+      const file = list[i]
+      workImageUpload.value.current = i + 1
+      workImageUpload.value.progress = 0
+
+      const upload = new FormData()
       upload.append('file', file)
-      upload.append('folder', 'works');
-      let response = await axios.post('/upload', upload, {
+      upload.append('folder', 'works')
+      const response = await axios.post('/upload', upload, {
         headers: {
           'Content-Type': 'multipart/form-data'
         },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            workImageUpload.value.progress = Math.round(
+              (progressEvent.loaded * 100) / progressEvent.total
+            )
+          }
+        }
       })
-      // 解析 URL
-      const urlObj = new URL(response.data.url);
-      // 移除签名相关参数
-      const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token','x-oss-process'];
-      paramsToRemove.forEach(param => urlObj.searchParams.delete(param));
+      const urlObj = new URL(response.data.url)
+      const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token', 'x-oss-process']
+      paramsToRemove.forEach(param => urlObj.searchParams.delete(param))
       formData.pictures.push(urlObj.toString())
     }
-
   } catch (error) {
+    const errMsg = error.response?.data?.message || error.message || '未知错误'
+    workImageUpload.value.error = errMsg
+    message.error('上传图片失败：' + errMsg)
     console.error('上传图片失败:', error)
+  } finally {
+    workImageUpload.value.uploading = false
+    workImageUpload.value.progress = 0
   }
 }
 
@@ -584,6 +618,45 @@ const removeVariant = async (index) => {
   await loadSelectedMaterialsForVariant()
 }
 
+const variantDragIndex = ref(null)
+
+const reorderVariants = (from, to) => {
+  if (from === to) return
+  syncActiveVariantFromUI()
+  const variants = [...formData.variants]
+  const [removed] = variants.splice(from, 1)
+  variants.splice(to, 0, removed)
+  formData.variants = variants
+
+  const active = activeVariantIndex.value
+  if (active === from) {
+    activeVariantIndex.value = to
+  } else if (from < active && to >= active) {
+    activeVariantIndex.value = active - 1
+  } else if (from > active && to <= active) {
+    activeVariantIndex.value = active + 1
+  }
+}
+
+const handleVariantDragStart = (e, index) => {
+  variantDragIndex.value = index
+  e.dataTransfer.effectAllowed = 'move'
+  e.target.closest('.variant-tab')?.classList.add('dragging')
+}
+
+const handleVariantDragEnter = (_e, index) => {
+  if (variantDragIndex.value === null || variantDragIndex.value === index) return
+  reorderVariants(variantDragIndex.value, index)
+  variantDragIndex.value = index
+}
+
+const handleVariantDragEnd = () => {
+  variantDragIndex.value = null
+  document.querySelectorAll('.variant-tab.dragging').forEach((el) => {
+    el.classList.remove('dragging')
+  })
+}
+
 // 切换材料选择器
 const toggleMaterialSelector = () => {
   showMaterialSelector.value = !showMaterialSelector.value
@@ -965,6 +1038,7 @@ const handleKeydown = (event) => {
                 </div>
                 <div
                   class="image-upload-box"
+                  :class="{ disabled: workImageUpload.uploading }"
                   role="button"
                   tabindex="0"
                   @click="triggerImageUpload"
@@ -974,7 +1048,10 @@ const handleKeydown = (event) => {
                   <span class="image-upload-box-hint">上传</span>
                 </div>
               </div>
-              <input 
+              <div v-if="workImageUpload.uploading" class="work-upload-status">
+                上传中 {{ workImageUpload.current }}/{{ workImageUpload.total }}… {{ workImageUpload.progress }}%
+              </div>
+              <input
                 ref="imageInput"
                 class="image-file-input"
                 type="file" 
@@ -1028,14 +1105,23 @@ const handleKeydown = (event) => {
               <button type="button" class="add-variant-btn" @click="addVariant">+ 添加规格</button>
             </div>
 
-            <div v-if="hasMultipleVariants" class="variant-tabs">
+            <div v-if="hasMultipleVariants" class="variant-tabs" @dragover.prevent>
               <button
                 v-for="(variant, index) in formData.variants"
                 :key="index"
                 type="button"
                 class="variant-tab"
                 :class="{ active: activeVariantIndex === index }"
-                @click="switchVariant(index)">
+                @click="switchVariant(index)"
+                @dragenter.prevent="handleVariantDragEnter($event, index)"
+                @dragover.prevent>
+                <span
+                  class="variant-tab-handle"
+                  draggable="true"
+                  title="拖动调整顺序"
+                  @dragstart.stop="handleVariantDragStart($event, index)"
+                  @dragend="handleVariantDragEnd"
+                  @click.stop>⋮⋮</span>
                 {{ variantLabel(variant, index) }}
                 <span
                   class="variant-tab-remove"
@@ -1327,6 +1413,18 @@ const handleKeydown = (event) => {
   font-size: 12px;
   color: #909399;
   margin-top: 4px;
+}
+
+.image-upload-box.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.work-upload-status {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-blue, #409eff);
 }
 
 .image-file-input {
@@ -1921,12 +2019,28 @@ const handleKeydown = (event) => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 10px;
+  padding: 3px 8px 3px 3px;
   border: 1px solid #dcdfe6;
   border-radius: 2px;
   background: #f5f7fa;
   cursor: pointer;
   font-size: 0.8rem;
+}
+
+.variant-tab.dragging {
+  opacity: 0.65;
+}
+
+.variant-tab-handle {
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.45;
+  user-select: none;
+  padding: 0 2px;
+}
+
+.variant-tab.active .variant-tab-handle {
+  opacity: 0.75;
 }
 
 .variant-tab.active {

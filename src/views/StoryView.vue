@@ -3348,12 +3348,12 @@ const checkAndFixActiveSet = () => {
 .checkbox-item {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .checkbox-item label {
     margin: 0; 
-    font-size: 12px;
+    font-size: 0.75rem;
 }
 
 .checkbox-item input[type="checkbox"] {
@@ -3371,7 +3371,6 @@ const checkAndFixActiveSet = () => {
 
 .child-checkboxes {
   margin-left: 25px;
-  margin-top: 5px;
   border-left: 1px solid #eee;
   padding-left: 10px;
 }
