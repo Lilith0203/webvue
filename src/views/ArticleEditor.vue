@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { marked } from 'marked'
-import { applyInlineColorMarkup } from '../utils/richText'
+import { applyManagedColorMarkup, escapeMarkdownSingleAsterisks, filterTextColors } from '../utils/richText'
 import axios from '../api'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from '../utils/message'
@@ -16,6 +16,16 @@ const loading = ref(false)
 const newTag = ref('')
 const showPreview = ref(false)
 const contentEditor = ref(null)
+const textColors = ref([])
+
+const fetchTextColors = async () => {
+  try {
+    const response = await axios.get('/colors')
+    textColors.value = filterTextColors(response.data?.data)
+  } catch (err) {
+    console.error('获取文本颜色失败:', err)
+  }
+}
 const imageInput = ref(null)
 const isDragging = ref(false)
 const uploading = ref(false)
@@ -156,17 +166,17 @@ const fetchArticle = async () => {
 }
   
 // 在组件挂载时获取文章数据
-onMounted(fetchArticle)
-  
-// Markdown 预览
+onMounted(async () => {
+  await fetchTextColors()
+  await fetchArticle()
+})
+
+// Markdown 预览（彩色标记与剧情一致，使用颜色管理中的「文本」合集）
 const renderedContent = computed(() => {
   if (!articleForm.value.content) return ''
-  const placeholder = '___DOUBLESTAR___'
-  let content = applyInlineColorMarkup(articleForm.value.content)
-  content = content.replace(/\*\*/g, placeholder)
-  content = content.replace(/\*/g, '\\*')
-  content = content.replace(new RegExp(placeholder, 'g'), '**')
-  return marked(content)
+  const escaped = escapeMarkdownSingleAsterisks(articleForm.value.content)
+  let html = marked(escaped)
+  return applyManagedColorMarkup(html, textColors.value)
 })
   
 // 添加标签

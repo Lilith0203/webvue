@@ -1,42 +1,48 @@
-/** 转义 HTML，用于彩色标记内的展示文本 */
-function escapeHtml(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+/** 颜色管理中「标签颜色」且合集为「文本」的条目，用于正文 [文字:颜色名] */
+
+export function escapeRegex(str) {
+  return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-const COLOR_VALUE = /^[a-z#0-9]+$/i
-
-function colorSpan(color, text) {
-  const c = String(color ?? '').trim()
-  if (!COLOR_VALUE.test(c)) return text
-  return `<span style="color:${c}">${escapeHtml(text)}</span>`
+export function filterTextColors(colors) {
+  return (colors || []).filter(
+    (c) => c.category === 2 && c.set === '文本'
+  )
 }
 
 /**
- * 将正文中的彩色标记转为 <span style="color:...">
- * - [color:red|红色文字] 或 [color:#ff5500|自定义]
- * - [Lilith工具箱:blue] 展示文字在前、颜色在后
+ * 在 HTML 中应用颜色管理配置（与剧情详情一致）
+ * - [展示文字:颜色名称] → 使用 colors 里 name 对应的 code
+ * - class="颜色名称" → 补充内联 color
  */
-export function applyInlineColorMarkup(text) {
-  if (!text) return ''
+export function applyManagedColorMarkup(html, textColors) {
+  if (!html || !textColors?.length) return html || ''
 
-  let result = String(text)
+  let rendered = String(html)
 
-  result = result.replace(
-    /\[color:([a-z#0-9]+)\|(.*?)\]/gi,
-    (_, color, label) => colorSpan(color, label)
-  )
+  textColors.forEach((color) => {
+    const name = escapeRegex(color.name)
+    const classRegex = new RegExp(`class="([^"]*\\s)?${name}(\\s[^"]*)?"`, 'g')
+    rendered = rendered.replace(
+      classRegex,
+      `class="$1${color.name}$2" style="color: ${color.code};"`
+    )
 
-  result = result.replace(
-    /\[([^\]:|\]]+):([a-z#0-9]+)\]/gi,
-    (match, label, color) => {
-      if (/^color$/i.test(label.trim())) return match
-      return colorSpan(color, label)
-    }
-  )
+    const colorRegex = new RegExp(`\\[([^\\]]+):${name}\\]`, 'g')
+    rendered = rendered.replace(
+      colorRegex,
+      `<span style="color: ${color.code};">$1</span>`
+    )
+  })
 
-  return result
+  return rendered
+}
+
+/** 转义单个 *，保留 ** 粗体（与剧情/攻略详情一致） */
+export function escapeMarkdownSingleAsterisks(content) {
+  const placeholder = '___DOUBLESTAR___'
+  let text = String(content ?? '')
+  text = text.replace(/\*\*/g, placeholder)
+  text = text.replace(/\*/g, '\\*')
+  return text.replace(new RegExp(placeholder, 'g'), '**')
 }

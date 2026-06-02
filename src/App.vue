@@ -109,7 +109,7 @@ const menuConfig = computed(() => [
     label: '手工',
     key: 'work',
     children: [
-      {label: '杂货铺', path: '/works'},
+      {label: '作品集', path: '/works'},
       {label: '材料整理', path: '/material'},
       {label: '格子图工具', path: '/painter'},
       {label: '颜色管理', path: '/color'},

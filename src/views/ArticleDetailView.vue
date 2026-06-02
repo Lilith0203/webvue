@@ -5,7 +5,7 @@ import axios from '../api'
 import { marked } from 'marked'
 import { useAuthStore } from '../stores/auth'
 import { refreshImageUrl} from '../utils/image'
-import { applyInlineColorMarkup } from '../utils/richText'
+import { applyManagedColorMarkup, escapeMarkdownSingleAsterisks, filterTextColors } from '../utils/richText'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
 import { message } from '../utils/message'
@@ -23,6 +23,16 @@ const renderer = new marked.Renderer()
 const comments = ref([])  // 存储评论
 const loadingComments = ref(false)
 const errorComments = ref(null)
+const textColors = ref([])
+
+const fetchTextColors = async () => {
+  try {
+    const response = await axios.get('/colors')
+    textColors.value = filterTextColors(response.data?.data)
+  } catch (err) {
+    console.error('获取文本颜色失败:', err)
+  }
+}
 
 const fetchComments = async (itemId) => {
   loadingComments.value = true
@@ -70,14 +80,10 @@ const fetchArticle = async () => {
     if (article.value.content) {
         // 处理文章内容中的所有图片链接
       const processedContent = await processContent(article.value.content)
-      // 只转义单个星号（用于斜体），保留双星号（用于粗体）
-      // 先保护双星号，转义单个星号，再恢复双星号
-      const placeholder = '___DOUBLESTAR___'
-      let escapedContent = applyInlineColorMarkup(processedContent)
-      escapedContent = escapedContent.replace(/\*\*/g, placeholder)
-      escapedContent = escapedContent.replace(/\*/g, '\\*')
-      escapedContent = escapedContent.replace(new RegExp(placeholder, 'g'), '**')
-      article.value.renderedContent = await marked(escapedContent)
+      const escapedContent = escapeMarkdownSingleAsterisks(processedContent)
+      let html = await marked(escapedContent)
+      html = applyManagedColorMarkup(html, textColors.value)
+      article.value.renderedContent = html
     }
   } catch (err) {
     error.value = "获取文章失败：" + err.message
@@ -151,6 +157,7 @@ const deleteComment = async(commentId) => {
 }
 
 onMounted(async () => {
+  await fetchTextColors()
   await fetchArticle()
   const itemId = article.value.id/* 获取当前文章或作品的 ID */
   await fetchComments(itemId)
