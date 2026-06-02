@@ -112,6 +112,7 @@ const menuConfig = computed(() => [
       {label: '杂货铺', path: '/works'},
       {label: '材料整理', path: '/material'},
       {label: '格子图工具', path: '/painter'},
+      {label: '颜色管理', path: '/color'},
     ]
   },
   {
@@ -128,9 +129,8 @@ const menuConfig = computed(() => [
     key: 'program',
     children: [
       {label: '剧情整理', path: '/story'},
-      {label: '颜色管理', path: '/color'},
-      {label: '小游戏', path: '/program'},
       ...(authStore.isAuthenticated && (isAdmin.value || ocrUserEnabled.value) ? [{label: '文字识别', path: '/ocr'}] : []),
+      {label: '小游戏', path: '/program'},
     ]
   }
 ])

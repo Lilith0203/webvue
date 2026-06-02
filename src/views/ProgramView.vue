@@ -16,13 +16,6 @@ const apps = ref([
     description: '大学时期作品',
     image: '/images/03092015014024.png',
     link: '/programs/santa/index.html'
-  },
-  {
-    id: 3,
-    title: '文字识别（OCR）',
-    description: '上传图片，提取文字',
-    image: '/images/wlink-bg.png',
-    link: '/ocr'
   }
 ])
 
@@ -62,8 +55,16 @@ const isExternalLink = (link) => /^https?:\/\//i.test(link) || /\.html(\?|#|$)/i
   margin-top: 15px;
 }
 
+.app-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .app-card {
   display: flex;
+  width: 100%;
+  max-width: 640px;
   padding-bottom: 20px;
   margin-bottom: 25px;
   border-bottom: 1px dashed #dfdfdf;

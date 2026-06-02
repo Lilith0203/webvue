@@ -401,7 +401,7 @@ onUnmounted(() => {
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 label {
@@ -411,20 +411,20 @@ label {
 
 input[type="text"],
 textarea {
-  padding: 8px 12px;
+  padding: 5px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 0.85rem;
 }
 
 textarea {
   width: 100%;
   min-height: 300px;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-family: monospace;
-  font-size: 14px;
+  font-size: 0.9rem;
   line-height: 1.5;
   resize: vertical;
 }
@@ -457,7 +457,7 @@ textarea:focus {
   padding: 3px 6px;
   background-color: #e0e0e0;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 0.8rem;
 }
 
 .tag button {
@@ -474,7 +474,6 @@ textarea:focus {
   padding: 8px;
   background-color: #f5f5f5;
   border-radius: 4px;
-  margin-bottom: 8px;
 }
 
 .editor-toolbar button {
@@ -515,12 +514,14 @@ textarea:focus {
 
 .preview-btn,
 .draft-btn,
-.publish-btn {
-  padding: 8px 16px;
+.publish-btn,
+.cancel-btn
+ {
+  padding: 5px 10px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 0.8rem;
 }
 
 .preview-btn {
@@ -550,12 +551,8 @@ textarea:focus {
 }
   
 .cancel-btn {
-  padding: 8px 16px;
   background-color: #dc3545;
   color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
   
 .cancel-btn:hover {

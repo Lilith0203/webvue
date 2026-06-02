@@ -8,14 +8,14 @@ const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.isAuthenticated && authStore.user?.role === 'admin')
 
 const colors = ref({
-  1: [],  // 材料颜色
   2: [],  // 文章标签颜色
   3: [],  // 格子图颜色
-  4: []   // 收藏颜色
+  4: [],   // 收藏颜色
+  1: []  // 材料颜色
 })
 
 const newColor = ref({
-  category: 1,  // 默认分类为材料
+  category: 2,  // 默认分类为材料
   name: '',
   code: '#000000',
   set: ''  // 添加合集属性
@@ -44,7 +44,7 @@ const addColor = async () => {
     
     // 重置表单
     newColor.value = {
-      category: 1,
+      category: DEFAULT_COLOR_CATEGORY,
       name: '',
       code: '#000000',
       set: ''  // 重置合集属性
@@ -95,10 +95,10 @@ const loadColors = async () => {
 // 获取分类名称的辅助函数
 const getCategoryName = (category) => {
   const categoryMap = {
-    1: '材料颜色',
     2: '标签颜色',
     3: '格子图颜色',
-    4: '收藏颜色'
+    4: '收藏颜色',
+    1: '材料颜色'
   }
   return categoryMap[category] || '未知分类'
 }
@@ -251,10 +251,10 @@ onMounted(() => {
         <div class="form-group">
           <label>分类：</label>
           <select v-model="newColor.category">
-            <option :value="1">材料颜色</option>
             <option :value="2">标签颜色</option>
             <option :value="3">格子图颜色</option>
             <option :value="4">收藏颜色</option>
+            <option :value="1">材料颜色</option>
           </select>
         </div>
         
@@ -287,53 +287,6 @@ onMounted(() => {
     
     <!-- 颜色列表 - 按分类和合集展示 -->
     <div class="color-lists">
-      <!-- 材料颜色 -->
-      <div class="category-section">
-        <h2>{{ getCategoryName(1) }}</h2>
-        <div v-for="(setColors, setName) in groupedColors[1]" :key="setName" class="set-group">
-          <h3 class="set-title">{{ setName }}</h3>
-          <div class="material-color-grid">
-            <div v-for="color in setColors" :key="color.id" 
-              class="material-color-item"
-              :class="{ 'editing': editingColor?.id === color.id }">
-              <template v-if="!editingColor || editingColor.id !== color.id">
-                <div class="color-preview large" :style="{ backgroundColor: color.code }"></div>
-                <div class="color-info">
-                  <span class="color-name">{{ color.name }}</span>
-                  <span class="color-code">{{ color.code }}</span>
-                </div>
-                <div class="color-actions">
-                  <button class="edit-btn" @click="startEdit(1, color)" v-if="isAdmin"><i class="iconfont icon-edit"></i></button>
-                  <button class="delete-btn" @click="deleteColor(1, color.id)" v-if="isAdmin"><i class="iconfont icon-ashbin"></i></button>
-                </div>
-              </template>
-              <template v-else>
-                <!-- 编辑表单 -->
-                <div class="edit-form">
-                  <div class="form-group">
-                    <input type="text" v-model="editingColor.name" placeholder="颜色名称">
-                  </div>
-                  <div class="form-group color-input">
-                    <input type="color" v-model="editingColor.code">
-                    <input type="text" v-model="editingColor.code">
-                  </div>
-                 
-                  <div class="form-group">
-                    <input 
-                      type="text" 
-                      v-model="editingColor.set" 
-                      placeholder="颜色合集名称">
-                  </div>
-                  <div class="edit-actions">
-                    <button class="save-btn" @click="saveEdit">保存</button>
-                    <button class="cancel-btn" @click="cancelEdit">取消</button>
-                  </div>
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- 标签颜色 -->
       <div class="category-section">
@@ -467,6 +420,54 @@ onMounted(() => {
                 <div class="color-actions">
                   <button class="edit-btn" @click="startEdit(4, color)" v-if="isAdmin"><i class="iconfont icon-edit"></i></button>
                   <button class="delete-btn" @click="deleteColor(4, color.id)" v-if="isAdmin"><i class="iconfont icon-ashbin"></i></button>
+                </div>
+              </template>
+              <template v-else>
+                <!-- 编辑表单 -->
+                <div class="edit-form">
+                  <div class="form-group">
+                    <input type="text" v-model="editingColor.name" placeholder="颜色名称">
+                  </div>
+                  <div class="form-group color-input">
+                    <input type="color" v-model="editingColor.code">
+                    <input type="text" v-model="editingColor.code">
+                  </div>
+                 
+                  <div class="form-group">
+                    <input 
+                      type="text" 
+                      v-model="editingColor.set" 
+                      placeholder="颜色合集名称">
+                  </div>
+                  <div class="edit-actions">
+                    <button class="save-btn" @click="saveEdit">保存</button>
+                    <button class="cancel-btn" @click="cancelEdit">取消</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 材料颜色 -->
+      <div class="category-section">
+        <h2>{{ getCategoryName(1) }}</h2>
+        <div v-for="(setColors, setName) in groupedColors[1]" :key="setName" class="set-group">
+          <h3 class="set-title">{{ setName }}</h3>
+          <div class="material-color-grid">
+            <div v-for="color in setColors" :key="color.id" 
+              class="material-color-item"
+              :class="{ 'editing': editingColor?.id === color.id }">
+              <template v-if="!editingColor || editingColor.id !== color.id">
+                <div class="color-preview large" :style="{ backgroundColor: color.code }"></div>
+                <div class="color-info">
+                  <span class="color-name">{{ color.name }}</span>
+                  <span class="color-code">{{ color.code }}</span>
+                </div>
+                <div class="color-actions">
+                  <button class="edit-btn" @click="startEdit(1, color)" v-if="isAdmin"><i class="iconfont icon-edit"></i></button>
+                  <button class="delete-btn" @click="deleteColor(1, color.id)" v-if="isAdmin"><i class="iconfont icon-ashbin"></i></button>
                 </div>
               </template>
               <template v-else>
