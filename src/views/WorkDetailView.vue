@@ -13,7 +13,8 @@ import { getTagColor, getTextColor, initTagColors } from '../utils/tags'
 import {
   parseWorkVariants,
   variantLabel,
-  formatVariantPrice
+  formatVariantPrice,
+  resolveVariantPictureIndex
 } from '../utils/workVariants'
 
 // 修改 marked 渲染器配置
@@ -234,6 +235,14 @@ const loadActiveVariantMaterials = async () => {
 const switchVariant = async (index) => {
   activeVariantIndex.value = index
   await loadActiveVariantMaterials()
+
+  const variant = workVariants.value[index]
+  if (variant?.picture && work.value?.pictures?.length) {
+    const picIndex = resolveVariantPictureIndex(work.value.pictures, variant.picture)
+    if (picIndex >= 0) {
+      selectMedia(picIndex, 'image')
+    }
+  }
 }
   
 // 开始编辑
@@ -1229,11 +1238,11 @@ onMounted(async() => {
 }
 
 .price-display i {
-  font-size: 1.2rem;
+  font-size: 1.3rem;
 }
 
 .price-display .price-value {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   color: #333;
 }
 

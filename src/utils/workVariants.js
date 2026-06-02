@@ -4,7 +4,8 @@ export function createEmptyVariant() {
   return {
     name: '',
     price: '',
-    materials: []
+    materials: [],
+    picture: ''
   }
 }
 
@@ -29,7 +30,8 @@ export function normalizeVariant(raw) {
         }
         return null
       })
-      .filter(Boolean)
+      .filter(Boolean),
+    picture: String(raw?.picture ?? '').trim()
   }
 }
 
@@ -81,4 +83,12 @@ export function formatVariantPrice(price) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2
   })
+}
+
+/** 根据规格关联的图片 URL 在作品 pictures 中的索引，未找到返回 -1 */
+export function resolveVariantPictureIndex(pictures, pictureUrl) {
+  const url = String(pictureUrl ?? '').trim()
+  if (!url || !Array.isArray(pictures) || !pictures.length) return -1
+  const idx = pictures.findIndex((p) => String(p ?? '').trim() === url)
+  return idx
 }

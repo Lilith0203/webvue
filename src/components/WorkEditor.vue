@@ -231,7 +231,19 @@ const uploadFiles = async (files) => {
 }
 
 const removePicture = (index) => {
+  const removed = formData.pictures[index]
   formData.pictures.splice(index, 1)
+  if (removed) {
+    formData.variants.forEach((v) => {
+      if (v.picture === removed) v.picture = ''
+    })
+  }
+}
+
+const setVariantPicture = (url) => {
+  const variant = formData.variants[activeVariantIndex.value]
+  if (!variant) return
+  variant.picture = url || ''
 }
 
 // 移除视频
@@ -677,7 +689,8 @@ const initForm = async () => {
     formData.variants = parseWorkVariants(props.work).map((v) => ({
       name: v.name,
       price: v.price,
-      materials: [...v.materials]
+      materials: [...v.materials],
+      picture: v.picture || ''
     }))
     formData.video = props.work.video || ''
     formData.link = props.work.link || ''
@@ -773,7 +786,8 @@ const handleSubmit = async () => {
       variants: formData.variants.map((v) => ({
         name: v.name,
         price: v.price === '' ? '' : v.price,
-        materials: v.materials || []
+        materials: v.materials || [],
+        picture: v.picture || ''
       })),
       video: formData.video || '',
       link: formData.link || '',
@@ -1137,6 +1151,31 @@ const handleKeydown = (event) => {
                   type="text"
                   placeholder="如：标准版、大号（可选）"
                   class="form-input">
+              </div>
+
+              <div
+                v-if="hasMultipleVariants && formData.pictures.length"
+                class="variant-picture-row">
+                <label>展示图片</label>
+                <div class="variant-picture-picker">
+                  <button
+                    type="button"
+                    class="variant-picture-option"
+                    :class="{ active: !formData.variants[activeVariantIndex].picture }"
+                    @click="setVariantPicture('')">
+                    不指定
+                  </button>
+                  <button
+                    v-for="(img, imgIndex) in formData.pictures"
+                    :key="`variant-pic-${imgIndex}`"
+                    type="button"
+                    class="variant-picture-option"
+                    :class="{ active: formData.variants[activeVariantIndex].picture === img }"
+                    :title="`图片 ${imgIndex + 1}`"
+                    @click="setVariantPicture(img)">
+                    <img v-image="img" class="variant-picture-thumb" alt="">
+                  </button>
+                </div>
               </div>
 
               <div class="variant-price-row">
@@ -2063,17 +2102,54 @@ const handleKeydown = (event) => {
 }
 
 .variant-name-row,
-.variant-price-row {
+.variant-price-row,
+.variant-picture-row {
   margin-bottom: 12px;
 }
 
 .variant-name-row label,
 .variant-price-row label,
+.variant-picture-row label,
 .materials-sub-label {
   display: block;
   font-size: 12px;
   color: #606266;
   margin-bottom: 4px;
+}
+
+.variant-picture-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.variant-picture-option {
+  padding: 0;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  min-width: 52px;
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #909399;
+}
+
+.variant-picture-option.active {
+  border-color: var(--color-blue, #409eff);
+  box-shadow: 0 0 0 1px var(--color-blue, #409eff);
+}
+
+.variant-picture-thumb {
+  width: 52px;
+  height: 52px;
+  object-fit: cover;
+  display: block;
 }
 
 .materials-sub-label {
