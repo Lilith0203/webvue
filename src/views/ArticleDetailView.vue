@@ -5,6 +5,7 @@ import axios from '../api'
 import { marked } from 'marked'
 import { useAuthStore } from '../stores/auth'
 import { refreshImageUrl} from '../utils/image'
+import { applyInlineColorMarkup } from '../utils/richText'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
 import { message } from '../utils/message'
@@ -72,7 +73,8 @@ const fetchArticle = async () => {
       // 只转义单个星号（用于斜体），保留双星号（用于粗体）
       // 先保护双星号，转义单个星号，再恢复双星号
       const placeholder = '___DOUBLESTAR___'
-      let escapedContent = processedContent.replace(/\*\*/g, placeholder)
+      let escapedContent = applyInlineColorMarkup(processedContent)
+      escapedContent = escapedContent.replace(/\*\*/g, placeholder)
       escapedContent = escapedContent.replace(/\*/g, '\\*')
       escapedContent = escapedContent.replace(new RegExp(placeholder, 'g'), '**')
       article.value.renderedContent = await marked(escapedContent)

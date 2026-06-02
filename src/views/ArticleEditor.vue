@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { marked } from 'marked'
+import { applyInlineColorMarkup } from '../utils/richText'
 import axios from '../api'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from '../utils/message'
@@ -160,9 +161,12 @@ onMounted(fetchArticle)
 // Markdown 预览
 const renderedContent = computed(() => {
   if (!articleForm.value.content) return ''
-  // 转义星号，防止被Markdown解析为斜体
-  const escapedContent = articleForm.value.content.replace(/\*/g, '\\*')
-  return marked(escapedContent)
+  const placeholder = '___DOUBLESTAR___'
+  let content = applyInlineColorMarkup(articleForm.value.content)
+  content = content.replace(/\*\*/g, placeholder)
+  content = content.replace(/\*/g, '\\*')
+  content = content.replace(new RegExp(placeholder, 'g'), '**')
+  return marked(content)
 })
   
 // 添加标签
