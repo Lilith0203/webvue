@@ -3209,7 +3209,7 @@ const checkAndFixActiveSet = () => {
 }
 
 .story-link .iconfont {
-    font-size: 1.2rem;
+    font-size: 1.15rem;
 }
 
 .story-image-area {

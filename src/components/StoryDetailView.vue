@@ -1737,7 +1737,7 @@ mark.story-search-highlight {
   text-decoration: underline;
 }
 .icon-bilibili1 {
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   vertical-align: middle;
   display: inline-block;
   margin-right: 0;
