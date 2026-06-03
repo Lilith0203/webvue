@@ -1393,19 +1393,23 @@ const handleKeydown = (event) => {
 <style scoped>
 /* 编辑表单样式 */
 .form-item {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
+}
+
+.work-editor {
+  margin-top: 10px;
 }
   
 .form-item label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   font-size: 0.9rem;
 }
   
 .form-item input,
 .form-item textarea {
   width: 100%;
-  padding: 4px 8px 5px;
+  padding: 4px 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 0.85rem;
@@ -2014,6 +2018,7 @@ const handleKeydown = (event) => {
   position: relative;
   display: flex;
   align-items: center;
+  max-width: 100px;
 }
 
 .currency-symbol {
@@ -2108,14 +2113,22 @@ const handleKeydown = (event) => {
   margin-bottom: 12px;
 }
 
+.variant-price-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 10px;
+  row-gap: 6px;
+}
+
 .variant-name-row label,
 .variant-price-row label,
 .variant-picture-row label,
 .materials-sub-label {
   display: block;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: #606266;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .variant-picture-picker {
@@ -2155,6 +2168,7 @@ const handleKeydown = (event) => {
 
 .materials-sub-label {
   margin-top: 4px;
+  font-size: 0.85rem !important;
 }
 
 .price-hint {
@@ -2238,12 +2252,9 @@ const handleKeydown = (event) => {
 }
 
 .cost-info {
-  margin-top: 6px;
-  padding: 4px 12px;
+  padding: 0;
   background-color: #f8f9fa;
-  border-radius: 4px;
-  border-left: 3px solid #28a745;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
   gap: 8px;

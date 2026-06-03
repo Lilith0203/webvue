@@ -254,7 +254,7 @@ watch(
 
 .a-brief-text {
   text-indent: 2em;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .update-time {

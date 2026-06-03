@@ -293,7 +293,7 @@ onMounted(async () => {
 
 .article-content {
   margin-top: 20px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 .date {
@@ -332,8 +332,7 @@ onMounted(async () => {
 
 :deep(.article-content ul), 
 :deep(.article-content ol) {
-  font-size: 14px;
-  line-height: 1.6em;
+  line-height: 1.8;
   margin-bottom: 6px;
   text-align: left;
 }
@@ -350,7 +349,7 @@ onMounted(async () => {
   margin-top: 10px;
   font-weight: bold;
   text-align: left;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 :deep(.article-content a) {
@@ -398,7 +397,7 @@ onMounted(async () => {
   position: relative;
   display: block;
   margin: 8px auto;
-  max-width: 94%;
+  max-width: 100%;
 }
 
 :deep(.article-content .article-image-download) {
@@ -417,12 +416,12 @@ onMounted(async () => {
 }
 
 :deep(.article-content .article-image-download i) {
-  font-size: 1.4rem;
+  font-size: 1.2rem;
 }
 
 :deep(.article-content blockquote) {
   font-style: italic;
-  font-size: 13px;
+  font-size: 0.85rem;
   text-align: left;
   color: #3E3E3E;
 }
