@@ -175,15 +175,12 @@ const handleArticleContentClick = (event) => {
   downloadArticleImage(decodeURIComponent(encodedUrl))
 }
 
-// 返回上一个页面
+// 返回文章列表，保留页码和标签筛选
 const goBack = () => {
-  // 获取进入详情页之前的页码，如果没有则默认为第1页
-  const page = route.query.page || 1
-  // 返回到文章列表页，并保留页码
-  router.push({
-    path: '/article',
-    query: { page }
-  })
+  const query = {}
+  if (route.query.page) query.page = route.query.page
+  if (route.query.tag) query.tag = route.query.tag
+  router.push({ path: '/article', query })
 }
 
 // 提交评论（返回接口 data 供 CommentSection 提示「已发布 / 待展示」）
@@ -227,11 +224,13 @@ onMounted(async () => {
 
 <template>
   <div class="article-detail">
-    <a href="/article" @click.prevent="goBack" class="a-back"><i class="iconfont icon-back"></i></a>
     <div v-if="loading" class="loading">加载中...</div>
     <div v-else-if="error" class="error">{{ error }}</div>
     <article v-else-if="article" class="a-complete">
-      <h1 class="a-title">{{ article.title }} 
+      <div class="articles-header">
+        <span class="back-link" @click="goBack">← 返回列表</span>
+      </div>
+      <h1 class="a-title">{{ article.title }}
         <a href="#" 
            v-if="authStore.isAuthenticated && authStore.user?.role === 'admin'"
            @click.prevent="router.push(`/article/${article.id}/edit`)">
@@ -267,20 +266,34 @@ onMounted(async () => {
 }
 
 .a-title {
-  font-size: 1.3rem;
+  font-size: 1.2rem;
   line-height: 2.5;
   font-weight: bold;
 }
 
+.articles-header {
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+
+.back-link {
+  color: #499e8d;
+  cursor: pointer;
+}
+
+.back-link:hover {
+  color: #fd964c;
+}
+
 .meta {
   color: #3E3E3E;
-  font-size: 14px;
+  font-size: 0.8rem;
   line-height: 1.8;
 }
 
 .article-content {
   margin-top: 20px;
-  font-size: 14px;
+  font-size: 0.85rem;
 }
 
 .date {
@@ -337,6 +350,7 @@ onMounted(async () => {
   margin-top: 10px;
   font-weight: bold;
   text-align: left;
+  font-size: 0.9rem;
 }
 
 :deep(.article-content a) {
@@ -413,21 +427,9 @@ onMounted(async () => {
   color: #3E3E3E;
 }
 
-.a-back {
-  display: none;
-}
-
 @media (min-width: 1024px) {
   .article-detail {
     margin: 50px auto 120px;
-  }
-
-  .a-back {
-    display: initial;
-  }
-
-  .icon-back {
-    font-size: 1.5rem;
   }
 
   :deep(.article-content .article-image-wrap) {

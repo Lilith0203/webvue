@@ -185,15 +185,11 @@ watch(
   padding-bottom: 0.5rem;
 }
 
-.a-title {
-  line-height: 45px;
-}
-
 .create-time {
   flex: 0 0 60px;
   height: 86px;
   padding-top: 15px;
-  margin-right: 20px;
+  margin-right: 10px;
   background: url(/images/article-time.png) no-repeat;
   color: #d6d6d6;
   text-align: center;
@@ -214,7 +210,7 @@ watch(
 }
 
 .a-label {
-  font-size: 14px;
+  font-size: 0.8rem;
   line-height: 1.8em;
 }
 
@@ -231,11 +227,20 @@ watch(
   transform: translateY(-1px);
 }
 
+.a-title {
+  line-height: 1.8;
+  margin: 0 0 5px 0;
+  display: flex;
+  align-items: center;
+}
+
 .a-title a {
   font-size: 1.1rem;
-  line-height: 45px;
   color: #5e5e5e;
   font-weight: bold;
+  display: flex;
+  align-items: center;
+  padding: 0;
 }
 
 .a-title a:hover {
@@ -243,11 +248,13 @@ watch(
 }
 
 .read-detail {
-  color: #499e8d
+  color: #9c9c9c;
+  padding: 0;
 }
 
 .a-brief-text {
   text-indent: 2em;
+  font-size: 0.85rem;
 }
 
 .update-time {
@@ -315,14 +322,12 @@ watch(
 }
 
 .edit-delete i {
-  margin-left: 10px;
-  padding: 1px;
-  font-size: 1.2rem;
-  border-radius: 4px;
+  margin-left: 8px;
+  font-size: 1.1rem;
 }
 
-.edit-delete i:hover {
-  border: 1px dashed #9da09e;
+.edit-delete a {
+  padding: 0;
 }
 
 .search-wrapper {
