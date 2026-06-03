@@ -432,7 +432,7 @@ onMounted(async () => {
   }
 
   :deep(.article-content .article-image-wrap) {
-    max-width: 80%;
+    max-width: 86%;
   }
 }
 </style>
