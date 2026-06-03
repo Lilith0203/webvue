@@ -310,7 +310,7 @@ onMounted(async () => {
 
 :deep(.article-content img) {
   display: block;
-  max-width: 100%;
+  max-width: 94%;
   border: 3px solid #fff;
   box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.2);
   margin: 8px auto;
@@ -338,6 +338,10 @@ onMounted(async () => {
 
   .icon-back {
     font-size: 1.5rem;
+  }
+
+  :deep(.article-content img) {
+    max-width: 75%;
   }
 }
 </style>
