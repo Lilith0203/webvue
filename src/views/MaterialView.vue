@@ -233,7 +233,6 @@ const materialToExcelRow = (row) => [
   row.shop ?? '',
   row.note ?? '',
   row.link ?? '',
-  row.pic ?? '',
   formatExportDateTime(row.createdAt),
   formatExportDateTime(row.updatedAt)
 ]
@@ -255,7 +254,7 @@ const exportMaterialsExcel = async () => {
 
     const headers = [
       'ID', '名称', '类型', '材质', '尺寸', '形状', '颜色',
-      '价格', '库存', '商店', '备注', '链接', '图片', '添加时间', '更新时间'
+      '价格', '库存', '商店', '备注', '链接', '添加时间', '更新时间'
     ]
     const headerRow = headers
       .map((h) => `<Cell><Data ss:Type="String">${xmlEscape(h)}</Data></Cell>`)

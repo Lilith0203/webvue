@@ -1565,7 +1565,7 @@ const handleKeydown = (event) => {
 .material-tag {
   display: flex;
   flex-direction: column;
-  background-color: var(--color-background-soft);
+  background-color: #fff;
   padding: 8px 12px;
   border-radius: 4px;
   font-size: 0.9em;
@@ -1573,6 +1573,7 @@ const handleKeydown = (event) => {
   min-width: 100px;
   cursor: pointer;
   transition: all 0.2s ease;
+  border: 1px dashed var(--color-border);
 }
 
 .material-tag:hover {
@@ -1614,7 +1615,7 @@ const handleKeydown = (event) => {
 .material-quantity {
   font-weight: bold;
   color: var(--color-blue);
-  background-color: var(--color-background-soft);
+  background-color: transparent;
   padding: 2px 6px 0 2px;
   border-radius: 3px;
   font-size: 0.9em;
@@ -2112,7 +2113,7 @@ const handleKeydown = (event) => {
 .variant-picture-row label,
 .materials-sub-label {
   display: block;
-  font-size: 12px;
+  font-size: 0.9rem;
   color: #606266;
   margin-bottom: 4px;
 }

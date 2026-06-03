@@ -24,6 +24,12 @@ const comments = ref([])  // 存储评论
 const loadingComments = ref(false)
 const errorComments = ref(null)
 const textColors = ref([])
+const originalImageUrls = ref([])
+let imageRenderIndex = 0
+
+const isAdmin = computed(
+  () => authStore.isAuthenticated && authStore.user?.role === 'admin'
+)
 
 const fetchTextColors = async () => {
   try {
@@ -70,6 +76,19 @@ renderer.link = (link) => {
   return `<a ${attrs}>${link.text}</a>`
 }
 
+renderer.image = ({ href, title, text }) => {
+  const idx = imageRenderIndex++
+  const originalUrl = originalImageUrls.value[idx] || href
+  const alt = text || title || ''
+  const imgHtml = `<img src="${href}" alt="${alt}" />`
+
+  if (!isAdmin.value) {
+    return imgHtml
+  }
+
+  return `<span class="article-image-wrap">${imgHtml}<button type="button" class="article-image-download" data-url="${encodeURIComponent(originalUrl)}" title="下载图片"><i class="iconfont icon-xiazai"></i></button></span>`
+}
+
 const fetchArticle = async () => {
   loading.value = true
   error.value = null
@@ -81,6 +100,7 @@ const fetchArticle = async () => {
         // 处理文章内容中的所有图片链接
       const processedContent = await processContent(article.value.content)
       const escapedContent = escapeMarkdownSingleAsterisks(processedContent)
+      imageRenderIndex = 0
       let html = await marked(escapedContent)
       html = applyManagedColorMarkup(html, textColors.value)
       article.value.renderedContent = html
@@ -100,6 +120,8 @@ marked.use({ renderer })
 const processContent = async (content) => {
   if (!content) return ''
 
+  originalImageUrls.value = []
+
   // 使用正则表达式匹配Markdown图片语法
   const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g
   const matches = content.matchAll(imageRegex)
@@ -107,11 +129,50 @@ const processContent = async (content) => {
   let processedContent = content
   for (const match of matches) {
     const [fullMatch, alt, url] = match
+    originalImageUrls.value.push(url)
     const signedUrl = await refreshImageUrl(url)
     processedContent = processedContent.replace(fullMatch, `![${alt}](${signedUrl})`)
   }
 
   return processedContent
+}
+
+const downloadArticleImage = async (originalUrl) => {
+  if (!originalUrl) return
+
+  try {
+    const signedUrl = await refreshImageUrl(originalUrl)
+    const fileName = `${article.value?.title || 'article'}_${Date.now()}.jpg`
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+
+    if (isMobile) {
+      location.href = signedUrl
+    } else {
+      const link = document.createElement('a')
+      link.href = signedUrl
+      link.download = fileName
+      link.target = '_blank'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+    }
+  } catch (err) {
+    console.error('下载图片失败:', err)
+    message.error('下载图片失败，请稍后重试')
+  }
+}
+
+const handleArticleContentClick = (event) => {
+  const downloadBtn = event.target.closest('.article-image-download')
+  if (!downloadBtn || !isAdmin.value) return
+
+  event.preventDefault()
+  event.stopPropagation()
+
+  const encodedUrl = downloadBtn.dataset.url
+  if (!encodedUrl) return
+
+  downloadArticleImage(decodeURIComponent(encodedUrl))
 }
 
 // 返回上一个页面
@@ -183,7 +244,11 @@ onMounted(async () => {
           <a v-for="tag in article.tags" href="#" @click.prevent="router.push(`/article?tag=${tag}`)">{{ tag }}</a>
         </p>
       </div>
-      <div class="article-content" v-html="article.renderedContent"></div>
+      <div
+        class="article-content"
+        v-html="article.renderedContent"
+        @click="handleArticleContentClick"
+      ></div>
     
       <!-- 使用评论组件 -->
       <CommentSection 
@@ -310,10 +375,35 @@ onMounted(async () => {
 
 :deep(.article-content img) {
   display: block;
-  max-width: 94%;
   border: 3px solid #fff;
   box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.2);
+  max-width: 100%;
+}
+
+:deep(.article-content .article-image-wrap) {
+  position: relative;
+  display: block;
   margin: 8px auto;
+  max-width: 94%;
+}
+
+:deep(.article-content .article-image-download) {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+:deep(.article-content .article-image-download i) {
+  font-size: 1.4rem;
 }
 
 :deep(.article-content blockquote) {
@@ -340,8 +430,8 @@ onMounted(async () => {
     font-size: 1.5rem;
   }
 
-  :deep(.article-content img) {
-    max-width: 75%;
+  :deep(.article-content .article-image-wrap) {
+    max-width: 80%;
   }
 }
 </style>
