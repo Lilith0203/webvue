@@ -1,7 +1,12 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { marked } from 'marked'
-import { applyManagedColorMarkup, escapeMarkdownSingleAsterisks, filterTextColors } from '../utils/richText'
+import {
+  applyManagedColorMarkup,
+  escapeMarkdownSingleAsterisks,
+  filterTextColors,
+  renderArticleImageHtml
+} from '../utils/richText'
 import axios from '../api'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from '../utils/message'
@@ -17,6 +22,10 @@ const newTag = ref('')
 const showPreview = ref(false)
 const contentEditor = ref(null)
 const textColors = ref([])
+
+const previewRenderer = new marked.Renderer()
+previewRenderer.image = ({ href, title, text }) =>
+  renderArticleImageHtml(href, text || title || '')
 
 const fetchTextColors = async () => {
   try {
@@ -97,7 +106,7 @@ const insertImageMarkdown = (imageUrl) => {
   // 移除签名相关参数
   const paramsToRemove = ['Expires', 'OSSAccessKeyId', 'Signature', 'security-token','x-oss-process'];
   paramsToRemove.forEach(param => urlObj.searchParams.delete(param));
-  imageUrl = urlObj.toString();
+  imageUrl = urlObj.toString()
   const imageMarkdown = `![image](${imageUrl})`
   articleForm.value.content = 
     content.substring(0, start) + 
@@ -175,7 +184,7 @@ onMounted(async () => {
 const renderedContent = computed(() => {
   if (!articleForm.value.content) return ''
   const escaped = escapeMarkdownSingleAsterisks(articleForm.value.content)
-  let html = marked(escaped)
+  let html = marked.parse(escaped, { renderer: previewRenderer })
   return applyManagedColorMarkup(html, textColors.value)
 })
   
@@ -349,7 +358,7 @@ onUnmounted(() => {
             v-model="articleForm.content"
             rows="20"
             required
-            placeholder="请输入文章内容（支持Markdown）"
+            placeholder="支持 Markdown；图片可写 ![描述|600](url) 限制单张最大宽度为 600px"
             ref="contentEditor"></textarea>
 
           <!-- 上传进度提示 -->
@@ -484,7 +493,7 @@ textarea:focus {
 
 .editor-toolbar {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   padding: 8px;
   background-color: #f5f5f5;
   border-radius: 4px;
@@ -496,6 +505,7 @@ textarea:focus {
   border-radius: 4px;
   background-color: white;
   cursor: pointer;
+  color: var(--color-text);
 }
 
 .markdown-preview {
@@ -518,6 +528,11 @@ textarea:focus {
   margin-top: 10px;
   font-weight: bold;
   text-align: left;
+}
+
+:deep(.markdown-preview img) {
+  max-width: 100%;
+  height: auto;
 }
 
 .form-actions {

@@ -4,8 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import axios from '../api'
 import { marked } from 'marked'
 import { useAuthStore } from '../stores/auth'
-import { refreshImageUrl} from '../utils/image'
-import { applyManagedColorMarkup, escapeMarkdownSingleAsterisks, filterTextColors } from '../utils/richText'
+import { refreshImageUrl } from '../utils/image'
+import {
+  applyManagedColorMarkup,
+  escapeMarkdownSingleAsterisks,
+  filterTextColors,
+  parseArticleImageAlt,
+  articleImageStyleAttr
+} from '../utils/richText'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
 import { message } from '../utils/message'
@@ -70,7 +76,7 @@ renderer.link = (link) => {
     `href="${url}"`,
     isExternal ? 'target="_blank"' : '',  // 外部链接添加 target="_blank"
     isExternal ? 'rel="noopener noreferrer"' : '',  // 安全属性
-    link.title ? `title="${title}"` : ''
+    link.title ? `title="${link.title}"` : ''
   ].filter(Boolean).join(' ')
   
   return `<a ${attrs}>${link.text}</a>`
@@ -79,8 +85,9 @@ renderer.link = (link) => {
 renderer.image = ({ href, title, text }) => {
   const idx = imageRenderIndex++
   const originalUrl = originalImageUrls.value[idx] || href
-  const alt = text || title || ''
-  const imgHtml = `<img src="${href}" alt="${alt}" />`
+  const { alt, maxWidth } = parseArticleImageAlt(text || title || '')
+  const safeAlt = alt.replace(/"/g, '&quot;')
+  const imgHtml = `<img src="${href}" alt="${safeAlt}"${articleImageStyleAttr(maxWidth)} />`
 
   if (!isAdmin.value) {
     return imgHtml
@@ -101,7 +108,7 @@ const fetchArticle = async () => {
       const processedContent = await processContent(article.value.content)
       const escapedContent = escapeMarkdownSingleAsterisks(processedContent)
       imageRenderIndex = 0
-      let html = await marked(escapedContent)
+      let html = marked.parse(escapedContent, { renderer })
       html = applyManagedColorMarkup(html, textColors.value)
       article.value.renderedContent = html
     }
@@ -112,9 +119,6 @@ const fetchArticle = async () => {
     loading.value = false
   }
 }
-
-// 使用自定义渲染器
-marked.use({ renderer })
 
 // 处理文章内容中的图片链接
 const processContent = async (content) => {

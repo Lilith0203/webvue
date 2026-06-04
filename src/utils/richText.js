@@ -38,6 +38,35 @@ export function applyManagedColorMarkup(html, textColors) {
   return rendered
 }
 
+/**
+ * 解析文章图片 alt：![描述|600](url) 中 | 后为最大显示宽度（px）
+ */
+export function parseArticleImageAlt(alt) {
+  const raw = String(alt ?? '').trim()
+  const pipe = raw.lastIndexOf('|')
+  if (pipe > 0) {
+    const maybeW = parseInt(raw.slice(pipe + 1), 10)
+    if (Number.isFinite(maybeW) && maybeW > 0) {
+      return {
+        alt: raw.slice(0, pipe).trim() || 'image',
+        maxWidth: Math.min(2400, Math.round(maybeW))
+      }
+    }
+  }
+  return { alt: raw || 'image', maxWidth: null }
+}
+
+export function articleImageStyleAttr(maxWidth) {
+  if (!maxWidth) return ''
+  return ` style="max-width: ${maxWidth}px; width: 100%; height: auto; display: block; margin: 8px auto;"`
+}
+
+export function renderArticleImageHtml(href, altText) {
+  const { alt, maxWidth } = parseArticleImageAlt(altText)
+  const safeAlt = alt.replace(/"/g, '&quot;')
+  return `<img src="${href}" alt="${safeAlt}"${articleImageStyleAttr(maxWidth)} />`
+}
+
 /** 转义单个 *，保留 ** 粗体（与剧情/攻略详情一致） */
 export function escapeMarkdownSingleAsterisks(content) {
   const placeholder = '___DOUBLESTAR___'
