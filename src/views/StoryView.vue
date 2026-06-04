@@ -3433,9 +3433,9 @@ input[type="datetime-local"] {
 .preview-images {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 10px;
+  gap: 8px;
   border-radius: 4px;
-  min-height: 90px;
+  /*min-height: 90px;*/
 }
 
 .image-upload-box {
@@ -3841,12 +3841,6 @@ input[type="datetime-local"] {
   .modal-content {
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-  }
-
-  .preview-images {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 8px;
-    min-height: 90px;
   }
 }
 

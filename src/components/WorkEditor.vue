@@ -2070,6 +2070,7 @@ const handleKeydown = (event) => {
   background: #f5f7fa;
   cursor: pointer;
   font-size: 0.8rem;
+  color: var(--color-text);
 }
 
 .variant-tab.dragging {

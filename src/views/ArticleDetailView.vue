@@ -395,9 +395,18 @@ onMounted(async () => {
 
 :deep(.article-content .article-image-wrap) {
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: fit-content;
+  max-width: 94%;
   margin: 8px auto;
+}
+
+:deep(.article-content .article-image-wrap img) {
+  display: block;
   max-width: 100%;
+  height: auto;
 }
 
 :deep(.article-content .article-image-download) {

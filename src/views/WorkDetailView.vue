@@ -1124,6 +1124,7 @@ onMounted(async() => {
   justify-content: center;
   box-sizing: border-box;
   min-height: 24px;
+  color: var(--color-text);
 }
 
 .variant-tab.active {
