@@ -5,8 +5,8 @@ import {
   escapeMarkdownSingleAsterisks,
   applyManagedColorMarkup,
   filterTextColors,
-  resetGuideTaskIndex,
-  renderGuideCheckbox,
+  preprocessGuideTaskLines,
+  preserveLeadingSpacesInMarkdown,
   toggleGuideTaskInMarkdown
 } from '../utils/richText'
 import axios from '../api'
@@ -30,9 +30,6 @@ const uploading = ref(false)
 const uploadProgress = ref(0)
 const categories = ref(['世界之外', '时空中的绘旅人', '光与夜之恋', '未定事件簿', '未分类'])
 const textColors = ref([])
-
-const guideRenderer = new marked.Renderer()
-guideRenderer.checkbox = ({ checked }) => renderGuideCheckbox(!!checked, true)
 
 // 表单数据
 const guideForm = ref({
@@ -236,9 +233,11 @@ onMounted(async () => {
 // Markdown 预览（与详情页一致，复选框可点击切换）
 const renderedContent = computed(() => {
   if (!guideForm.value.content) return ''
-  resetGuideTaskIndex()
-  const restored = escapeMarkdownSingleAsterisks(guideForm.value.content)
-  let html = marked.parse(restored, { renderer: guideRenderer })
+  const restored = preserveLeadingSpacesInMarkdown(
+    escapeMarkdownSingleAsterisks(guideForm.value.content)
+  )
+  const withTasks = preprocessGuideTaskLines(restored, true)
+  let html = marked.parse(withTasks)
   return applyManagedColorMarkup(html, textColors.value)
 })
 
@@ -672,10 +671,10 @@ select:focus {
 
 /* 以下与 GuideDetailView .guide-content 保持一致 */
 :deep(.guide-content p) {
-  text-indent: 2em;
   line-height: 1.8em;
   margin-bottom: 6px;
   text-align: left;
+  white-space: pre-wrap;
 }
 
 :deep(.guide-content ul),
@@ -690,45 +689,71 @@ select:focus {
   margin-bottom: 5px;
 }
 
-:deep(.guide-content li:has(.guide-task-check)) {
-  list-style: none;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.35em;
-  line-height: 1.6em;
+:deep(.guide-content p:has(.guide-task-line)) {
+  margin: 0 0 5px;
+  line-height: 1.6;
+  display: contents;
 }
 
-:deep(.guide-content li:has(.guide-task-check) p) {
-  margin: 0;
-  text-indent: 0;
+:deep(.markdown-preview .guide-task-line),
+:deep(.guide-content .guide-task-line) {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  line-height: 1.6;
+  margin-bottom: 5px;
+}
+
+:deep(.markdown-preview .guide-task-text),
+:deep(.guide-content .guide-task-text) {
   flex: 1;
   min-width: 0;
+  line-height: 1.6;
 }
 
+:deep(.markdown-preview .guide-task-text p),
+:deep(.guide-content .guide-task-text p) {
+  margin: 0;
+  line-height: inherit;
+  white-space: pre-wrap;
+}
+
+:deep(.markdown-preview .guide-task-check),
 :deep(.guide-content .guide-task-check) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 1em;
-  height: 1em;
-  margin: 0.3em 0 0;
+  width: 1.05em;
+  height: 1.05em;
+  min-width: 1.05em;
+  min-height: 1.05em;
+  margin: 0;
+  padding: 0;
   border: 1px solid #499e8d;
   border-radius: 2px;
-  font-size: 1em;
+  font-size: 0.9em;
   line-height: 1;
   color: #499e8d;
   flex-shrink: 0;
+  align-self: center;
 }
 
+:deep(.markdown-preview .guide-task-check.is-checked),
 :deep(.guide-content .guide-task-check.is-checked) {
   font-weight: bold;
 }
 
+:deep(.markdown-preview button.guide-task-check),
 :deep(.guide-content button.guide-task-check) {
   background: #fff;
   cursor: pointer;
   padding: 0;
+  margin: 0;
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  vertical-align: middle;
 }
 
 :deep(.guide-content h1) {

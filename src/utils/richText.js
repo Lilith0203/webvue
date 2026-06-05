@@ -1,3 +1,5 @@
+import { marked } from 'marked'
+
 /** 颜色管理中「标签颜色」且合集为「文本」的条目，用于正文 [文字:颜色名] */
 
 export function escapeRegex(str) {
@@ -77,12 +79,27 @@ export function resetGuideTaskIndex() {
 export function renderGuideCheckbox(checked, interactive = false) {
   const idx = guideTaskIndex++
   const cls = `guide-task-check${checked ? ' is-checked' : ''}`
-  // 未选中用不换行空格占位，与选中时 ✓ 保持相同行高，避免方框视觉上偏上
-  const mark = checked ? '✓' : '\u00a0'
+  const mark = checked ? '✓' : ''
   if (interactive) {
     return `<button type="button" class="${cls}" data-guide-task-idx="${idx}" aria-pressed="${checked ? 'true' : 'false'}">${mark}</button>`
   }
   return `<span class="${cls}">${mark}</span>`
+}
+
+/**
+ * 将 - [ ] / - [x] 行预处理为 div，避免 marked 生成 ul/li
+ */
+export function preprocessGuideTaskLines(content, interactive = false) {
+  resetGuideTaskIndex()
+  const taskLineRe = /^(\s*)(?:[-*+]|\d+\.)\s+\[([ xX])\]\s*(.*)$/gm
+  return String(content ?? '').replace(taskLineRe, (_, indent, check, text) => {
+    const checked = check.toLowerCase() === 'x'
+    const indentEm = Math.floor(String(indent).replace(/\t/g, '  ').length / 2)
+    const style = indentEm > 0 ? ` style="margin-left:${indentEm * 1.5}em"` : ''
+    const checkbox = renderGuideCheckbox(checked, interactive)
+    const inlineHtml = marked.parseInline(String(text).trim())
+    return `\n<div class="guide-task-line"${style}>${checkbox}<span class="guide-task-text">${inlineHtml}</span></div>\n`
+  })
 }
 
 /** 按预览中的序号切换对应任务项勾选状态 */
@@ -105,6 +122,44 @@ export function toggleGuideTaskInMarkdown(content, taskIdx) {
     count++
   }
   return content
+}
+
+/** 编辑器中 2 个半角空格 ≈ 1 个汉字宽，转为等宽全角空格 */
+function leadingSpacesToChineseIndent(indent) {
+  const spaces = indent.replace(/\t/g, '    ').length
+  const fullWidth = Math.floor(spaces / 2)
+  const half = spaces % 2
+  return '\u3000'.repeat(fullWidth) + (half ? '\u00a0' : '')
+}
+
+/**
+ * 将段落行首空格转为全角空格，与编辑区「2 半角 = 1 汉字」对齐
+ * 避免 4 个及以上前导空格被 Markdown 解析为 <pre><code>
+ * 列表、任务、标题、引用行不处理；``` 围栏内保持原样
+ */
+export function preserveLeadingSpacesInMarkdown(content) {
+  const lines = String(content ?? '').split('\n')
+  let inFence = false
+
+  return lines
+    .map((line) => {
+      if (/^\s*```/.test(line)) {
+        inFence = !inFence
+        return line
+      }
+      if (inFence || !line || /^\s*</.test(line)) return line
+
+      const m = line.match(/^(\s+)(.+)$/)
+      if (!m) return line
+
+      const body = m[2]
+      if (/^#{1,6}\s/.test(body)) return line
+      if (/^>/.test(body)) return line
+      if (/^(?:[-*+]|\d+\.)\s/.test(body)) return line
+
+      return leadingSpacesToChineseIndent(m[1]) + body
+    })
+    .join('\n')
 }
 
 /** 转义单个 *，保留 ** 粗体（与剧情/攻略详情一致） */

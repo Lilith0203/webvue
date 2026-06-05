@@ -8,6 +8,7 @@ import { refreshImageUrl } from '../utils/image'
 import {
   applyManagedColorMarkup,
   escapeMarkdownSingleAsterisks,
+  preserveLeadingSpacesInMarkdown,
   filterTextColors,
   parseArticleImageAlt,
   articleImageStyleAttr
@@ -106,7 +107,9 @@ const fetchArticle = async () => {
     if (article.value.content) {
         // 处理文章内容中的所有图片链接
       const processedContent = await processContent(article.value.content)
-      const escapedContent = escapeMarkdownSingleAsterisks(processedContent)
+      const escapedContent = preserveLeadingSpacesInMarkdown(
+        escapeMarkdownSingleAsterisks(processedContent)
+      )
       imageRenderIndex = 0
       let html = marked.parse(escapedContent, { renderer })
       html = applyManagedColorMarkup(html, textColors.value)
@@ -328,10 +331,10 @@ onMounted(async () => {
 }
 
 :deep(.article-content p) {
-  text-indent: 2em;
   line-height: 1.8em;
   margin-bottom: 6px;
   text-align: left;
+  white-space: pre-wrap;
 }
 
 :deep(.article-content ul), 

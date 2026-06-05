@@ -8,8 +8,8 @@ import {
   escapeMarkdownSingleAsterisks,
   applyManagedColorMarkup,
   filterTextColors,
-  resetGuideTaskIndex,
-  renderGuideCheckbox
+  preprocessGuideTaskLines,
+  preserveLeadingSpacesInMarkdown
 } from '../utils/richText'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
@@ -26,9 +26,6 @@ const loading = ref(false)
 const error = ref(null)
 
 const isAdmin = computed(() => authStore.isAuthenticated && authStore.user?.role === 'admin')
-
-const guideRenderer = new marked.Renderer()
-guideRenderer.checkbox = ({ checked }) => renderGuideCheckbox(!!checked, false)
 
 // 评论相关状态
 const comments = ref([])
@@ -50,9 +47,11 @@ const fetchTagColors = async () => {
 const processMarkdownContent = (content) => {
   if (!content) return ''
 
-  resetGuideTaskIndex()
-  const restored = escapeMarkdownSingleAsterisks(content)
-  let rendered = marked.parse(restored, { renderer: guideRenderer })
+  const restored = preserveLeadingSpacesInMarkdown(
+    escapeMarkdownSingleAsterisks(content)
+  )
+  const withTasks = preprocessGuideTaskLines(restored, false)
+  let rendered = marked.parse(withTasks)
   return applyManagedColorMarkup(rendered, tagColors.value)
 }
 
@@ -257,7 +256,7 @@ onUnmounted(() => {
 }
 
 .guide-content {
-  margin-top: 20px;
+  margin-top: 10px;
   font-size: 14px;
 }
 
@@ -310,10 +309,10 @@ onUnmounted(() => {
 }
 
 :deep(.guide-content p) {
-  text-indent: 2em;
   line-height: 1.8em;
   margin-bottom: 6px;
   text-align: left;
+  white-space: pre-wrap;
 }
 
 :deep(.guide-content ul), 
@@ -328,19 +327,31 @@ onUnmounted(() => {
   margin-bottom: 5px;
 }
 
-:deep(.guide-content li:has(.guide-task-check)) {
-  list-style: none;
-  display: flex;
-  align-items: flex-start;
-  gap: 0.35em;
-  line-height: 1.6em;
+:deep(.guide-content p:has(.guide-task-line)) {
+  margin: 0 0 5px;
+  line-height: 1.6;
+  display: contents;
 }
 
-:deep(.guide-content li:has(.guide-task-check) p) {
-  margin: 0;
-  text-indent: 0;
+:deep(.guide-content .guide-task-line) {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  line-height: 1.6;
+  margin-bottom: 5px;
+}
+
+:deep(.guide-content .guide-task-text) {
   flex: 1;
   min-width: 0;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+:deep(.guide-content .guide-task-text p) {
+  margin: 0;
+  line-height: inherit;
+  white-space: pre-wrap;
 }
 
 :deep(.guide-content .guide-task-check) {
@@ -348,15 +359,19 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 1em;
-  height: 1em;
-  margin: 0.3em 0 0;
+  width: 1.05em;
+  height: 1.05em;
+  min-width: 1.05em;
+  min-height: 1.05em;
+  margin: 0;
+  padding: 0;
   border: 1px solid #499e8d;
   border-radius: 2px;
-  font-size: 1em;
+  font-size: 0.8rem;
   line-height: 1;
   color: #499e8d;
   flex-shrink: 0;
+  align-self: center;
 }
 
 :deep(.guide-content .guide-task-check.is-checked) {

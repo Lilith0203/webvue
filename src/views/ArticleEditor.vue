@@ -4,6 +4,7 @@ import { marked } from 'marked'
 import {
   applyManagedColorMarkup,
   escapeMarkdownSingleAsterisks,
+  preserveLeadingSpacesInMarkdown,
   filterTextColors,
   renderArticleImageHtml
 } from '../utils/richText'
@@ -184,7 +185,9 @@ onMounted(async () => {
 // Markdown 预览（彩色标记与剧情一致，使用颜色管理中的「文本」合集）
 const renderedContent = computed(() => {
   if (!articleForm.value.content) return ''
-  const escaped = escapeMarkdownSingleAsterisks(articleForm.value.content)
+  const escaped = preserveLeadingSpacesInMarkdown(
+    escapeMarkdownSingleAsterisks(articleForm.value.content)
+  )
   let html = marked.parse(escaped, { renderer: previewRenderer })
   return applyManagedColorMarkup(html, textColors.value)
 })
@@ -518,10 +521,10 @@ textarea:focus {
 
 /* 以下与 ArticleDetailView .article-content 保持一致 */
 :deep(.article-content p) {
-  text-indent: 2em;
   line-height: 1.8em;
   margin-bottom: 6px;
   text-align: left;
+  white-space: pre-wrap;
 }
 
 :deep(.article-content ul),
