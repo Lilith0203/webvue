@@ -356,7 +356,7 @@ onMounted(async () => {
   margin-top: 10px;
   font-weight: bold;
   text-align: left;
-  font-size: 0.95rem;
+  font-size: 1rem;
 }
 
 :deep(.article-content a) {
