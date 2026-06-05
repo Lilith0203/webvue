@@ -176,6 +176,7 @@ const fetchArticle = async () => {
   
 // 在组件挂载时获取文章数据
 onMounted(async () => {
+  window.addEventListener('beforeunload', beforeUnload)
   await fetchTextColors()
   await fetchArticle()
 })
@@ -266,10 +267,6 @@ const beforeUnload = (e) => {
   e.returnValue = ''
 }
   
-onMounted(() => {
-  window.addEventListener('beforeunload', beforeUnload)
-})
-  
 onUnmounted(() => {
   window.removeEventListener('beforeunload', beforeUnload)
 })
@@ -330,7 +327,6 @@ onUnmounted(() => {
         <label for="content">内容</label>
         <div class="editor-toolbar">
           <button type="button" @click="insertMarkdown('**', '**')">粗体</button>
-          <button type="button" @click="insertMarkdown('*', '*')">斜体</button>
           <button type="button" @click="insertMarkdown('### ')">标题</button>
           <button type="button" @click="insertMarkdown('> ')">引用</button>
           <button type="button" @click="insertMarkdown('- ')">列表</button>
@@ -368,7 +364,10 @@ onUnmounted(() => {
           </div>
         </div>
         <!-- 预览区域 -->
-        <div v-if="showPreview" class="markdown-preview" v-html="renderedContent"></div>
+        <div
+          v-if="showPreview"
+          class="markdown-preview article-content"
+          v-html="renderedContent"></div>
       </div>
 
       <!-- 摘要 -->
@@ -514,25 +513,86 @@ textarea:focus {
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: #fff;
+  font-size: 0.9rem;
 }
 
-:deep(.markdown-preview p) {
+/* 以下与 ArticleDetailView .article-content 保持一致 */
+:deep(.article-content p) {
   text-indent: 2em;
   line-height: 1.8em;
   margin-bottom: 6px;
   text-align: left;
 }
 
-:deep(.markdown-preview h3) {
+:deep(.article-content ul),
+:deep(.article-content ol) {
+  line-height: 1.8;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+:deep(.article-content h1) {
   line-height: 2;
   margin-top: 10px;
   font-weight: bold;
   text-align: left;
 }
 
-:deep(.markdown-preview img) {
+:deep(.article-content h3) {
+  line-height: 2;
+  margin-top: 10px;
+  font-weight: bold;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+:deep(.article-content a) {
+  color: #4a9dd9;
+  border-bottom: 1px dashed #C9DFFB;
+}
+
+:deep(.article-content strong) {
+  font-weight: bold;
+}
+
+:deep(.article-content .demo) {
+  display: inline-block;
+  width: 60px;
+  background-color: #4a9dd9;
+  color: #fff;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.8;
+  border: 1px dashed #fff;
+}
+
+:deep(.article-content .demo:hover) {
+  background-color: #C9DFFB;
+}
+
+:deep(.article-content code) {
+  display: block;
+  white-space: pre-wrap;
+  text-align: left;
+  margin: 10px 35px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #575757;
+}
+
+:deep(.article-content img) {
+  display: block;
+  border: 3px solid #fff;
+  box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.2);
   max-width: 100%;
   height: auto;
+}
+
+:deep(.article-content blockquote) {
+  font-style: italic;
+  font-size: 0.85rem;
+  text-align: left;
+  color: #3E3E3E;
 }
 
 .form-actions {

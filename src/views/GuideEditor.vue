@@ -1,6 +1,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { marked } from 'marked'
+import {
+  escapeMarkdownSingleAsterisks,
+  applyManagedColorMarkup,
+  filterTextColors,
+  resetGuideTaskIndex,
+  renderGuideCheckbox,
+  toggleGuideTaskInMarkdown
+} from '../utils/richText'
 import axios from '../api'
 import { useRouter, useRoute } from 'vue-router'
 import { message } from '../utils/message'
@@ -21,6 +29,10 @@ const isDragging = ref(false)
 const uploading = ref(false)
 const uploadProgress = ref(0)
 const categories = ref(['世界之外', '时空中的绘旅人', '光与夜之恋', '未定事件簿', '未分类'])
+const textColors = ref([])
+
+const guideRenderer = new marked.Renderer()
+guideRenderer.checkbox = ({ checked }) => renderGuideCheckbox(!!checked, true)
 
 // 表单数据
 const guideForm = ref({
@@ -206,19 +218,42 @@ const fetchGuide = async () => {
   }
 }
   
-onMounted(fetchGuide)
+const fetchTextColors = async () => {
+  try {
+    const response = await axios.get('/colors')
+    textColors.value = filterTextColors(response.data?.data)
+  } catch (err) {
+    console.error('获取文本颜色失败:', err)
+  }
+}
+
+onMounted(async () => {
+  window.addEventListener('beforeunload', beforeUnload)
+  await fetchTextColors()
+  await fetchGuide()
+})
   
-// Markdown 预览
+// Markdown 预览（与详情页一致，复选框可点击切换）
 const renderedContent = computed(() => {
   if (!guideForm.value.content) return ''
-  // 仅转义“单个 *”，避免误触发斜体；保留 **粗体** 可正常渲染
-  // 说明：此前全量转义 * 会导致 **xxx** 无法触发粗体
-  const STAR_SENTINEL = '__MD_BOLD_STAR__'
-  const keepBold = guideForm.value.content.replace(/\*\*/g, STAR_SENTINEL)
-  const escapedSingles = keepBold.replace(/\*/g, '\\*')
-  const restored = escapedSingles.replace(new RegExp(STAR_SENTINEL, 'g'), '**')
-  return marked(restored)
+  resetGuideTaskIndex()
+  const restored = escapeMarkdownSingleAsterisks(guideForm.value.content)
+  let html = marked.parse(restored, { renderer: guideRenderer })
+  return applyManagedColorMarkup(html, textColors.value)
 })
+
+const handlePreviewClick = (event) => {
+  const btn = event.target.closest('[data-guide-task-idx]')
+  if (!btn) return
+  event.preventDefault()
+  event.stopPropagation()
+  const idx = Number(btn.dataset.guideTaskIdx)
+  guideForm.value.content = toggleGuideTaskInMarkdown(guideForm.value.content, idx)
+}
+
+const insertGuideCheckbox = () => {
+  insertMarkdown('- [ ] ', '')
+}
   
 // 添加标签
 const addTag = () => {
@@ -317,10 +352,6 @@ const beforeUnload = (e) => {
   e.returnValue = ''
 }
   
-onMounted(() => {
-  window.addEventListener('beforeunload', beforeUnload)
-})
-  
 onUnmounted(() => {
   window.removeEventListener('beforeunload', beforeUnload)
 })
@@ -409,10 +440,10 @@ onUnmounted(() => {
         <label for="content">内容</label>
         <div class="editor-toolbar">
           <button type="button" @click="insertMarkdown('**', '**')">粗体</button>
-          <button type="button" @click="insertMarkdown('*', '*')">斜体</button>
           <button type="button" @click="insertMarkdown('### ')">标题</button>
           <button type="button" @click="insertMarkdown('> ')">引用</button>
           <button type="button" @click="insertMarkdown('- ')">列表</button>
+          <button type="button" @click="insertGuideCheckbox">复选框</button>
           <button type="button" @click="insertMarkdown('[]() ')">链接</button>
           <button type="button" @click="insertMarkdown('```\n', '\n```')">代码块</button>
           <button type="button" @click="insertTable()">表格</button>
@@ -436,7 +467,7 @@ onUnmounted(() => {
             v-model="guideForm.content"
             rows="20"
             required
-            placeholder="请输入攻略内容（支持Markdown）"
+            placeholder="支持 Markdown；任务项：- [ ] 未完成，- [x] 已完成（预览中可点击切换）"
             ref="contentEditor"></textarea>
 
           <div v-if="uploading" class="upload-progress">
@@ -444,7 +475,11 @@ onUnmounted(() => {
             <span>上传中... {{ uploadProgress }}%</span>
           </div>
         </div>
-        <div v-if="showPreview" class="markdown-preview" v-html="renderedContent"></div>
+        <div
+          v-if="showPreview"
+          class="markdown-preview guide-content"
+          v-html="renderedContent"
+          @click="handlePreviewClick"></div>
       </div>
   
       <div class="form-actions">
@@ -632,20 +667,172 @@ select:focus {
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: #fff;
+  font-size: 14px;
 }
 
-:deep(.markdown-preview p) {
+/* 以下与 GuideDetailView .guide-content 保持一致 */
+:deep(.guide-content p) {
   text-indent: 2em;
   line-height: 1.8em;
   margin-bottom: 6px;
   text-align: left;
 }
 
-:deep(.markdown-preview h3) {
+:deep(.guide-content ul),
+:deep(.guide-content ol) {
+  font-size: 14px;
+  line-height: 1.6em;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+:deep(.guide-content li) {
+  margin-bottom: 5px;
+}
+
+:deep(.guide-content li:has(.guide-task-check)) {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35em;
+  line-height: 1.6em;
+}
+
+:deep(.guide-content li:has(.guide-task-check) p) {
+  margin: 0;
+  text-indent: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+:deep(.guide-content .guide-task-check) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1em;
+  height: 1em;
+  margin: 0.3em 0 0;
+  border: 1px solid #499e8d;
+  border-radius: 2px;
+  font-size: 1em;
+  line-height: 1;
+  color: #499e8d;
+  flex-shrink: 0;
+}
+
+:deep(.guide-content .guide-task-check.is-checked) {
+  font-weight: bold;
+}
+
+:deep(.guide-content button.guide-task-check) {
+  background: #fff;
+  cursor: pointer;
+  padding: 0;
+}
+
+:deep(.guide-content h1) {
   line-height: 2;
   margin-top: 10px;
   font-weight: bold;
   text-align: left;
+}
+
+:deep(.guide-content h3) {
+  line-height: 2;
+  margin-top: 10px;
+  font-weight: bold;
+  text-align: left;
+}
+
+:deep(.guide-content a) {
+  color: #4a9dd9;
+  border-bottom: 1px dashed #C9DFFB;
+}
+
+:deep(.guide-content strong) {
+  font-weight: bold;
+}
+
+:deep(.guide-content .demo) {
+  display: inline-block;
+  width: 60px;
+  background-color: #4a9dd9;
+  color: #fff;
+  font-weight: bold;
+  text-align: center;
+  line-height: 1.8;
+  border: 1px dashed #fff;
+}
+
+:deep(.guide-content .demo:hover) {
+  background-color: #C9DFFB;
+}
+
+:deep(.guide-content code) {
+  display: block;
+  white-space: pre-wrap;
+  text-align: left;
+  margin: 10px 35px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #575757;
+}
+
+:deep(.guide-content img) {
+  display: block;
+  max-width: 100%;
+  border: 3px solid #fff;
+  box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.2);
+  margin: 8px auto;
+}
+
+:deep(.guide-content blockquote) {
+  font-style: italic;
+  font-size: 13px;
+  text-align: left;
+  color: #3E3E3E;
+}
+
+:deep(.guide-content table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 15px 0;
+  font-size: 12px;
+  overflow-x: auto;
+  min-width: 600px;
+}
+
+:deep(.guide-content table th) {
+  background-color: #f2f2f2;
+  border: 1px solid #ddd;
+  padding: 5px;
+  text-align: left;
+  font-weight: bold;
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-all;
+}
+
+:deep(.guide-content table td) {
+  border: 1px solid #ddd;
+  padding: 5px;
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+:deep(.guide-content table tr:nth-child(even)) {
+  background-color: #f9f9f9;
+}
+
+:deep(.guide-content table tr:hover) {
+  background-color: #f5f5f5;
+}
+
+:deep(.guide-content) {
+  overflow-x: auto;
 }
 
 .form-actions {

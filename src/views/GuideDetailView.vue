@@ -4,6 +4,13 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { marked } from 'marked'
+import {
+  escapeMarkdownSingleAsterisks,
+  applyManagedColorMarkup,
+  filterTextColors,
+  resetGuideTaskIndex,
+  renderGuideCheckbox
+} from '../utils/richText'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
 
@@ -20,6 +27,9 @@ const error = ref(null)
 
 const isAdmin = computed(() => authStore.isAuthenticated && authStore.user?.role === 'admin')
 
+const guideRenderer = new marked.Renderer()
+guideRenderer.checkbox = ({ checked }) => renderGuideCheckbox(!!checked, false)
+
 // 评论相关状态
 const comments = ref([])
 const loadingComments = ref(false)
@@ -30,36 +40,20 @@ const fetchTagColors = async () => {
   try {
     const response = await axios.get('/colors')
     // 过滤出标签颜色（category: 2）且set为"文本"的颜色
-    tagColors.value = response.data.data.filter(color => color.category === 2 && color.set === '文本')
+    tagColors.value = filterTextColors(response.data?.data)
   } catch (error) {
     console.error('获取标签颜色失败:', error)
   }
 }
 
-// 处理Markdown内容，为颜色类添加内联样式
+// 处理 Markdown：任务勾选、彩色标记
 const processMarkdownContent = (content) => {
   if (!content) return ''
-  
-  // 使用marked渲染Markdown
-  // 仅转义“单个 *”，避免误触发斜体；保留 **粗体** 可正常渲染
-  const STAR_SENTINEL = '__MD_BOLD_STAR__'
-  const keepBold = content.replace(/\*\*/g, STAR_SENTINEL)
-  const escapedSingles = keepBold.replace(/\*/g, '\\*')
-  const restored = escapedSingles.replace(new RegExp(STAR_SENTINEL, 'g'), '**')
-  let rendered = marked(restored)
-  
-  // 为所有标签颜色添加内联样式
-  tagColors.value.forEach(color => {
-    // 处理已有的class写法
-    const classRegex = new RegExp(`class="([^"]*\\s)?${color.name}(\\s[^"]*)?"`, 'g')
-    rendered = rendered.replace(classRegex, `class="$1${color.name}$2" style="color: ${color.code};"`)
-    
-    // 处理简便写法：[文字:color]
-    const colorRegex = new RegExp(`\\[([^\\]]+):${color.name}\\]`, 'g')
-    rendered = rendered.replace(colorRegex, `<span style="color: ${color.code};">$1</span>`)
-  })
-  
-  return rendered
+
+  resetGuideTaskIndex()
+  const restored = escapeMarkdownSingleAsterisks(content)
+  let rendered = marked.parse(restored, { renderer: guideRenderer })
+  return applyManagedColorMarkup(rendered, tagColors.value)
 }
 
 // 重新处理攻略内容（当颜色加载完成后调用）
@@ -332,6 +326,41 @@ onUnmounted(() => {
 
 :deep(.guide-content li) {
   margin-bottom: 5px;
+}
+
+:deep(.guide-content li:has(.guide-task-check)) {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35em;
+  line-height: 1.6em;
+}
+
+:deep(.guide-content li:has(.guide-task-check) p) {
+  margin: 0;
+  text-indent: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+:deep(.guide-content .guide-task-check) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1em;
+  height: 1em;
+  margin: 0.3em 0 0;
+  border: 1px solid #499e8d;
+  border-radius: 2px;
+  font-size: 1em;
+  line-height: 1;
+  color: #499e8d;
+  flex-shrink: 0;
+}
+
+:deep(.guide-content .guide-task-check.is-checked) {
+  font-weight: bold;
 }
 
 :deep(.guide-content h1) {

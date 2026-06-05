@@ -67,6 +67,46 @@ export function renderArticleImageHtml(href, altText) {
   return `<img src="${href}" alt="${safeAlt}"${articleImageStyleAttr(maxWidth)} />`
 }
 
+/** 攻略任务列表：- [ ] / - [x]，渲染为可勾选框或只读勾 */
+let guideTaskIndex = 0
+
+export function resetGuideTaskIndex() {
+  guideTaskIndex = 0
+}
+
+export function renderGuideCheckbox(checked, interactive = false) {
+  const idx = guideTaskIndex++
+  const cls = `guide-task-check${checked ? ' is-checked' : ''}`
+  // 未选中用不换行空格占位，与选中时 ✓ 保持相同行高，避免方框视觉上偏上
+  const mark = checked ? '✓' : '\u00a0'
+  if (interactive) {
+    return `<button type="button" class="${cls}" data-guide-task-idx="${idx}" aria-pressed="${checked ? 'true' : 'false'}">${mark}</button>`
+  }
+  return `<span class="${cls}">${mark}</span>`
+}
+
+/** 按预览中的序号切换对应任务项勾选状态 */
+export function toggleGuideTaskInMarkdown(content, taskIdx) {
+  const target = Number(taskIdx)
+  if (!Number.isFinite(target) || target < 0) return content
+
+  let count = 0
+  const lines = String(content ?? '').split('\n')
+  const taskLineRe = /^(\s*(?:[-*+]|\d+\.)\s+)\[([ xX])\](\s*)(.*)$/
+
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(taskLineRe)
+    if (!m) continue
+    if (count === target) {
+      const wasChecked = m[2].toLowerCase() === 'x'
+      lines[i] = `${m[1]}[${wasChecked ? ' ' : 'x'}]${m[3]}${m[4]}`
+      return lines.join('\n')
+    }
+    count++
+  }
+  return content
+}
+
 /** 转义单个 *，保留 ** 粗体（与剧情/攻略详情一致） */
 export function escapeMarkdownSingleAsterisks(content) {
   const placeholder = '___DOUBLESTAR___'
