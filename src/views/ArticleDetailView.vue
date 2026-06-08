@@ -388,7 +388,7 @@ onMounted(async () => {
   white-space: pre-wrap;
   text-align: left;
   margin: 10px 35px;
-  font-size: 13px;
+  font-size: 0.85rem;
   font-family: inherit;
   color: #575757;
 }
@@ -439,7 +439,7 @@ onMounted(async () => {
   font-style: italic;
   font-size: 0.85rem;
   text-align: left;
-  color: #3E3E3E;
+  color: #797979;
 }
 
 @media (min-width: 1024px) {
