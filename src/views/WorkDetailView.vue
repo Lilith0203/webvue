@@ -896,7 +896,7 @@ onMounted(async() => {
 }
   
 .gallery {
-  margin-bottom: 30px;
+  margin-bottom: 10px;
 }
 
 .video-section {
@@ -1057,12 +1057,12 @@ onMounted(async() => {
 }
   
 .work-info {
-  margin-top: 30px;
+  margin-top: 10px;
 }
   
 .description {
   color: #333;
-  margin: 20px 10px 30px;
+  margin: 15px 10px 10px 0;
   font-size: 0.9rem;
 }
 
@@ -1098,7 +1098,7 @@ onMounted(async() => {
 }
 
 .materials-section {
-  margin: 15px 0;
+  margin: 12px 0;
   padding: 10px 10px 15px;
   background-color: var(--color-background-soft);
   border-radius: 8px;
@@ -1108,7 +1108,7 @@ onMounted(async() => {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .variant-tab {

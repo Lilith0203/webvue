@@ -1185,7 +1185,7 @@ const handleKeydown = (event) => {
                   <input
                     :value="formData.variants[activeVariantIndex].price"
                     type="text"
-                    placeholder="留空表示价格待定"
+                    placeholder=""
                     class="price-field"
                     @input="handleVariantPriceInput($event, activeVariantIndex)">
                 </div>
