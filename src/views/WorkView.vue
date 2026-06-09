@@ -2103,6 +2103,10 @@ onUnmounted(() => {
   .search-container.is-searching {
     width: 180px;
   }
+
+  .sets-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  }
 }
 
 /* 分页样式 */

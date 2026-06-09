@@ -85,6 +85,26 @@ export function formatVariantPrice(price) {
   })
 }
 
+export function parseVariantPriceNumber(price) {
+  if (price === '' || price === null || price === undefined) return 0
+  const num = parseFloat(price)
+  return Number.isNaN(num) ? 0 : num
+}
+
+/** 单作品所有规格价格之和（多规格每项均计入） */
+export function sumWorkAllVariantPrices(work) {
+  return parseWorkVariants(work).reduce(
+    (sum, variant) => sum + parseVariantPriceNumber(variant.price),
+    0
+  )
+}
+
+/** 合集中所有作品、所有规格的价格总和 */
+export function sumWorksCollectionPrice(works) {
+  if (!Array.isArray(works)) return 0
+  return works.reduce((sum, work) => sum + sumWorkAllVariantPrices(work), 0)
+}
+
 /** 根据规格关联的图片 URL 在作品 pictures 中的索引，未找到返回 -1 */
 export function resolveVariantPictureIndex(pictures, pictureUrl) {
   const url = String(pictureUrl ?? '').trim()

@@ -1,7 +1,7 @@
 <!-- views/SetDetailView.vue - 合集详情页 -->
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import axios from '../api'
 import WorkList from '../components/WorkList.vue'
@@ -10,12 +10,112 @@ import WorkSelector from '../components/WorkSelector.vue'
 import { confirm } from '../utils/confirm'
 import { message } from '../utils/message'
 import { getTagColor, getTextColor, initTagColors } from '../utils/tags'
+import { formatVariantPrice, sumWorksCollectionPrice } from '../utils/workVariants'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
+const SET_SCROLL_KEY_PREFIX = 'workSetScrollPosition_'
+const SET_RESTORE_FLAG = 'workSetRestoreScroll'
+
+const getSetScrollStorageKey = () => `${SET_SCROLL_KEY_PREFIX}${route.params.id}`
+
+let setScrollClearHandler = null
+
+const clearSetScrollRestoreListeners = () => {
+  if (setScrollClearHandler) {
+    window.removeEventListener('scroll', setScrollClearHandler)
+    setScrollClearHandler = null
+  }
+}
+
+const clearSetScrollRestoreSession = () => {
+  sessionStorage.removeItem(getSetScrollStorageKey())
+  sessionStorage.removeItem(SET_RESTORE_FLAG)
+  clearSetScrollRestoreListeners()
+}
+
+const saveSetScrollPosition = () => {
+  sessionStorage.setItem(getSetScrollStorageKey(), window.scrollY.toString())
+  sessionStorage.setItem(SET_RESTORE_FLAG, String(route.params.id))
+}
+
+const restoreSetScrollPosition = () => {
+  if (sessionStorage.getItem(SET_RESTORE_FLAG) !== String(route.params.id)) {
+    return
+  }
+
+  const raw = sessionStorage.getItem(getSetScrollStorageKey())
+  if (!raw) {
+    clearSetScrollRestoreSession()
+    return
+  }
+
+  const targetTop = parseInt(raw, 10)
+  if (Number.isNaN(targetTop) || targetTop < 0) {
+    clearSetScrollRestoreSession()
+    return
+  }
+
+  clearSetScrollRestoreListeners()
+  let attempts = 0
+  const maxAttempts = 40
+
+  const finishRestore = () => {
+    setScrollClearHandler = () => {
+      clearSetScrollRestoreSession()
+    }
+    setTimeout(() => {
+      if (setScrollClearHandler) {
+        window.addEventListener('scroll', setScrollClearHandler, { passive: true })
+      }
+    }, 150)
+  }
+
+  const tryScroll = () => {
+    const maxScroll = Math.max(
+      0,
+      document.documentElement.scrollHeight - window.innerHeight
+    )
+    const top = Math.min(targetTop, maxScroll)
+    window.scrollTo({ top, behavior: 'instant' })
+
+    const atTarget = Math.abs(window.scrollY - targetTop) <= 8
+    const needRetry = !atTarget && attempts < maxAttempts && maxScroll < targetTop
+
+    if (needRetry) {
+      attempts += 1
+      setTimeout(tryScroll, 80)
+      return
+    }
+
+    finishRestore()
+  }
+
+  requestAnimationFrame(tryScroll)
+}
+
+const preserveScrollWhile = async (task) => {
+  const scrollY = window.scrollY
+  await task()
+  await nextTick()
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: scrollY, behavior: 'instant' })
+  })
+}
+
+onBeforeRouteLeave((to) => {
+  if (to.name === 'workDetail') {
+    saveSetScrollPosition()
+    return
+  }
+  clearSetScrollRestoreSession()
+})
+
 const isAdmin = computed(() => authStore.user?.role === 'admin')
+
+const collectionTotalPrice = computed(() => sumWorksCollectionPrice(works.value))
 
 // 合集信息
 const setInfo = ref(null)
@@ -76,8 +176,12 @@ const fetchSetInfo = async () => {
 const fetchWorks = async () => {
   const setId = parseInt(route.params.id)
   if (!setId) return
-  
-  loadingWorks.value = true
+
+  const isInitialLoad = works.value.length === 0
+  if (isInitialLoad) {
+    loadingWorks.value = true
+  }
+
   try {
     const response = await axios.get(`/works-set/${setId}/works`)
     if (response.data.success) {
@@ -198,7 +302,7 @@ const closeEditor = () => {
 // 处理编辑成功
 const handleEditorSuccess = async () => {
   showEditor.value = false
-  await fetchWorks()
+  await preserveScrollWhile(fetchWorks)
 }
 
 // 删除作品
@@ -207,10 +311,10 @@ const deleteWork = async (id) => {
   if (!confirmed) {
     return
   }
-  
+
   try {
     await axios.post('/works/delete', { id: id })
-    await fetchWorks()
+    await preserveScrollWhile(fetchWorks)
   } catch (error) {
     console.error('删除作品失败:', error)
   }
@@ -246,7 +350,7 @@ const addWorksToSet = async (selectedWorks) => {
     await Promise.all(promises)
     message.success('作品添加成功')
     showWorkSelector.value = false
-    await fetchWorks()
+    await preserveScrollWhile(fetchWorks)
   } catch (error) {
     console.error('添加作品失败:', error)
     if (error.response && error.response.data && error.response.data.message) {
@@ -274,7 +378,7 @@ const removeWorkFromSet = async (workId) => {
       worksId: workId
     })
     message.success('作品移出成功')
-    await fetchWorks()
+    works.value = works.value.filter((work) => work.id !== workId)
   } catch (error) {
     console.error('移出作品失败:', error)
     message.error('移出作品失败')
@@ -315,6 +419,14 @@ onMounted(async () => {
   await initTagColors()
   await fetchSetInfo()
   await fetchWorks()
+
+  if (sessionStorage.getItem(SET_RESTORE_FLAG) === String(route.params.id)) {
+    restoreSetScrollPosition()
+  }
+})
+
+onUnmounted(() => {
+  clearSetScrollRestoreListeners()
 })
 </script>
 
@@ -348,6 +460,9 @@ onMounted(async () => {
           </div>
           <div class="set-meta">
             <span>作品数量: {{ works.length }}</span>
+            <span v-if="isAdmin" class="set-price-total">
+              价格合计: ¥{{ formatVariantPrice(collectionTotalPrice) }}
+            </span>
           </div>
         </div>
       </div>
@@ -364,7 +479,7 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-if="loadingWorks" class="loading">加载中...</div>
+      <div v-if="loadingWorks && works.length === 0" class="loading">加载中...</div>
       <div v-else-if="works.length === 0" class="empty-state">
         <p>该合集暂无作品</p>
       </div>
@@ -510,6 +625,9 @@ onMounted(async () => {
 }
 
 .set-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
   font-size: 0.85rem;
   color: #999;
 }
