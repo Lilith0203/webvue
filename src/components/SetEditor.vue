@@ -165,7 +165,7 @@ const resetForm = () => {
             <label>封面</label>
             <div class="cover-upload">
               <div v-if="formData.cover" class="cover-preview">
-                <img :src="formData.cover" alt="封面预览">
+                <img v-image="formData.cover" alt="封面预览">
                 <button type="button" class="remove-cover" @click="formData.cover = ''">
                   <i class="iconfont icon-ashbin"></i>
                 </button>

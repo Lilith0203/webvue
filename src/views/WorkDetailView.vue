@@ -1453,7 +1453,7 @@ onMounted(async() => {
 .sets-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 5px;
 }
 
 .set-option {
