@@ -645,7 +645,7 @@ button {
 
 .edit-form {
   width: 100%;
-  padding: 10px;
+  padding: 0 10px;
 }
 
 .edit-actions {
@@ -862,14 +862,6 @@ button {
   grid-row: span 2;
 }
 
-.pixel-set .edit-form {
-  padding: 15px;
-}
-
-.pixel-set .edit-form .form-group {
-  margin-bottom: 15px;
-}
-
 .pixel-set .edit-form label {
   display: block;
   margin-bottom: 5px;
@@ -890,7 +882,7 @@ button {
 .colors-edit-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 10px;
+  gap: 5px;
   padding: 15px;
   background: var(--color-background-mute);
   border-radius: 8px;
@@ -914,10 +906,10 @@ button {
 }
 
 .color-edit-item .color-code-input {
-  width: 80px;
+  width: 70px;
   text-align: center;
   padding: 2px 4px;
-  font-size: 0.8em;
+  font-size: 0.8rem;
 }
 
 .pixel-set.editing {
