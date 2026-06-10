@@ -1,8 +1,16 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
+import QRCode from 'qrcode'
 
 const apps = ref([
+  {
+    id: 3,
+    title: '二维码生成',
+    description: '输入文字或链接，生成二维码并下载',
+    image: '',
+    link: '/program/qrcode'
+  },
   {
     id: 1,
     title: '妙手回春---Web游戏',
@@ -18,6 +26,21 @@ const apps = ref([
     link: '/programs/santa/index.html'
   }
 ])
+
+onMounted(async () => {
+  const qrApp = apps.value.find((app) => app.id === 3)
+  if (!qrApp) return
+  try {
+    qrApp.image = await QRCode.toDataURL('https://www.lilithu.com/', {
+      width: 400,
+      margin: 2,
+      errorCorrectionLevel: 'M'
+    })
+  } catch (error) {
+    console.error('生成封面二维码失败:', error)
+    qrApp.image = '/images/qrcode-tool.svg'
+  }
+})
 
 const isExternalLink = (link) => /^https?:\/\//i.test(link) || /\.html(\?|#|$)/i.test(link)
 </script>
@@ -43,7 +66,8 @@ const isExternalLink = (link) => /^https?:\/\//i.test(link) || /\.html(\?|#|$)/i
           </p>
         </div>
         <div>
-          <img :src="app.image" alt="App Image" class="app-image" />
+          <img v-if="app.image" :src="app.image" alt="App Image" class="app-image" />
+          <div v-else class="app-image app-image-placeholder">加载中…</div>
         </div>
       </div>
     </div>
@@ -91,6 +115,18 @@ const isExternalLink = (link) => /^https?:\/\//i.test(link) || /\.html(\?|#|$)/i
   box-shadow: 0px 0px 3px rgba(0,0,0,0.2);
 }
 
+.app-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 240px;
+  min-height: 240px;
+  background: #f5f5f5;
+  color: #999;
+  font-size: 0.85rem;
+  box-sizing: border-box;
+}
+
 .app-link {
   display: inline-block;
   background: transparent url(/images/wlink-bg.png) no-repeat center right;
@@ -107,6 +143,7 @@ const isExternalLink = (link) => /^https?:\/\//i.test(link) || /\.html(\?|#|$)/i
 @media (min-width: 1024px) {
   .app-image {
     max-width: 400px;
+    max-height: 200px;
   }
 }
 </style>

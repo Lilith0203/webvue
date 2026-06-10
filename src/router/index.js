@@ -113,6 +113,11 @@ const router = createRouter({
       component: ProgramView
     },
     {
+      path: '/program/qrcode',
+      name: 'qrcode',
+      component: () => import('../views/QrCodeView.vue')
+    },
+    {
       path: '/ocr',
       name: 'ocr',
       component: OcrView

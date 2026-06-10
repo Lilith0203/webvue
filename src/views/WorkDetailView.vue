@@ -1474,7 +1474,7 @@ onMounted(async() => {
 }
 
 .add-btn {
-  padding: 4px 12px;
+  padding: 2px 8px;
   background-color: var(--color-blue);
   color: white;
   border: none;
