@@ -6,6 +6,14 @@ import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 const isAdmin = computed(() => authStore.isAuthenticated && authStore.user?.role === 'admin')
+const canManageOwnColors = computed(() => authStore.isAuthenticated)
+const USER_COLOR_CATEGORIES = [3, 4]
+const DEFAULT_COLOR_CATEGORY = 3
+
+const canEditCategory = (category) => {
+  const cat = Number(category)
+  return isAdmin.value || (canManageOwnColors.value && USER_COLOR_CATEGORIES.includes(cat))
+}
 
 const colors = ref({
   2: [],  // 文章标签颜色
@@ -15,17 +23,17 @@ const colors = ref({
 })
 
 const newColor = ref({
-  category: 2,  // 默认分类为材料
+  category: DEFAULT_COLOR_CATEGORY,
   name: '',
   code: '#000000',
-  set: ''  // 添加合集属性
+  set: ''
 })
 
 const editingColor = ref(null)
 
 // 添加新颜色
 const addColor = async () => {
-  if (!isAdmin.value) return
+  if (!canEditCategory(newColor.value.category)) return
   if (!newColor.value.code) return
   
   try {
@@ -57,7 +65,7 @@ const addColor = async () => {
 
 // 删除颜色
 const deleteColor = async (category, id) => {
-  if (!isAdmin.value) return
+  if (!canEditCategory(category)) return
   if (await confirm('确定要删除这个颜色吗？')) {
     try {
       await axios.post(`/color/delete`, {
@@ -73,7 +81,8 @@ const deleteColor = async (category, id) => {
 // 从服务器加载颜色
 const loadColors = async () => {
   try {
-    const response = await axios.get('/colors')
+    const params = isAdmin.value ? {} : { mine: '1' }
+    const response = await axios.get('/colors', { params })
     // 初始化所有分类
     colors.value = {
       1: [],
@@ -105,7 +114,7 @@ const getCategoryName = (category) => {
 
 // 开始编辑颜色
 const startEdit = (category, color) => {
-  if (!isAdmin.value) return
+  if (!canEditCategory(category)) return
   editingColor.value = {
     ...color,
     category: category,
@@ -115,8 +124,7 @@ const startEdit = (category, color) => {
 
 // 保存编辑的颜色
 const saveEdit = async () => {
-  if (!isAdmin.value) return
-  if (!editingColor.value) return
+  if (!editingColor.value || !canEditCategory(editingColor.value.category)) return
   
   try {
     const response = await axios.post('/color/edit', {
@@ -157,7 +165,7 @@ const groupedColors = computed(() => {
 
 // 编辑格子图合集
 const editPixelSet = async (setName, colors) => {
-  if (!isAdmin.value) return
+  if (!canEditCategory(3)) return
   editingColor.value = {
     category: 3,
     set: setName,
@@ -173,8 +181,7 @@ const editPixelSet = async (setName, colors) => {
 
 // 保存格子图合集
 const savePixelSet = async () => {
-  if (!isAdmin.value) return
-  if (!editingColor.value) return
+  if (!editingColor.value || !canEditCategory(3)) return
   
   try {
     await axios.post('/color/update-set', {
@@ -198,7 +205,7 @@ const savePixelSet = async () => {
 
 // 删除格子图合集
 const deletePixelSet = async (setName, category) => {
-  if (!isAdmin.value) return
+  if (!canEditCategory(category)) return
   if (await confirm(`确定要删除合集"${setName}"吗？`)) {
     try {
       // 获取该合集中所有颜色的ID
@@ -220,7 +227,7 @@ const deletePixelSet = async (setName, category) => {
 
 // 向合集添加新颜色
 const addColorToSet = () => {
-  if (!isAdmin.value) return
+  if (!canEditCategory(3)) return
   if (editingColor.value) {
     editingColor.value.colors.push({
       id: null,
@@ -232,7 +239,7 @@ const addColorToSet = () => {
 
 // 从合集中删除颜色
 const removeColorFromSet = (index) => {
-  if (!isAdmin.value) return
+  if (!canEditCategory(3)) return
   if (editingColor.value && editingColor.value.colors.length > 1) {
     editingColor.value.colors.splice(index, 1)
   }
@@ -246,15 +253,21 @@ onMounted(() => {
 <template>
   <div class="color-manager">
     <!-- 添加新颜色表单 -->
-    <div class="color-form" v-if="isAdmin">
+    <div class="color-form" v-if="isAdmin || canManageOwnColors">
       <div class="form-row">
         <div class="form-group">
           <label>分类：</label>
           <select v-model="newColor.category">
-            <option :value="2">标签颜色</option>
-            <option :value="3">格子图颜色</option>
-            <option :value="4">收藏颜色</option>
-            <option :value="1">材料颜色</option>
+            <template v-if="isAdmin">
+              <option :value="2">标签颜色</option>
+              <option :value="3">格子图颜色</option>
+              <option :value="4">收藏颜色</option>
+              <option :value="1">材料颜色</option>
+            </template>
+            <template v-else>
+              <option :value="3">格子图颜色</option>
+              <option :value="4">收藏颜色</option>
+            </template>
           </select>
         </div>
         
@@ -288,8 +301,8 @@ onMounted(() => {
     <!-- 颜色列表 - 按分类和合集展示 -->
     <div class="color-lists">
 
-      <!-- 标签颜色 -->
-      <div class="category-section">
+      <!-- 标签颜色（仅管理员） -->
+      <div v-if="isAdmin" class="category-section">
         <h2>{{ getCategoryName(2) }}</h2>
         <div v-for="(setColors, setName) in groupedColors[2]" :key="setName" class="set-group">
           <h3 class="set-title">{{ setName }}</h3>
@@ -346,10 +359,10 @@ onMounted(() => {
               <div class="set-header">
                 <h3 class="set-title">{{ setName }}</h3>
                 <div class="set-actions">
-                  <button class="edit-btn" @click="editPixelSet(setName, setColors)" v-if="isAdmin">
+                  <button class="edit-btn" @click="editPixelSet(setName, setColors)" v-if="canEditCategory(3)">
                     <i class="iconfont icon-edit"></i>
                   </button>
-                  <button class="delete-btn" @click="deletePixelSet(setName, 3)" v-if="isAdmin">
+                  <button class="delete-btn" @click="deletePixelSet(setName, 3)" v-if="canEditCategory(3)">
                     <i class="iconfont icon-ashbin"></i>
                   </button>
                 </div>
@@ -385,7 +398,7 @@ onMounted(() => {
                     </div>
                   </div>
                   <!-- 添加新颜色按钮 -->
-                  <div class="color-edit-item add-color" @click="addColorToSet" v-if="isAdmin">
+                  <div class="color-edit-item add-color" @click="addColorToSet" v-if="canEditCategory(3)">
                     <div class="add-button">
                       <i class="iconfont icon-add"></i>
                     </div>
@@ -418,8 +431,8 @@ onMounted(() => {
                   <span class="color-code">{{ color.code }}</span>
                 </div>
                 <div class="color-actions">
-                  <button class="edit-btn" @click="startEdit(4, color)" v-if="isAdmin"><i class="iconfont icon-edit"></i></button>
-                  <button class="delete-btn" @click="deleteColor(4, color.id)" v-if="isAdmin"><i class="iconfont icon-ashbin"></i></button>
+                  <button class="edit-btn" @click="startEdit(4, color)" v-if="canEditCategory(4)"><i class="iconfont icon-edit"></i></button>
+                  <button class="delete-btn" @click="deleteColor(4, color.id)" v-if="canEditCategory(4)"><i class="iconfont icon-ashbin"></i></button>
                 </div>
               </template>
               <template v-else>
@@ -450,8 +463,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 材料颜色 -->
-      <div class="category-section">
+      <!-- 材料颜色（仅管理员） -->
+      <div v-if="isAdmin" class="category-section">
         <h2>{{ getCategoryName(1) }}</h2>
         <div v-for="(setColors, setName) in groupedColors[1]" :key="setName" class="set-group">
           <h3 class="set-title">{{ setName }}</h3>
@@ -759,8 +772,8 @@ button {
 .pixel-set {
   background: var(--color-background-soft);
   border-radius: 8px;
-  padding: 15px;
-  margin-bottom: 15px;
+  padding: 0 15px 10px;
+  margin: 15px 0;
 }
 
 .pixels-container {

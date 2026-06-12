@@ -23,8 +23,14 @@ const gridSize = ref(32)  // 默认32x32
 const currentColor = ref('#000000')  // 当前选择的颜色
 const customColor = ref('#000000')
 const gridCells = ref([])  // 网格数据
-const gridId = ref(0)  // 加载的格子图
+const gridId = ref(0)  // 当前关联的格子图 id（保存后为自己的）
+const loadedGridOwnerId = ref(null)  // 当前画布来源的 userId
 const isDrawing = ref(false)  // 是否正在绘制
+
+const isOthersGrid = computed(() => {
+  if (!gridId.value || loadedGridOwnerId.value == null || !authedUserId.value) return false
+  return loadedGridOwnerId.value !== authedUserId.value
+})
 
 // 最近使用的颜色
 const recentColors = ref([])
@@ -101,24 +107,31 @@ const saveCurrentGrid = async() => {
     size: gridSize.value,
     cells: gridCells.value
   }
-  if (gridId.value > 0) {
+  if (gridId.value > 0 && !isOthersGrid.value) {
     gridData.id = gridId.value
   }
 
   try {
+    const wasOthersGrid = isOthersGrid.value
     const response = await axios.post('/grid/save', gridData)
-    gridId.value = response.data.id;
-    console.log(gridData.id)
-    await fetchSavedGrids() // 重新加载暂存列表
-    message.alert('保存成功')
+    gridId.value = response.data.id
+    loadedGridOwnerId.value = authedUserId.value
+    await fetchSavedGrids()
+    if (response.data.forked || wasOthersGrid) {
+      message.alert('已另存为自己的格子图')
+    } else {
+      message.alert('保存成功')
+    }
   } catch (error) {
     console.error('保存失败:', error)
+    message.error(error.response?.data?.message || '保存失败')
   }
 }
 
 // 加载暂存的网格
 const loadSavedGrid = async (savedGrid) => {
   gridId.value = savedGrid.id
+  loadedGridOwnerId.value = savedGrid.userId
   gridSize.value = savedGrid.size
   gridCells.value = savedGrid.cells
   showSavedGrids.value = false
@@ -166,6 +179,8 @@ const createGrid = () => {
   gridCells.value = Array(gridSize.value * gridSize.value)
     .fill()
     .map(() => ({ color: '#FFFFFF' }))
+  gridId.value = 0
+  loadedGridOwnerId.value = null
 }
   
 // 绘制单元格
@@ -185,6 +200,7 @@ const handleMouseOver = (index) => {
 const clearGrid = () => {
   gridCells.value = gridCells.value.map(() => ({ color: '#FFFFFF' }))
   gridId.value = 0
+  loadedGridOwnerId.value = null
 }
   
 // 保存网格
@@ -282,7 +298,7 @@ onUnmounted(() => {
   <div class="grid-painter">
     <!-- 添加样式选择器 -->
     <div class="style-controls">
-      <button @click="toggleSavedGrids">加载</button>
+      <button @click="toggleSavedGrids" class="saved-grid-action-btn">加载</button>
       <button 
         :class="{ active: gridStyle === 'normal' }" 
         @click="gridStyle = 'normal'">
@@ -374,7 +390,10 @@ onUnmounted(() => {
         max="64"
         @change="createGrid">
       <button @click="clearGrid">清除</button>
-      <button v-if="authStore.isAuthenticated" @click="saveCurrentGrid">存储</button>
+      <button v-if="authStore.isAuthenticated" @click="saveCurrentGrid">
+        {{ isOthersGrid ? '另存为' : '存储' }}
+      </button>
+      <span v-if="isOthersGrid" class="save-hint">当前为他人格子图，存储将保存为你自己的副本</span>
       <button @click="saveGrid">下载</button>
     </div>
   </div>
@@ -412,6 +431,13 @@ onUnmounted(() => {
   
 .grid-controls button:hover {
   background-color: #45a049;
+}
+
+.save-hint {
+  font-size: 0.8rem;
+  color: #888;
+  max-width: 180px;
+  line-height: 1.4;
 }
   
 .grid-container {
@@ -508,24 +534,24 @@ onUnmounted(() => {
 }
 
 .style-controls button {
-  padding: 5px 15px;
-  background-color: #4CAF50;
+  padding: 3px 10px;
+  background-color: var(--color-blue);
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 3px;
   cursor: pointer;
   transition: all 0.3s ease;
-}
-
-.style-controls button:hover {
-  background-color: #45a049;
+  font-size: 0.85rem;
 }
 
 .style-controls button.active {
-  background-color: #357a38;
+  background-color: #205eb0;
   box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
 }
 
+button.saved-grid-action-btn {
+  background-color: var(--color-green);
+}
 /* 墙砖样式 */
 .grid-container.brick-style {
   position: relative;
