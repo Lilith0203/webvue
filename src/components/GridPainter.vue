@@ -1,36 +1,22 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import axios from '../api'
 import { useAuthStore } from '../stores/auth'
 import { message } from '../utils/message'
-import { jwtDecode } from 'jwt-decode'
 
 const authStore = useAuthStore()
 
-const authedUserId = computed(() => {
-  if (!authStore.token) return null
-  try {
-    const decoded = jwtDecode(authStore.token)
-    const id = decoded && decoded.id
-    return typeof id === 'number' ? id : (typeof id === 'string' ? parseInt(id, 10) : null)
-  } catch (e) {
-    return null
-  }
-})
+const authedUserId = computed(() => authStore.userId)
   
 const gridStyle = ref('brick')  // 'normal' 或 'brick'
+const MIN_GRID_SIZE = 1
+const MAX_GRID_SIZE = 80
 const gridSize = ref(32)  // 默认32x32
 const currentColor = ref('#000000')  // 当前选择的颜色
 const customColor = ref('#000000')
 const gridCells = ref([])  // 网格数据
-const gridId = ref(0)  // 当前关联的格子图 id（保存后为自己的）
-const loadedGridOwnerId = ref(null)  // 当前画布来源的 userId
+const gridId = ref(0)  // 当前关联的格子图 id
 const isDrawing = ref(false)  // 是否正在绘制
-
-const isOthersGrid = computed(() => {
-  if (!gridId.value || loadedGridOwnerId.value == null || !authedUserId.value) return false
-  return loadedGridOwnerId.value !== authedUserId.value
-})
 
 // 最近使用的颜色
 const recentColors = ref([])
@@ -42,24 +28,38 @@ const showSavedGrids = ref(false)
 
 // 从数据库获取的颜色
 const dbColors = ref([])
-// 当前选择的颜色集
-const selectedColorSet = ref('全部')
-// 颜色集列表
+// 当前选择的颜色集（有合集时默认第一个，不默认「全部」）
+const selectedColorSet = ref('')
+// 颜色集列表（仅实际合集名称）
 const colorSets = computed(() => {
-  const sets = new Set()
-  sets.add('全部')
+  const sets = []
+  const seen = new Set()
   dbColors.value.forEach(color => {
-    if (color.set) sets.add(color.set)
+    if (color.set && !seen.has(color.set)) {
+      seen.add(color.set)
+      sets.push(color.set)
+    }
   })
-  return Array.from(sets)
+  return sets
 })
+
+const syncSelectedColorSet = () => {
+  const sets = colorSets.value
+  if (sets.length > 0) {
+    if (!sets.includes(selectedColorSet.value)) {
+      selectedColorSet.value = sets[0]
+    }
+    return
+  }
+  selectedColorSet.value = ''
+}
 
 // 根据选择的颜色集过滤颜色
 const filteredColors = computed(() => {
-  if (selectedColorSet.value === '全部') {
-    return dbColors.value
+  if (selectedColorSet.value) {
+    return dbColors.value.filter(color => color.set === selectedColorSet.value)
   }
-  return dbColors.value.filter(color => color.set === selectedColorSet.value)
+  return dbColors.value.filter(color => !color.set)
 })
 
 // 获取颜色数据
@@ -67,6 +67,7 @@ const fetchColors = async () => {
   try {
     const response = await axios.get('/colors?category=3')
     dbColors.value = response.data.data
+    syncSelectedColorSet()
   } catch (error) {
     console.error('获取颜色失败:', error)
   }
@@ -107,21 +108,15 @@ const saveCurrentGrid = async() => {
     size: gridSize.value,
     cells: gridCells.value
   }
-  if (gridId.value > 0 && !isOthersGrid.value) {
+  if (gridId.value > 0) {
     gridData.id = gridId.value
   }
 
   try {
-    const wasOthersGrid = isOthersGrid.value
     const response = await axios.post('/grid/save', gridData)
     gridId.value = response.data.id
-    loadedGridOwnerId.value = authedUserId.value
     await fetchSavedGrids()
-    if (response.data.forked || wasOthersGrid) {
-      message.alert('已另存为自己的格子图')
-    } else {
-      message.alert('保存成功')
-    }
+    message.alert('保存成功')
   } catch (error) {
     console.error('保存失败:', error)
     message.error(error.response?.data?.message || '保存失败')
@@ -131,7 +126,6 @@ const saveCurrentGrid = async() => {
 // 加载暂存的网格
 const loadSavedGrid = async (savedGrid) => {
   gridId.value = savedGrid.id
-  loadedGridOwnerId.value = savedGrid.userId
   gridSize.value = savedGrid.size
   gridCells.value = savedGrid.cells
   showSavedGrids.value = false
@@ -175,12 +169,23 @@ const addToRecentColors = (color) => {
 }
 
 // 创建网格
+const clampGridSize = (size) => {
+  const n = parseInt(size, 10)
+  if (Number.isNaN(n)) return 32
+  return Math.min(MAX_GRID_SIZE, Math.max(MIN_GRID_SIZE, n))
+}
+
+const onGridSizeChange = () => {
+  gridSize.value = clampGridSize(gridSize.value)
+  createGrid()
+}
+
 const createGrid = () => {
+  gridSize.value = clampGridSize(gridSize.value)
   gridCells.value = Array(gridSize.value * gridSize.value)
     .fill()
     .map(() => ({ color: '#FFFFFF' }))
   gridId.value = 0
-  loadedGridOwnerId.value = null
 }
   
 // 绘制单元格
@@ -200,7 +205,6 @@ const handleMouseOver = (index) => {
 const clearGrid = () => {
   gridCells.value = gridCells.value.map(() => ({ color: '#FFFFFF' }))
   gridId.value = 0
-  loadedGridOwnerId.value = null
 }
   
 // 保存网格
@@ -230,6 +234,33 @@ const saveGrid = () => {
 const stopDrawing = () => {
   isDrawing.value = false
 }
+
+const resetForAuthChange = () => {
+  savedGrids.value = []
+  dbColors.value = []
+  gridId.value = 0
+  showSavedGrids.value = false
+  selectedColorSet.value = ''
+  recentColors.value = []
+  createGrid()
+}
+
+watch(
+  () => ({
+    loggedIn: authStore.isAuthenticated,
+    userId: authStore.userId ?? null,
+  }),
+  async (cur, prev) => {
+    if (!cur.loggedIn) {
+      resetForAuthChange()
+      return
+    }
+    const accountSwitched = !prev?.loggedIn || cur.userId !== prev.userId
+    if (!accountSwitched) return
+    resetForAuthChange()
+    await Promise.all([fetchSavedGrids(), fetchColors()])
+  }
+)
   
 onMounted(() => {
   fetchSavedGrids()
@@ -313,7 +344,7 @@ onUnmounted(() => {
     <!-- 颜色选择器 -->
     <div class="color-tools">
       <!-- 颜色集选择 -->
-      <div class="color-set-selector">
+      <div class="color-set-selector" v-if="colorSets.length > 0">
         <select v-model="selectedColorSet">
           <option v-for="set in colorSets" :key="set">{{ set }}</option>
         </select>
@@ -387,19 +418,24 @@ onUnmounted(() => {
         type="number" 
         v-model.number="gridSize" 
         min="1" 
-        max="64"
-        @change="createGrid">
+        max="80"
+        @change="onGridSizeChange">
       <button @click="clearGrid">清除</button>
-      <button v-if="authStore.isAuthenticated" @click="saveCurrentGrid">
-        {{ isOthersGrid ? '另存为' : '存储' }}
-      </button>
-      <span v-if="isOthersGrid" class="save-hint">当前为他人格子图，存储将保存为你自己的副本</span>
+      <button v-if="authStore.isAuthenticated" @click="saveCurrentGrid">存储</button>
       <button @click="saveGrid">下载</button>
     </div>
   </div>
 </template>
   
 <style scoped>
+.grid-painter button,
+.floating-window-overlay button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 .grid-painter {
   display: flex;
   flex-direction: column;
@@ -413,16 +449,17 @@ onUnmounted(() => {
   display: flex;
   gap: 10px;
   align-items: center;
+  margin-top: 10px;
 }
   
 .grid-controls input {
   width: 60px;
-  padding: 5px;
+  padding: 3px 5px;
 }
   
 .grid-controls button {
-  padding: 5px 15px;
-  background-color: #4CAF50;
+  padding: 6px 15px;
+  background-color: var(--color-green);
   color: white;
   border: none;
   border-radius: 4px;
@@ -431,13 +468,6 @@ onUnmounted(() => {
   
 .grid-controls button:hover {
   background-color: #45a049;
-}
-
-.save-hint {
-  font-size: 0.8rem;
-  color: #888;
-  max-width: 180px;
-  line-height: 1.4;
 }
   
 .grid-container {
@@ -522,7 +552,7 @@ onUnmounted(() => {
 .recent-colors {
   display: flex;
   gap: 5px;
-  padding: 10px;
+  padding: 6px;
   background: #f5f5f5;
   border-radius: 8px;
 }
@@ -534,7 +564,7 @@ onUnmounted(() => {
 }
 
 .style-controls button {
-  padding: 3px 10px;
+  padding: 6px 10px;
   background-color: var(--color-blue);
   color: white;
   border: none;
@@ -552,6 +582,7 @@ onUnmounted(() => {
 button.saved-grid-action-btn {
   background-color: var(--color-green);
 }
+
 /* 墙砖样式 */
 .grid-container.brick-style {
   position: relative;
@@ -562,12 +593,10 @@ button.saved-grid-action-btn {
   position: relative;
 }
 
-/* 为偶数行添加位移效果 */
 .grid-cell.brick-offset {
   transform: translateX(50%);
 }
 
-/* 添加砖块纹理 */
 .grid-cell.brick-cell::before {
   content: '';
   position: absolute;
@@ -576,21 +605,6 @@ button.saved-grid-action-btn {
   right: 0;
   bottom: 0;
   pointer-events: none;
-}
-
-/* 保存按钮样式优化 */
-.grid-controls button {
-  position: relative;
-  overflow: hidden;
-}
-
-.grid-controls button::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
 }
 
 .saved-grid-item {

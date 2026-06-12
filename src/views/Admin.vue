@@ -1073,7 +1073,7 @@ onMounted(() => {
 
 .setting-section {
   width: 100%;
-  margin-bottom: 10px;
+  margin: 10px 0;
   border-bottom: 1px solid #eee;
   padding-bottom: 20px;
 }

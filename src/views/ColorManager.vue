@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import axios from '../api'
 import { confirm } from '../utils/confirm'
 import { useAuthStore } from '../stores/auth'
@@ -42,13 +42,10 @@ const addColor = async () => {
       set: newColor.value.set  // 确保包含合集属性
     })
     
-    // 确保category对应的数组存在
-    if (!colors.value[newColor.value.category]) {
-      colors.value[newColor.value.category] = []
+    const created = response.data?.data
+    if (created && colors.value[Number(created.category)]) {
+      colors.value[Number(created.category)].push(created)
     }
-    
-    // 添加成功后更新列表
-    colors.value[newColor.value.category].push(response.data)
     
     // 重置表单
     newColor.value = {
@@ -90,10 +87,11 @@ const loadColors = async () => {
       3: [],
       4: []
     }
-    // 将返回的颜色数据按category分类
+    // 将返回的颜色数据按 category 分类
     response.data.data.forEach(color => {
-      if (colors.value[color.category]) {
-        colors.value[color.category].push(color)
+      const cat = Number(color.category)
+      if (colors.value[cat]) {
+        colors.value[cat].push(color)
       }
     })
   } catch (error) {
@@ -245,6 +243,43 @@ const removeColorFromSet = (index) => {
   }
 }
 
+const resetColorState = () => {
+  colors.value = {
+    1: [],
+    2: [],
+    3: [],
+    4: []
+  }
+  editingColor.value = null
+  newColor.value = {
+    category: DEFAULT_COLOR_CATEGORY,
+    name: '',
+    code: '#000000',
+    set: ''
+  }
+}
+
+watch(
+  () => ({
+    loggedIn: authStore.isAuthenticated,
+    userId: authStore.userId ?? null,
+    isAdmin: isAdmin.value,
+  }),
+  async (cur, prev) => {
+    if (!cur.loggedIn) {
+      resetColorState()
+      return
+    }
+    const accountSwitched =
+      !prev?.loggedIn ||
+      cur.userId !== prev.userId ||
+      cur.isAdmin !== prev.isAdmin
+    if (!accountSwitched) return
+    resetColorState()
+    await loadColors()
+  }
+)
+
 onMounted(() => {
   loadColors()
 })
@@ -350,6 +385,8 @@ onMounted(() => {
         </div>
       </div>
 
+      <!-- 格子图颜色、收藏颜色（需登录） -->
+      <template v-if="canManageOwnColors">
       <!-- 格子图颜色 -->
       <div class="category-section">
         <h2>{{ getCategoryName(3) }}</h2>
@@ -436,25 +473,28 @@ onMounted(() => {
                 </div>
               </template>
               <template v-else>
-                <!-- 编辑表单 -->
-                <div class="edit-form">
+                <div class="edit-form favorite-edit-form">
                   <div class="form-group">
+                    <label>名称</label>
                     <input type="text" v-model="editingColor.name" placeholder="颜色名称">
                   </div>
                   <div class="form-group color-input">
-                    <input type="color" v-model="editingColor.code">
-                    <input type="text" v-model="editingColor.code">
+                    <label>颜色</label>
+                    <div class="favorite-color-input-row">
+                      <input type="color" v-model="editingColor.code">
+                      <input type="text" v-model="editingColor.code" class="color-code-field">
+                    </div>
                   </div>
-                 
                   <div class="form-group">
-                    <input 
-                      type="text" 
-                      v-model="editingColor.set" 
+                    <label>合集</label>
+                    <input
+                      type="text"
+                      v-model="editingColor.set"
                       placeholder="颜色合集名称">
                   </div>
                   <div class="edit-actions">
-                    <button class="save-btn" @click="saveEdit">保存</button>
-                    <button class="cancel-btn" @click="cancelEdit">取消</button>
+                    <button type="button" class="save-btn" @click="saveEdit">保存</button>
+                    <button type="button" class="cancel-btn" @click="cancelEdit">取消</button>
                   </div>
                 </div>
               </template>
@@ -462,6 +502,8 @@ onMounted(() => {
           </div>
         </div>
       </div>
+      </template>
+      <p v-else class="user-colors-login-hint">请登录后使用格子图颜色与收藏颜色管理</p>
 
       <!-- 材料颜色（仅管理员） -->
       <div v-if="isAdmin" class="category-section">
@@ -561,6 +603,15 @@ onMounted(() => {
 
 .color-lists {
   margin-top: 30px;
+}
+
+.user-colors-login-hint {
+  margin: 24px 0 30px;
+  padding: 20px;
+  text-align: center;
+  color: #666;
+  background: #f5f5f5;
+  border-radius: 8px;
 }
 
 .category-section {
@@ -828,14 +879,93 @@ button {
 
 .favorite-color-item {
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: 8px;
   padding: 8px;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.favorite-color-item.editing {
+  grid-column: span 2;
+  padding: 12px;
+  background: var(--color-background-soft);
+  border-color: var(--color-blue);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  z-index: 1;
 }
 
 .favorite-preview {
   height: 60px;
-  border-radius: 4px;
+  border-radius: 6px;
   margin-bottom: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.favorite-color-item .color-info {
+  margin-bottom: 6px;
+}
+
+.favorite-color-item .color-actions {
+  margin-top: auto;
+}
+
+.favorite-edit-form {
+  width: 100%;
+}
+
+.favorite-color-item .edit-form .form-group {
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.favorite-color-item .edit-form label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.favorite-color-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.favorite-color-item .edit-form input[type='color'] {
+  width: 40px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.favorite-color-item .edit-form .color-code-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.favorite-color-item .edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.favorite-color-item .edit-actions .save-btn,
+.favorite-color-item .edit-actions .cancel-btn {
+  flex: 1;
+  margin: 0;
+}
+
+.favorite-color-item .edit-actions .cancel-btn {
+  background: #ececec;
+  color: #555;
+}
+
+.favorite-color-item .edit-actions .cancel-btn:hover {
+  background: #e0e0e0;
 }
 
 .color-actions {
@@ -844,8 +974,10 @@ button {
   justify-content: flex-end;
 }
 
-.editing {
+.tag-color-item.editing {
   background-color: var(--color-background-soft);
+  border-radius: 6px;
+  padding: 8px;
 }
 
 .set-header {
