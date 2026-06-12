@@ -337,6 +337,12 @@ onMounted(async () => {
   white-space: pre-wrap;
 }
 
+:deep(.article-content .iconfont) {
+  display: inline-block;
+  color: initial; /* 重置颜色上下文 */
+  fill: currentColor;
+}
+
 :deep(.article-content ul), 
 :deep(.article-content ol) {
   line-height: 1.8;
