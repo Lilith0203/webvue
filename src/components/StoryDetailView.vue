@@ -7,6 +7,7 @@ import ImagePreview from './ImagePreview.vue'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
 import { marked } from 'marked'
+import { isolateSingleLineBlockquotes, compactBlockquoteHtml } from '../utils/richText'
 import {
   showCustomTooltip,
   hideCustomTooltip,
@@ -171,7 +172,7 @@ const processMarkdownContent = (content) => {
   if (!content) return ''
   
   // 使用marked渲染Markdown
-  let rendered = marked(content)
+  let rendered = marked(isolateSingleLineBlockquotes(content))
   
   // 为所有标签颜色添加内联样式
   tagColors.value.forEach(color => {
@@ -203,7 +204,7 @@ const processMarkdownContent = (content) => {
     }
   )
   
-  return rendered
+  return compactBlockquoteHtml(rendered)
 }
 
 /** 从路由读取列表搜索高亮词（由 StoryView 跳转时传入 ?q=） */
@@ -2053,10 +2054,18 @@ mark.story-search-highlight {
 }
 
 :deep(.detail-text blockquote) {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+:deep(.detail-text blockquote p) {
+  margin: 0;
   font-style: italic;
-  font-size: 13px;
+  font-size: 0.85rem;
   text-align: left;
-  color: #3E3E3E;
+  color: #797979;
+  line-height: inherit;
 }
 
 :deep(.detail-text table) {

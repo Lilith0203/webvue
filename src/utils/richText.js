@@ -170,3 +170,50 @@ export function escapeMarkdownSingleAsterisks(content) {
   text = text.replace(/\*/g, '\\*')
   return text.replace(new RegExp(placeholder, 'g'), '**')
 }
+
+/**
+ * 单行引用（> …）后若紧跟普通段落，插入空行结束 blockquote。
+ * 避免后续未加 > 的行被 Markdown 吞进同一段引用。
+ */
+export function isolateSingleLineBlockquotes(content) {
+  const lines = String(content ?? '').split('\n')
+  let inFence = false
+  const result = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (/^\s*```/.test(line)) {
+      inFence = !inFence
+      result.push(line)
+      continue
+    }
+    if (inFence) {
+      result.push(line)
+      continue
+    }
+
+    result.push(line)
+
+    if (/^>\s/.test(line)) {
+      let j = i + 1
+      while (j < lines.length && lines[j].trim() === '') j++
+      const next = lines[j]
+      if (next !== undefined && !/^>\s/.test(next)) {
+        result.push('')
+      }
+    }
+  }
+
+  return result.join('\n')
+}
+
+/** 仅去掉 blockquote 相邻标签间的单个换行（marked 排版），保留双换行形成的空白行 */
+export function compactBlockquoteHtml(html) {
+  const singleNl = '\\r?\\n(?!\\r?\\n)'
+  return String(html ?? '')
+    .replace(new RegExp(`</p>${singleNl}<blockquote\\b`, 'gi'), '</p><blockquote')
+    .replace(new RegExp(`</blockquote>${singleNl}<p\\b`, 'gi'), '</blockquote><p')
+    .replace(new RegExp(`</blockquote>${singleNl}<blockquote\\b`, 'gi'), '</blockquote><blockquote')
+    .replace(new RegExp(`<blockquote\\b([^>]*)>${singleNl}<p\\b`, 'gi'), '<blockquote$1><p')
+    .replace(new RegExp(`</p>${singleNl}</blockquote>`, 'gi'), '</p></blockquote>')
+}
