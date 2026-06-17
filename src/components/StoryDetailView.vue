@@ -7,7 +7,7 @@ import ImagePreview from './ImagePreview.vue'
 import CommentSection from '../components/CommentSection.vue'
 import { confirm } from '../utils/confirm'
 import { marked } from 'marked'
-import { isolateSingleLineBlockquotes, compactBlockquoteHtml } from '../utils/richText'
+import { isolateSingleLineBlockquotes, analyzeBlockquoteGaps, compactBlockquoteHtml, stripEmptyParagraphsAfterBlockquote, applyBlockquoteGaps } from '../utils/richText'
 import {
   showCustomTooltip,
   hideCustomTooltip,
@@ -171,8 +171,11 @@ const fetchTagColors = async () => {
 const processMarkdownContent = (content) => {
   if (!content) return ''
   
+  const blockquoteGaps = analyzeBlockquoteGaps(content)
+  const markdown = isolateSingleLineBlockquotes(content)
+  
   // 使用marked渲染Markdown
-  let rendered = marked(isolateSingleLineBlockquotes(content))
+  let rendered = marked(markdown)
   
   // 为所有标签颜色添加内联样式
   tagColors.value.forEach(color => {
@@ -204,7 +207,7 @@ const processMarkdownContent = (content) => {
     }
   )
   
-  return compactBlockquoteHtml(rendered)
+  return applyBlockquoteGaps(compactBlockquoteHtml(stripEmptyParagraphsAfterBlockquote(rendered)), blockquoteGaps)
 }
 
 /** 从路由读取列表搜索高亮词（由 StoryView 跳转时传入 ?q=） */
@@ -2066,6 +2069,12 @@ mark.story-search-highlight {
   text-align: left;
   color: #797979;
   line-height: inherit;
+}
+
+:deep(.detail-text p.detail-gap-line) {
+  margin: 0;
+  line-height: 1.8em;
+  font-size: inherit;
 }
 
 :deep(.detail-text table) {

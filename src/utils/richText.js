@@ -173,7 +173,7 @@ export function escapeMarkdownSingleAsterisks(content) {
 
 /**
  * 单行引用（> …）后若紧跟普通段落，插入空行结束 blockquote。
- * 避免后续未加 > 的行被 Markdown 吞进同一段引用。
+ * 若原文已有空行则不再插入，避免重复。
  */
 export function isolateSingleLineBlockquotes(content) {
   const lines = String(content ?? '').split('\n')
@@ -198,7 +198,7 @@ export function isolateSingleLineBlockquotes(content) {
       let j = i + 1
       while (j < lines.length && lines[j].trim() === '') j++
       const next = lines[j]
-      if (next !== undefined && !/^>\s/.test(next)) {
+      if (next !== undefined && !/^>\s/.test(next) && j === i + 1) {
         result.push('')
       }
     }
@@ -207,7 +207,34 @@ export function isolateSingleLineBlockquotes(content) {
   return result.join('\n')
 }
 
-/** 仅去掉 blockquote 相邻标签间的单个换行（marked 排版），保留双换行形成的空白行 */
+/** 统计原文中每个 blockquote 块后是否带有空行（用于渲染后恢复可见空白行） */
+export function analyzeBlockquoteGaps(content) {
+  const lines = String(content ?? '').split('\n')
+  const gaps = []
+  let inFence = false
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    if (/^\s*```/.test(line)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+
+    if (/^>\s/.test(line)) {
+      let j = i
+      while (j < lines.length && /^>\s/.test(lines[j])) j++
+      let k = j
+      while (k < lines.length && lines[k].trim() === '') k++
+      gaps.push(k > j)
+      i = j - 1
+    }
+  }
+
+  return gaps
+}
+
+/** 仅去掉 blockquote 相邻标签间的单个换行（marked 排版） */
 export function compactBlockquoteHtml(html) {
   const singleNl = '\\r?\\n(?!\\r?\\n)'
   return String(html ?? '')
@@ -216,4 +243,28 @@ export function compactBlockquoteHtml(html) {
     .replace(new RegExp(`</blockquote>${singleNl}<blockquote\\b`, 'gi'), '</blockquote><blockquote')
     .replace(new RegExp(`<blockquote\\b([^>]*)>${singleNl}<p\\b`, 'gi'), '<blockquote$1><p')
     .replace(new RegExp(`</p>${singleNl}</blockquote>`, 'gi'), '</p></blockquote>')
+}
+
+/** 去掉 marked 因原文空行生成的空段落，避免与手动空白行叠加 */
+export function stripEmptyParagraphsAfterBlockquote(html) {
+  return String(html ?? '').replace(
+    /<\/blockquote>(?:\s*<p>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>)+/gi,
+    '</blockquote>'
+  )
+}
+
+/** 按原文空行，在 blockquote 与下一段之间插入一行高度的空白 */
+export function applyBlockquoteGaps(html, gaps) {
+  if (!gaps.length) return html
+  const gapLine = '<p class="detail-gap-line" aria-hidden="true"><br></p>'
+  let gapIndex = 0
+  return String(html ?? '').replace(/<\/blockquote>/gi, (match, offset, full) => {
+    const hasGap = gaps[gapIndex++]
+    if (!hasGap) return match
+    const after = full.slice(offset + match.length)
+    if (/^\s*<(?:p|h[1-6]|ul|ol|blockquote|table|pre|div)\b/i.test(after)) {
+      return match + gapLine
+    }
+    return match
+  })
 }
